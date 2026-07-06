@@ -7,3 +7,5 @@ coverage/
 .env*
 !.env.example
 cafe-system-technical-plan.md
+cafe-system-design-brief.md
+cafe-system-current-state.md
