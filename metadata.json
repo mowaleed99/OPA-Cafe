@@ -1,0 +1,6 @@
+{
+  "name": "Cafe Management System",
+  "description": "A high-fidelity, high-performance Cafe Management System featuring responsive Point-of-Sale (POS), owner dashboard, inventory, categories, debt tracking, purchase logs, reporting, settings, and dual-mode theme flexibility.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

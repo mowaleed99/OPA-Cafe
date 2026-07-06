@@ -1,0 +1,67 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Space+Grotesk:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap');
+@import "tailwindcss";
+
+@theme {
+  --font-sans: "Inter", ui-sans-serif, system-ui, sans-serif;
+  --font-display: "Space Grotesk", sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, SFMono-Regular, monospace;
+  
+  --color-brand-beige: var(--brand-beige);
+  --color-brand-latte: var(--brand-latte);
+  --color-brand-crema: var(--brand-crema);
+  --color-brand-espresso: var(--brand-espresso);
+  --color-brand-bean: var(--brand-bean);
+}
+
+:root {
+  --brand-beige: #FAEDCD;
+  --brand-latte: #D4A373;
+  --brand-crema: #FDFBF7;
+  --brand-espresso: #1A120B;
+  --brand-bean: #4F3A2C;
+}
+
+.dark {
+  --brand-beige: #262626;
+  --brand-latte: #B45309;
+  --brand-crema: #161616;
+  --brand-espresso: #0C0C0C;
+  --brand-bean: #B45309;
+}
+
+body {
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* Custom scrollbars for a beautiful POS and table flow */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: rgba(156, 163, 175, 0.25);
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(156, 163, 175, 0.45);
+}
+
+/* Motion transition utilities */
+.page-fade-enter {
+  opacity: 0;
+  transform: translateY(4px);
+}
+.page-fade-enter-active {
+  opacity: 1;
+  transform: translateY(0);
+  transition: opacity 200ms ease, transform 200ms ease;
+}
+
