@@ -16,9 +16,9 @@ import {
   SelectValue,
 } from '../components/ui/select';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../components/ui/table';
-import { PlusCircle, Banknote, ChevronRight, X } from 'lucide-react';
+import { PlusCircle, Banknote, ChevronRight, X, Search, ChevronLeft } from 'lucide-react';
 import type { Supplier, Purchase, PurchaseItem, SupplierPayment } from '../../core/entities/supplier';
-import type { Product } from '../../core/entities/product';
+import type { InventoryItem } from '../../core/entities/inventory';
 import { useAuthStore } from '../../application/store/useAuthStore';
 import { getSuppliers } from '../../application/useCases/suppliers/manageSuppliers';
 import {
@@ -28,6 +28,7 @@ import {
   recordPayment,
   type CreatePurchaseParams,
 } from '../../application/useCases/suppliers/managePurchases';
+import { getInventoryItems } from '../../application/useCases/inventory/manageInventory';
 import { db } from '../../infrastructure/database/db';
 
 // ── Status Badge ──────────────────────────────────────────────────────────────
@@ -46,7 +47,7 @@ function StatusBadge({ status }: { status: Purchase['payment_status'] }) {
 
 // ── Create Purchase Modal ─────────────────────────────────────────────────────
 interface PurchaseLineItem {
-  productId: string;
+  inventoryItemId: string;
   quantity: string;
   unitCost: string;
 }
@@ -62,21 +63,21 @@ function CreatePurchaseModal({
   isOpen: boolean;
   onClose: () => void;
   suppliers: Supplier[];
-  products: Product[];
+  inventoryItems: InventoryItem[];
   cafeId: string;
   onCreated: () => void;
 }) {
   const [supplierId, setSupplierId] = useState('');
   const [lines, setLines] = useState<PurchaseLineItem[]>([
-    { productId: '', quantity: '', unitCost: '' },
+    { inventoryItemId: '', quantity: '', unitCost: '' },
   ]);
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
-    if (isOpen) { setSupplierId(''); setLines([{ productId: '', quantity: '', unitCost: '' }]); }
+    if (isOpen) { setSupplierId(''); setLines([{ inventoryItemId: '', quantity: '', unitCost: '' }]); }
   }, [isOpen]);
 
-  const addLine = () => setLines(l => [...l, { productId: '', quantity: '', unitCost: '' }]);
+  const addLine = () => setLines(l => [...l, { inventoryItemId: '', quantity: '', unitCost: '' }]);
   const removeLine = (i: number) => setLines(l => l.filter((_, idx) => idx !== i));
   const updateLine = (i: number, field: keyof PurchaseLineItem, value: string) =>
     setLines(l => l.map((line, idx) => idx === i ? { ...line, [field]: value } : line));
@@ -87,7 +88,7 @@ function CreatePurchaseModal({
     return sum + qty * cost;
   }, 0);
 
-  const canSave = supplierId && lines.every(l => l.productId && l.quantity && l.unitCost);
+  const canSave = supplierId && lines.every(l => l.inventoryItemId && l.quantity && l.unitCost);
 
   const handleSave = async () => {
     if (!canSave) return;
@@ -97,7 +98,7 @@ function CreatePurchaseModal({
         cafeId,
         supplierId,
         items: lines.map(l => ({
-          productId: l.productId,
+          inventoryItemId: l.inventoryItemId,
           quantity: parseFloat(l.quantity),
           unitCost: parseFloat(l.unitCost),
         })),
@@ -135,10 +136,10 @@ function CreatePurchaseModal({
               {lines.map((line, i) => (
                 <div key={i} className="flex gap-2 items-center">
                   <div className="flex-1">
-                    <Select value={line.productId} onValueChange={v => updateLine(i, 'productId', v)}>
-                      <SelectTrigger><SelectValue placeholder="Product" /></SelectTrigger>
+                    <Select value={line.inventoryItemId} onValueChange={v => updateLine(i, 'inventoryItemId', v)}>
+                      <SelectTrigger><SelectValue placeholder="Item" /></SelectTrigger>
                       <SelectContent>
-                        {products.map(p => <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>)}
+                        {inventoryItems.map(p => <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>)}
                       </SelectContent>
                     </Select>
                   </div>
@@ -266,7 +267,7 @@ function PurchaseDetailPanel({
   onClose,
 }: {
   purchaseId: string | null;
-  products: Record<string, string>;
+  inventoryItems: Record<string, string>;
   supplierName: string;
   onClose: () => void;
 }) {
@@ -320,7 +321,7 @@ function PurchaseDetailPanel({
           <div className="divide-y border rounded-md">
             {detail.items.map(item => (
               <div key={item.id} className="flex justify-between px-3 py-2 text-sm">
-                <span>{products[item.product_id] || 'Unknown'}</span>
+                <span>{inventoryItems[item.inventory_item_id] || 'Unknown'}</span>
                 <span className="text-muted-foreground">
                   {item.quantity} × ${item.unit_cost.toFixed(2)}
                 </span>
@@ -357,29 +358,32 @@ export default function PurchasesPage() {
   const cafeId = useAuthStore(s => s.cafeId());
   const [purchases, setPurchases] = useState<Purchase[]>([]);
   const [suppliers, setSuppliers] = useState<Supplier[]>([]);
-  const [products, setProducts] = useState<Product[]>([]);
-  const [productMap, setProductMap] = useState<Record<string, string>>({});
+  const [inventoryItems, setInventoryItems] = useState<InventoryItem[]>([]);
+  const [inventoryItemMap, setInventoryItemMap] = useState<Record<string, string>>({});
   const [supplierMap, setSupplierMap] = useState<Record<string, string>>({});
   const [createOpen, setCreateOpen] = useState(false);
   const [payingPurchase, setPayingPurchase] = useState<Purchase | null>(null);
   const [selectedPurchaseId, setSelectedPurchaseId] = useState<string | null>(null);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [currentPage, setCurrentPage] = useState(1);
+  const PAGE_SIZE = 10;
 
   const load = async () => {
     if (!cafeId) return;
-    const [allPurchases, allSuppliers, allProducts] = await Promise.all([
+    const [allPurchases, allSuppliers, allInventory] = await Promise.all([
       getPurchases(cafeId),
       getSuppliers(cafeId),
-      db.products.where('cafe_id').equals(cafeId).filter(p => p.status !== 'inactive').toArray(),
+      getInventoryItems(cafeId),
     ]);
     setPurchases(allPurchases);
     setSuppliers(allSuppliers);
-    setProducts(allProducts);
+    setInventoryItems(allInventory);
     const sm: Record<string, string> = {};
     allSuppliers.forEach(s => sm[s.id] = s.name);
     setSupplierMap(sm);
-    const pm: Record<string, string> = {};
-    allProducts.forEach(p => pm[p.id] = p.name);
-    setProductMap(pm);
+    const im: Record<string, string> = {};
+    allInventory.forEach(p => im[p.id] = p.name);
+    setInventoryItemMap(im);
   };
 
   useEffect(() => { load(); }, [cafeId]);
@@ -388,17 +392,40 @@ export default function PurchasesPage() {
     ? supplierMap[purchases.find(p => p.id === selectedPurchaseId)?.supplier_id ?? ''] ?? 'Supplier'
     : '';
 
+  const filtered = purchases.filter(p =>
+    (supplierMap[p.supplier_id] || '').toLowerCase().includes(searchQuery.toLowerCase())
+  );
+  const totalPages = Math.ceil(filtered.length / PAGE_SIZE);
+  const paginated = filtered.slice((currentPage - 1) * PAGE_SIZE, currentPage * PAGE_SIZE);
+
+  const handleSearch = (q: string) => {
+    setSearchQuery(q);
+    setCurrentPage(1);
+  };
+
   return (
     <div className="p-6 max-w-5xl mx-auto space-y-6">
       {/* Header */}
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between gap-3">
         <div>
           <h1 className="text-2xl font-display font-bold text-foreground">Purchases</h1>
           <p className="text-muted-foreground mt-1">Track supplier purchases and outstanding payments.</p>
         </div>
-        <Button onClick={() => setCreateOpen(true)}>
-          <PlusCircle className="mr-2 h-4 w-4" /> New Purchase
-        </Button>
+        <div className="flex items-center gap-3">
+          <div className="relative">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+            <input
+              type="text"
+              placeholder="Search by supplier..."
+              value={searchQuery}
+              onChange={(e) => handleSearch(e.target.value)}
+              className="h-10 rounded-md border border-input bg-background px-3 py-2 pl-9 text-sm w-60 focus:outline-none focus:ring-2 focus:ring-ring"
+            />
+          </div>
+          <Button onClick={() => setCreateOpen(true)}>
+            <PlusCircle className="mr-2 h-4 w-4" /> New Purchase
+          </Button>
+        </div>
       </div>
 
       {/* Table */}
@@ -415,14 +442,14 @@ export default function PurchasesPage() {
             </TableRow>
           </TableHeader>
           <TableBody>
-            {purchases.length === 0 ? (
+            {paginated.length === 0 ? (
               <TableRow>
                 <TableCell colSpan={6} className="py-10 text-center text-muted-foreground">
-                  No purchases yet. Click "New Purchase" to record one.
+                  {searchQuery ? 'No purchases match your search.' : 'No purchases yet. Click "New Purchase" to record one.'}
                 </TableCell>
               </TableRow>
             ) : (
-              purchases.map(p => (
+              paginated.map(p => (
                 <TableRow
                   key={p.id}
                   className="cursor-pointer hover:bg-muted/30"
@@ -430,8 +457,8 @@ export default function PurchasesPage() {
                 >
                   <TableCell className="text-sm">{p.created_at.split('T')[0]}</TableCell>
                   <TableCell className="font-medium">{supplierMap[p.supplier_id] || '—'}</TableCell>
-                  <TableCell className="text-right">${p.total_amount.toFixed(2)}</TableCell>
-                  <TableCell className="text-right text-red-600">${p.amount_remaining.toFixed(2)}</TableCell>
+                  <TableCell className="text-right">{p.total_amount.toFixed(2)}</TableCell>
+                  <TableCell className="text-right text-red-600">{p.amount_remaining.toFixed(2)}</TableCell>
                   <TableCell><StatusBadge status={p.payment_status} /></TableCell>
                   <TableCell>
                     <div className="flex gap-1">
@@ -456,12 +483,36 @@ export default function PurchasesPage() {
         </Table>
       </div>
 
+      {totalPages > 1 && (
+        <div className="flex items-center justify-between pt-2">
+          <p className="text-sm text-muted-foreground">
+            Page {currentPage} of {totalPages} ({filtered.length} results)
+          </p>
+          <div className="flex gap-2">
+            <Button
+              variant="outline" size="sm"
+              onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+              disabled={currentPage === 1}
+            >
+              <ChevronLeft className="h-4 w-4" />
+            </Button>
+            <Button
+              variant="outline" size="sm"
+              onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+              disabled={currentPage === totalPages}
+            >
+              <ChevronRight className="h-4 w-4" />
+            </Button>
+          </div>
+        </div>
+      )}
+
       {/* Modals */}
       <CreatePurchaseModal
         isOpen={createOpen}
         onClose={() => setCreateOpen(false)}
         suppliers={suppliers}
-        products={products}
+        inventoryItems={inventoryItems}
         cafeId={cafeId ?? ''}
         onCreated={load}
       />
@@ -475,7 +526,7 @@ export default function PurchasesPage() {
       {/* Side Panel */}
       <PurchaseDetailPanel
         purchaseId={selectedPurchaseId}
-        products={productMap}
+        inventoryItems={inventoryItemMap}
         supplierName={selectedSupplierName}
         onClose={() => setSelectedPurchaseId(null)}
       />

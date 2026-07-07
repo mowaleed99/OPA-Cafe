@@ -11,7 +11,7 @@ export interface PurchaseWithItems {
 export interface CreatePurchaseParams {
   cafeId: string;
   supplierId: string;
-  items: Array<{ productId: string; quantity: number; unitCost: number }>;
+  items: Array<{ inventoryItemId: string; quantity: number; unitCost: number }>;
 }
 
 export async function getPurchases(cafeId: string): Promise<Purchase[]> {
@@ -36,7 +36,7 @@ export async function createPurchase(params: CreatePurchaseParams): Promise<Purc
   const purchaseItems: PurchaseItem[] = params.items.map(item => ({
     id: crypto.randomUUID(),
     purchase_id: purchaseId,
-    product_id: item.productId,
+    inventory_item_id: item.inventoryItemId,
     quantity: item.quantity,
     unit_cost: item.unitCost,
     subtotal: item.quantity * item.unitCost,
@@ -55,12 +55,24 @@ export async function createPurchase(params: CreatePurchaseParams): Promise<Purc
     created_at: now,
   };
 
-  await db.transaction('rw', db.purchases, db.purchase_items, db.sync_queue, async () => {
+  await db.transaction('rw', db.purchases, db.purchase_items, db.inventory_items, db.sync_queue, async () => {
     await db.purchases.add(purchase);
     await db.purchase_items.bulkAdd(purchaseItems);
     await enqueueSync('insert', 'purchases', purchase as unknown as Record<string, unknown>);
+    
     for (const item of purchaseItems) {
       await enqueueSync('insert', 'purchase_items', item as unknown as Record<string, unknown>);
+      
+      // Update inventory stock
+      const inventoryItem = await db.inventory_items.get(item.inventory_item_id);
+      if (inventoryItem) {
+        const updatedItem = {
+          ...inventoryItem,
+          stock_quantity: inventoryItem.stock_quantity + item.quantity
+        };
+        await db.inventory_items.put(updatedItem);
+        await enqueueSync('update', 'inventory_items', updatedItem as unknown as Record<string, unknown>);
+      }
     }
   });
 

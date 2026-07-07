@@ -187,3 +187,58 @@ body {
     @apply font-sans;
   }
 }
+
+/* ── Print Styles (Section 5.4 — Daily & Monthly Closing) ────────────────── */
+@media print {
+  /* Hide all app chrome: sidebar, nav buttons, header actions */
+  aside,
+  nav,
+  .print\:hidden,
+  button,
+  [role="dialog"] {
+    display: none !important;
+  }
+
+  /* Make main content fill the full page */
+  body, html {
+    background: white !important;
+    color: black !important;
+    font-size: 12pt;
+  }
+
+  main {
+    overflow: visible !important;
+    width: 100% !important;
+  }
+
+  /* Ensure report content is visible */
+  .print\:block {
+    display: block !important;
+  }
+
+  /* Clean table borders for print */
+  table {
+    border-collapse: collapse;
+    width: 100%;
+  }
+
+  th, td {
+    border: 1px solid #ccc;
+    padding: 6px 10px;
+    text-align: left;
+  }
+
+  /* Page break helpers */
+  .print-break-before {
+    page-break-before: always;
+  }
+  .print-break-after {
+    page-break-after: always;
+  }
+
+  /* Force white background on cards */
+  .bg-card, .bg-muted\/50 {
+    background: white !important;
+    border: 1px solid #ddd !important;
+  }
+}

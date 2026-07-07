@@ -1,7 +1,9 @@
 import { useState, useEffect } from 'react';
 import { Button } from '../components/ui/button';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../components/ui/table';
-import { CalendarDays, TrendingUp, ShoppingBag, Loader2, CheckCircle2 } from 'lucide-react';
+import { CalendarDays, TrendingUp, ShoppingBag, Loader2, CheckCircle2, Download, FileText } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
+import { useSettingsStore } from '../../application/store/useSettingsStore';
 import { useAuthStore } from '../../application/store/useAuthStore';
 import {
   closingDay,
@@ -13,9 +15,11 @@ import {
 import type { DailyClosing } from '../../core/entities/daily_closing';
 import type { Product } from '../../core/entities/product';
 import { db } from '../../infrastructure/database/db';
+import html2pdf from 'html2pdf.js';
 
 export default function ClosingPage() {
   const cafeId = useAuthStore(s => s.cafeId());
+  const { t } = useTranslation();
   const [closings, setClosings] = useState<DailyClosing[]>([]);
   const [alreadyClosed, setAlreadyClosed] = useState(false);
   const [isClosing, setIsClosing] = useState(false);
@@ -60,6 +64,50 @@ export default function ClosingPage() {
     setReport({ closing, items });
   };
 
+  const exportToCSV = () => {
+    if (!report) return;
+    
+    let csvContent = "data:text/csv;charset=utf-8,";
+    csvContent += "Daily Closing Report - " + report.closing.closing_date + "\n\n";
+    csvContent += `${t('total_orders')},${report.closing.total_orders}\n`;
+    csvContent += `${t('total_sales')},${report.closing.total_sales.toFixed(2)} EGP\n`;
+    const avgOrder = report.closing.total_orders > 0 ? (report.closing.total_sales / report.closing.total_orders).toFixed(2) : '0.00';
+    csvContent += `${t('avg_order')},${avgOrder} EGP\n\n`;
+    
+    csvContent += `${t('product')},${t('qty_sold')},${t('revenue')}\n`;
+    
+    report.items.forEach(item => {
+      const productName = products[item.product_id] || item.product_id;
+      const safeName = `"${productName.replace(/"/g, '""')}"`;
+      csvContent += `${safeName},${item.quantity_sold},"${item.total_revenue.toFixed(2)} EGP"\n`;
+    });
+    
+    const encodedUri = encodeURI(csvContent);
+    const link = document.createElement("a");
+    link.setAttribute("href", encodedUri);
+    link.setAttribute("download", `closing-report-${report.closing.closing_date}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+  };
+
+  const exportToPDF = () => {
+    if (!report) return;
+    
+    const element = document.getElementById('closing-report-content');
+    if (!element) return;
+
+    const opt = {
+      margin: 10,
+      filename: `closing-report-${report.closing.closing_date}.pdf`,
+      image: { type: 'jpeg', quality: 0.98 },
+      html2canvas: { scale: 2 },
+      jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' }
+    };
+
+    html2pdf().set(opt).from(element).save();
+  };
+
   const today = new Date().toISOString().split('T')[0];
 
   return (
@@ -67,20 +115,19 @@ export default function ClosingPage() {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-display font-bold text-foreground">Daily Closing</h1>
-          <p className="text-muted-foreground mt-1">Close today's shift and review historical reports.</p>
+          <h1 className="text-2xl font-display font-bold text-foreground">{t('closing')}</h1>
         </div>
         <div className="flex items-center gap-3">
           {alreadyClosed ? (
             <div className="flex items-center gap-2 text-green-600 font-medium">
               <CheckCircle2 className="h-5 w-5" />
-              <span>Today is closed</span>
+              <span>{t('today_is_closed')}</span>
             </div>
           ) : (
             <Button onClick={handleCloseDay} disabled={isClosing} size="lg" className="gap-2">
               {isClosing && <Loader2 className="h-4 w-4 animate-spin" />}
               <CalendarDays className="h-4 w-4" />
-              Close Today ({today})
+              {t('close_today')} ({today})
             </Button>
           )}
         </div>
@@ -96,67 +143,80 @@ export default function ClosingPage() {
       {report && (
         <div className="rounded-xl border bg-card shadow-sm p-6 space-y-4">
           <div className="flex items-center justify-between">
-            <h2 className="text-lg font-semibold">Report — {report.closing.closing_date}</h2>
-            <Button variant="ghost" size="sm" onClick={() => setReport(null)}>Close</Button>
-          </div>
-
-          <div className="grid grid-cols-3 gap-4">
-            <div className="rounded-lg bg-muted/50 p-4 text-center">
-              <ShoppingBag className="h-6 w-6 mx-auto mb-1 text-muted-foreground" />
-              <p className="text-2xl font-bold">{report.closing.total_orders}</p>
-              <p className="text-xs text-muted-foreground mt-1">Orders</p>
-            </div>
-            <div className="rounded-lg bg-muted/50 p-4 text-center">
-              <TrendingUp className="h-6 w-6 mx-auto mb-1 text-muted-foreground" />
-              <p className="text-2xl font-bold">${report.closing.total_sales.toFixed(2)}</p>
-              <p className="text-xs text-muted-foreground mt-1">Total Sales</p>
-            </div>
-            <div className="rounded-lg bg-muted/50 p-4 text-center">
-              <TrendingUp className="h-6 w-6 mx-auto mb-1 text-muted-foreground" />
-              <p className="text-2xl font-bold">
-                ${report.closing.total_orders > 0
-                  ? (report.closing.total_sales / report.closing.total_orders).toFixed(2)
-                  : '0.00'}
-              </p>
-              <p className="text-xs text-muted-foreground mt-1">Avg. Order</p>
+            <h2 className="text-lg font-semibold">{t('report')} — {report.closing.closing_date}</h2>
+            <div className="flex gap-2">
+              <Button variant="outline" size="sm" onClick={exportToCSV} className="gap-2">
+                <Download className="h-4 w-4" /> {t('export_csv')}
+              </Button>
+              <Button variant="outline" size="sm" onClick={exportToPDF} className="gap-2">
+                <FileText className="h-4 w-4" /> {t('export_pdf')}
+              </Button>
+              <Button variant="ghost" size="sm" onClick={() => setReport(null)}>{t('close')}</Button>
             </div>
           </div>
 
-          {report.items.length > 0 && (
-            <div className="border rounded-md mt-2">
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Product</TableHead>
-                    <TableHead className="text-right">Qty Sold</TableHead>
-                    <TableHead className="text-right">Revenue</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {report.items.map(item => (
-                    <TableRow key={item.id}>
-                      <TableCell>{products[item.product_id] || item.product_id}</TableCell>
-                      <TableCell className="text-right">{item.quantity_sold}</TableCell>
-                      <TableCell className="text-right">${item.total_revenue.toFixed(2)}</TableCell>
+          <div id="closing-report-content" className="p-4 bg-background">
+            {/* Added for PDF clarity */}
+            <h3 className="text-xl font-bold mb-4 hidden print:block">{t('report')} — {report.closing.closing_date}</h3>
+            
+            <div className="grid grid-cols-3 gap-4 mb-6">
+              <div className="rounded-lg bg-muted/50 p-4 text-center">
+                <ShoppingBag className="h-6 w-6 mx-auto mb-1 text-muted-foreground" />
+                <p className="text-2xl font-bold">{report.closing.total_orders}</p>
+                <p className="text-xs text-muted-foreground mt-1">{t('total_orders')}</p>
+              </div>
+              <div className="rounded-lg bg-muted/50 p-4 text-center">
+                <TrendingUp className="h-6 w-6 mx-auto mb-1 text-muted-foreground" />
+                <p className="text-2xl font-bold">{report.closing.total_sales.toFixed(2)} <span className="text-sm font-normal">EGP</span></p>
+                <p className="text-xs text-muted-foreground mt-1">{t('total_sales')}</p>
+              </div>
+              <div className="rounded-lg bg-muted/50 p-4 text-center">
+                <TrendingUp className="h-6 w-6 mx-auto mb-1 text-muted-foreground" />
+                <p className="text-2xl font-bold">
+                  {report.closing.total_orders > 0
+                    ? (report.closing.total_sales / report.closing.total_orders).toFixed(2)
+                    : '0.00'} <span className="text-sm font-normal">EGP</span>
+                </p>
+                <p className="text-xs text-muted-foreground mt-1">{t('avg_order')}</p>
+              </div>
+          </div>
+
+            {report.items.length > 0 && (
+              <div className="border rounded-md mt-2">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>{t('product')}</TableHead>
+                      <TableHead className="text-right">{t('qty_sold')}</TableHead>
+                      <TableHead className="text-right">{t('revenue')}</TableHead>
                     </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            </div>
-          )}
+                  </TableHeader>
+                  <TableBody>
+                    {report.items.map(item => (
+                      <TableRow key={item.id}>
+                        <TableCell>{products[item.product_id] || item.product_id}</TableCell>
+                        <TableCell className="text-right">{item.quantity_sold}</TableCell>
+                        <TableCell className="text-right">{item.total_revenue.toFixed(2)} EGP</TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </div>
+            )}
+          </div>
         </div>
       )}
 
       {/* History Table */}
       <div>
-        <h2 className="text-lg font-semibold mb-3">History</h2>
+        <h2 className="text-lg font-semibold mb-3">{t('history')}</h2>
         <div className="border rounded-md">
           <Table>
             <TableHeader>
               <TableRow>
                 <TableHead>Date</TableHead>
-                <TableHead className="text-right">Orders</TableHead>
-                <TableHead className="text-right">Total Sales</TableHead>
+                <TableHead className="text-right">{t('total_orders')}</TableHead>
+                <TableHead className="text-right">{t('total_sales')}</TableHead>
                 <TableHead className="w-[100px]"></TableHead>
               </TableRow>
             </TableHeader>
@@ -172,7 +232,7 @@ export default function ClosingPage() {
                   <TableRow key={c.id}>
                     <TableCell className="font-medium">{c.closing_date}</TableCell>
                     <TableCell className="text-right">{c.total_orders}</TableCell>
-                    <TableCell className="text-right">${c.total_sales.toFixed(2)}</TableCell>
+                    <TableCell className="text-right">{c.total_sales.toFixed(2)} EGP</TableCell>
                     <TableCell>
                       <Button variant="ghost" size="sm" onClick={() => viewReport(c)}>View</Button>
                     </TableCell>

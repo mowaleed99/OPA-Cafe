@@ -22,7 +22,7 @@ export interface Purchase {
 export interface PurchaseItem {
   id: string;
   purchase_id: string;
-  product_id: string;
+  inventory_item_id: string;
   quantity: number;
   unit_cost: number;
   subtotal: number;

@@ -2,6 +2,7 @@ import Dexie, { type Table } from 'dexie';
 import type { AppUser } from '../../core/entities/user';
 import type { Category } from '../../core/entities/category';
 import type { Product } from '../../core/entities/product';
+import type { InventoryItem } from '../../core/entities/inventory';
 import type { DiningTable } from '../../core/entities/table';
 import type { Order, OrderItem } from '../../core/entities/order';
 import type { Supplier, Purchase, PurchaseItem, SupplierPayment } from '../../core/entities/supplier';
@@ -22,6 +23,7 @@ export class CafeDatabase extends Dexie {
   app_users!: Table<AppUser, string>;
   categories!: Table<Category, string>;
   products!: Table<Product, string>;
+  inventory_items!: Table<InventoryItem, string>;
   dining_tables!: Table<DiningTable, string>;
   orders!: Table<Order, string>;
   order_items!: Table<OrderItem, string>;
@@ -40,6 +42,7 @@ export class CafeDatabase extends Dexie {
       app_users: 'id, cafe_id, role',
       categories: 'id, cafe_id',
       products: 'id, cafe_id, category_id, status',
+      inventory_items: 'id, cafe_id',
       dining_tables: 'id, cafe_id, status',
       orders: 'id, cafe_id, table_id, status',
       order_items: 'id, order_id, product_id',

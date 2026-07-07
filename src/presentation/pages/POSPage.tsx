@@ -4,6 +4,7 @@ import { useSearchParams } from 'react-router-dom';
 import { db } from '../../infrastructure/database/db';
 import { loadTableOrder } from '../../application/useCases/pos/loadTableOrder';
 import { useAuthStore } from '../../application/store/useAuthStore';
+import { useTranslation } from 'react-i18next';
 import { useCartStore } from '../../application/store/useCartStore';
 import { loadPOSData, type POSData } from '../../application/useCases/pos/loadPOSData';
 import { seedCategoriesAndProducts } from '../../application/useCases/pos/seedData';
@@ -17,6 +18,7 @@ export default function POSPage() {
   const { items, addItem, clearCart, setTableId } = useCartStore();
   const [searchParams] = useSearchParams();
   const tableId = searchParams.get('table_id');
+  const { t } = useTranslation();
 
   const [posData, setPosData] = useState<POSData>({ categories: [], products: [] });
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
@@ -102,7 +104,7 @@ export default function POSPage() {
         <div className="flex items-center justify-between px-5 py-3.5 border-b border-border shrink-0">
           <div className="flex items-center gap-3">
             <h1 className="font-display font-bold text-lg text-foreground tracking-tight flex items-center gap-2">
-              Point of Sale
+              {t('pos')}
               {tableName && (
                 <span className="text-sm font-medium text-[var(--brand-latte)] bg-[var(--brand-latte)]/10 px-2 py-0.5 rounded-md">
                   Dine-in ({tableName})

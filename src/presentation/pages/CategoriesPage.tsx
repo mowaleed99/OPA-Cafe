@@ -1,8 +1,6 @@
-﻿export default function CategoriesPage() {
-  return (
-    <div className="p-6">
-      <h1 className="text-2xl font-display font-bold text-foreground">Categories</h1>
-      <p className="text-muted-foreground mt-2">This section is coming soon.</p>
-    </div>
-  );
+import { Navigate } from 'react-router-dom';
+
+// Categories are managed within the Products page (Products & Categories tabs)
+export default function CategoriesPage() {
+  return <Navigate to="/products" replace />;
 }

@@ -3,7 +3,6 @@ export interface Settings {
   cafe_id: string;
   cafe_name: string;
   logo_url?: string | null;
-  currency: string;
-  tax_rate: number;
-  print_settings: Record<string, unknown>;
+  language: string;
+  print_paper_size: string;
 }

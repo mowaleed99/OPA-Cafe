@@ -1,6 +1,8 @@
+import { useState } from 'react';
 import { Plus } from 'lucide-react';
 import { cn } from '../../lib/utils';
 import type { Product } from '../../../core/entities/product';
+import { useSettingsStore } from '../../../application/store/useSettingsStore';
 
 interface ProductCardProps {
   product: Product;
@@ -28,6 +30,8 @@ function getCardColor(name: string): string {
 }
 
 export default function ProductCard({ product, cartQuantity, onAdd }: ProductCardProps) {
+  const { currency } = useSettingsStore();
+  const [isAdding, setIsAdding] = useState(false);
   const color = getCardColor(product.name);
   const initial = product.name.charAt(0).toUpperCase();
   const inCart = cartQuantity > 0;
@@ -92,9 +96,9 @@ export default function ProductCard({ product, cartQuantity, onAdd }: ProductCar
         <span className="text-sm font-medium text-foreground leading-tight line-clamp-2">
           {product.name}
         </span>
-        <span className="text-sm font-semibold" style={{ color }}>
-          {product.price.toLocaleString('en-EG', { minimumFractionDigits: 0 })} EGP
-        </span>
+        <p className="text-xs font-semibold text-foreground/90 tabular-nums">
+          {product.price.toLocaleString('en-EG', { minimumFractionDigits: 0 })} {currency}
+        </p>
       </div>
     </button>
   );

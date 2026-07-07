@@ -16,6 +16,7 @@ import { placeOrder } from '../../../application/useCases/pos/placeOrder';
 import { updateOpenOrder } from '../../../application/useCases/pos/updateOpenOrder';
 import { checkoutOpenOrder } from '../../../application/useCases/pos/checkoutOpenOrder';
 import { useAuthStore } from '../../../application/store/useAuthStore';
+import { useSettingsStore } from '../../../application/store/useSettingsStore';
 import { useNavigate } from 'react-router-dom';
 import type { PaymentMethod } from '../../../core/entities/order';
 
@@ -49,6 +50,7 @@ export default function CartPanel({ onOrderPlaced }: CartPanelProps) {
   } = useCartStore();
 
   const { cafeId } = useAuthStore();
+  const { language } = useSettingsStore();
   const navigate = useNavigate();
   const [isPlacing, setIsPlacing] = useState(false);
   const [isCheckingOut, setIsCheckingOut] = useState(false);

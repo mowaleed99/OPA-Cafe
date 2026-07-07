@@ -1,41 +1,45 @@
 import { Outlet, NavLink, useNavigate } from 'react-router-dom';
 import { useAuthStore } from '../../application/store/useAuthStore';
+import { useTranslation } from 'react-i18next';
 import {
   LayoutDashboard,
   ShoppingCart,
   UtensilsCrossed,
   Package,
-  Tags,
   Truck,
   ClipboardList,
   BookOpen,
   Users,
   Settings,
   LogOut,
+  LineChart,
+  TerminalSquare,
+  Coffee,
 } from 'lucide-react';
 
 const ownerNav = [
-  { to: '/dashboard', icon: LayoutDashboard, label: 'Dashboard' },
-  { to: '/pos', icon: ShoppingCart, label: 'POS' },
-  { to: '/tables', icon: UtensilsCrossed, label: 'Tables' },
-  { to: '/products', icon: Package, label: 'Products' },
-  { to: '/categories', icon: Tags, label: 'Categories' },
-  { to: '/suppliers', icon: Truck, label: 'Suppliers' },
-  { to: '/purchases', icon: ClipboardList, label: 'Purchases' },
-  { to: '/closing', icon: BookOpen, label: 'Closing' },
-  { to: '/users', icon: Users, label: 'Users' },
-  { to: '/settings', icon: Settings, label: 'Settings' },
+  { to: '/dashboard', icon: LayoutDashboard, labelKey: 'dashboard' },
+  { to: '/pos', icon: TerminalSquare, labelKey: 'pos' },
+  { to: '/products', icon: Coffee, labelKey: 'products' },
+  { to: '/inventory', icon: Package, labelKey: 'inventory' },
+  { to: '/suppliers', icon: Truck, labelKey: 'suppliers' },
+  { to: '/purchases', icon: ClipboardList, labelKey: 'purchases' },
+  { to: '/closing', icon: BookOpen, labelKey: 'closing' },
+  { to: '/reports', icon: LineChart, labelKey: 'reports' },
+  { to: '/users', icon: Users, labelKey: 'users' },
+  { to: '/settings', icon: Settings, labelKey: 'settings' },
 ];
 
 // Cashiers only see POS and Tables
 const cashierNav = [
-  { to: '/pos', icon: ShoppingCart, label: 'POS' },
-  { to: '/tables', icon: UtensilsCrossed, label: 'Tables' },
+  { to: '/pos', icon: ShoppingCart, labelKey: 'pos' },
+  { to: '/tables', icon: UtensilsCrossed, labelKey: 'tables' },
 ];
 
 export default function AppLayout() {
   const { isOwner, signOut } = useAuthStore();
   const navigate = useNavigate();
+  const { t } = useTranslation();
   const navItems = isOwner() ? ownerNav : cashierNav;
 
   const handleSignOut = async () => {
@@ -55,7 +59,7 @@ export default function AppLayout() {
 
         {/* Navigation */}
         <nav className="flex-1 overflow-y-auto py-4 space-y-1 px-2">
-          {navItems.map(({ to, icon: Icon, label }) => (
+          {navItems.map(({ to, icon: Icon, labelKey }) => (
             <NavLink
               key={to}
               to={to}
@@ -68,7 +72,7 @@ export default function AppLayout() {
               }
             >
               <Icon size={18} className="flex-shrink-0" />
-              <span className="hidden md:block">{label}</span>
+              <span className="hidden md:block">{t(labelKey)}</span>
             </NavLink>
           ))}
         </nav>
@@ -80,7 +84,7 @@ export default function AppLayout() {
             className="flex items-center gap-3 w-full px-3 py-2.5 rounded-lg text-sm font-medium text-muted-foreground hover:bg-destructive/10 hover:text-destructive transition-colors"
           >
             <LogOut size={18} className="flex-shrink-0" />
-            <span className="hidden md:block">Sign out</span>
+            <span className="hidden md:block">{t('logout')}</span>
           </button>
         </div>
       </aside>

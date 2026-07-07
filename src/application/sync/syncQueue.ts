@@ -76,6 +76,7 @@ export async function processSyncQueue(): Promise<void> {
 const SYNCED_TABLES = [
   'categories',
   'products',
+  'inventory_items',
   'tables',
   'orders',
   'order_items',
