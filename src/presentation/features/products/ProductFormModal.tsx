@@ -38,24 +38,31 @@ export function ProductFormModal({ isOpen, onClose, productToEdit, onSaved }: Pr
   const cafeId = useAuthStore(state => state.cafeId());
 
   useEffect(() => {
-    if (isOpen && cafeId) {
-      getCategories(cafeId).then(setCategories);
-    }
-  }, [isOpen, cafeId]);
+    if (!isOpen) return;
 
-  useEffect(() => {
-    if (productToEdit) {
-      setName(productToEdit.name);
-      setPrice(productToEdit.price.toString());
-      setCost(productToEdit.cost.toString());
-      setCategoryId(productToEdit.category_id);
-    } else {
-      setName('');
-      setPrice('');
-      setCost('');
-      setCategoryId('');
-    }
-  }, [productToEdit, isOpen]);
+    // Load categories first, THEN set form values so the Select
+    // always has its options ready when the current value is applied.
+    const init = async () => {
+      if (cafeId) {
+        const cats = await getCategories(cafeId);
+        setCategories(cats);
+      }
+
+      if (productToEdit) {
+        setName(productToEdit.name);
+        setPrice(productToEdit.price.toString());
+        setCost(productToEdit.cost.toString());
+        setCategoryId(productToEdit.category_id);
+      } else {
+        setName('');
+        setPrice('');
+        setCost('');
+        setCategoryId('');
+      }
+    };
+
+    init();
+  }, [isOpen, cafeId, productToEdit]);
 
   const handleSave = async () => {
     if (!name.trim() || !price || !categoryId || !cafeId) return;

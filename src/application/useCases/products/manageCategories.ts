@@ -1,13 +1,31 @@
 import { db } from '../../../infrastructure/database/db';
 import { enqueueSync } from '../../sync/syncQueue';
+import { supabase } from '../../../infrastructure/api/supabase';
 import type { Category } from '../../../core/entities/category';
 
 export async function getCategories(cafeId: string): Promise<Category[]> {
-  return await db.categories
+  // Try local Dexie first (offline-first)
+  const local = await db.categories
     .where('cafe_id')
     .equals(cafeId)
-    .filter(c => c.status !== 'inactive')
+    .filter(c => !c.status || c.status !== 'inactive')
     .toArray();
+
+  if (local.length > 0) return local;
+
+  // Fallback: fetch from Supabase if local DB is empty (e.g. first load)
+  if (!navigator.onLine) return [];
+  const { data, error } = await supabase
+    .from('categories')
+    .select('*')
+    .eq('cafe_id', cafeId)
+    .neq('status', 'inactive');
+
+  if (error || !data) return [];
+
+  // Cache into Dexie so future calls are offline-first
+  await db.categories.bulkPut(data as Category[]);
+  return data as Category[];
 }
 
 export async function createCategory(cafeId: string, name: string): Promise<Category> {
