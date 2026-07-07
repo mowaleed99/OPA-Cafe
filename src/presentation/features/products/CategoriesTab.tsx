@@ -26,13 +26,11 @@ export function CategoriesTab() {
   }, [cafeId]);
 
   const handleAdd = () => {
-  const { t } = useTranslation();
     setCategoryToEdit(null);
     setIsModalOpen(true);
   };
 
   const handleEdit = (category: Category) => {
-  const { t } = useTranslation();
     setCategoryToEdit(category);
     setIsModalOpen(true);
   };

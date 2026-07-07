@@ -5,7 +5,6 @@ import {
   DialogContent,
   DialogHeader,
   DialogTitle,
-  DialogFooter,
 } from '../components/ui/dialog';
 import { Button } from '../components/ui/button';
 import { Input } from '../components/ui/input';
@@ -17,7 +16,7 @@ import {
   SelectValue,
 } from '../components/ui/select';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../components/ui/table';
-import { PlusCircle, ChevronRight, X, Search, ChevronLeft } from 'lucide-react';
+import { PlusCircle, ChevronRight, X, Search, ChevronLeft, ShoppingBag, Loader2, Package, Trash2 } from 'lucide-react';
 import type { Supplier, Purchase, PurchaseItem, SupplierPayment } from '../../core/entities/supplier';
 import type { InventoryItem } from '../../core/entities/inventory';
 import { useAuthStore } from '../../application/store/useAuthStore';
@@ -33,19 +32,15 @@ import { getInventoryItems } from '../../application/useCases/inventory/manageIn
 // ── Status Badge ──────────────────────────────────────────────────────────────
 function StatusBadge({ status }: { status: Purchase['payment_status'] }) {
   const { t } = useTranslation();
-  const colors: Record<typeof status, string> = {
-    paid: 'bg-green-100 text-green-700',
-    partial: 'bg-yellow-100 text-yellow-700',
-    unpaid: 'bg-red-100 text-red-700',
+  const configs: Record<typeof status, { bg: string; text: string; label: string }> = {
+    paid:    { bg: 'bg-emerald-100 dark:bg-emerald-500/20', text: 'text-emerald-700 dark:text-emerald-400', label: t('status_paid') },
+    partial: { bg: 'bg-amber-100 dark:bg-amber-500/20',   text: 'text-amber-700 dark:text-amber-400',   label: t('status_partial') },
+    unpaid:  { bg: 'bg-red-100 dark:bg-red-500/20',       text: 'text-red-700 dark:text-red-400',       label: t('status_unpaid') },
   };
-  const labels: Record<typeof status, string> = {
-    paid: t('status_paid'),
-    partial: t('status_partial'),
-    unpaid: t('status_unpaid'),
-  };
+  const c = configs[status];
   return (
-    <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${colors[status]}`}>
-      {labels[status]}
+    <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold ${c.bg} ${c.text}`}>
+      {c.label}
     </span>
   );
 }
@@ -80,7 +75,10 @@ function CreatePurchaseModal({
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
-    if (isOpen) { setSupplierId(''); setLines([{ inventoryItemId: '', quantity: '', unitCost: '' }]); }
+    if (isOpen) {
+      setSupplierId('');
+      setLines([{ inventoryItemId: '', quantity: '', unitCost: '' }]);
+    }
   }, [isOpen]);
 
   const addLine = () => setLines(l => [...l, { inventoryItemId: '', quantity: '', unitCost: '' }]);
@@ -89,9 +87,7 @@ function CreatePurchaseModal({
     setLines(l => l.map((line, idx) => idx === i ? { ...line, [field]: value } : line));
 
   const total = lines.reduce((sum, l) => {
-    const qty = parseFloat(l.quantity) || 0;
-    const cost = parseFloat(l.unitCost) || 0;
-    return sum + qty * cost;
+    return sum + (parseFloat(l.quantity) || 0) * (parseFloat(l.unitCost) || 0);
   }, 0);
 
   const canSave = supplierId && lines.every(l => l.inventoryItemId && l.quantity && l.unitCost);
@@ -119,75 +115,122 @@ function CreatePurchaseModal({
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="max-w-2xl">
-        <DialogHeader>
-          <DialogTitle>{t('new_purchase')}</DialogTitle>
+      <DialogContent className="max-w-xl p-0 overflow-hidden gap-0">
+        {/* Modal Header */}
+        <DialogHeader className="px-6 pt-6 pb-4 border-b bg-muted/30">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-xl bg-[var(--brand-latte)]/15 flex items-center justify-center shrink-0">
+              <ShoppingBag size={20} className="text-[var(--brand-latte)]" />
+            </div>
+            <div>
+              <DialogTitle className="text-lg font-semibold">{t('new_purchase')}</DialogTitle>
+              <p className="text-sm text-muted-foreground mt-0.5">{t('track_purchases_desc')}</p>
+            </div>
+          </div>
         </DialogHeader>
-        <div className="space-y-4 py-4">
+
+        <div className="px-6 py-5 space-y-5 overflow-y-auto max-h-[65vh]">
           {/* Supplier */}
-          <div>
-            <label className="text-sm font-medium mb-1 block">{t('supplier')}</label>
+          <div className="space-y-1.5">
+            <label className="text-sm font-semibold text-foreground">{t('supplier')}</label>
             <Select value={supplierId} onValueChange={setSupplierId}>
-              <SelectTrigger><SelectValue placeholder={t('select_supplier')} /></SelectTrigger>
+              <SelectTrigger className="h-10">
+                <SelectValue placeholder={t('select_supplier')} />
+              </SelectTrigger>
               <SelectContent>
-                {suppliers.map(s => <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>)}
+                {suppliers.map(s => (
+                  <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>
+                ))}
               </SelectContent>
             </Select>
           </div>
 
           {/* Line Items */}
-          <div>
-            <label className="text-sm font-medium mb-2 block">{t('items')}</label>
+          <div className="space-y-3">
+            <div className="flex items-center justify-between">
+              <label className="text-sm font-semibold text-foreground">{t('items')}</label>
+              <span className="text-xs text-muted-foreground">{lines.length} {lines.length === 1 ? 'item' : 'items'}</span>
+            </div>
+
             <div className="space-y-2">
               {lines.map((line, i) => (
-                <div key={i} className="flex gap-2 items-center">
-                  <div className="flex-1">
+                <div key={i} className="flex gap-2 items-center p-3 rounded-xl border bg-muted/20 hover:bg-muted/30 transition-colors">
+                  <div className="flex-1 min-w-0">
                     <Select value={line.inventoryItemId} onValueChange={v => updateLine(i, 'inventoryItemId', v)}>
-                      <SelectTrigger><SelectValue placeholder={t('item_name')} /></SelectTrigger>
+                      <SelectTrigger className="h-9 text-sm">
+                        <SelectValue placeholder={t('item_name')} />
+                      </SelectTrigger>
                       <SelectContent>
-                        {inventoryItems.map(p => <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>)}
+                        {inventoryItems.map(p => (
+                          <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>
+                        ))}
                       </SelectContent>
                     </Select>
                   </div>
                   <Input
                     type="number"
-                    className="w-24"
+                    className="w-20 h-9 text-sm text-center"
                     placeholder={t('qty')}
                     value={line.quantity}
                     onChange={e => updateLine(i, 'quantity', e.target.value)}
+                    min="0"
                   />
                   <Input
                     type="number"
-                    className="w-28"
+                    className="w-24 h-9 text-sm text-center"
                     placeholder={t('unit_cost')}
                     value={line.unitCost}
                     onChange={e => updateLine(i, 'unitCost', e.target.value)}
+                    min="0"
                   />
-                  <Button
-                    variant="ghost"
-                    size="icon"
+                  <button
                     onClick={() => removeLine(i)}
                     disabled={lines.length === 1}
+                    className="w-8 h-8 rounded-lg flex items-center justify-center text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors disabled:opacity-30 disabled:cursor-not-allowed shrink-0"
                   >
-                    <X className="h-4 w-4" />
-                  </Button>
+                    <Trash2 size={14} />
+                  </button>
                 </div>
               ))}
             </div>
-            <Button variant="outline" size="sm" className="mt-2" onClick={addLine}>
-              <PlusCircle className="h-3.5 w-3.5 mr-1" /> {t('add_item')}
-            </Button>
+
+            <button
+              onClick={addLine}
+              className="flex items-center gap-2 text-sm font-medium text-[var(--brand-latte)] hover:text-[var(--brand-latte)]/80 transition-colors py-1"
+            >
+              <PlusCircle size={16} />
+              {t('add_item')}
+            </button>
           </div>
 
           {/* Total */}
-          <div className="flex justify-end">
-            <span className="text-sm font-semibold">{t('total')}: {total.toFixed(2)} EGP</span>
-          </div>
+          {total > 0 && (
+            <div className="rounded-xl bg-[var(--brand-latte)]/8 border border-[var(--brand-latte)]/20 px-4 py-3 flex items-center justify-between">
+              <span className="text-sm font-medium text-muted-foreground">{t('total')}</span>
+              <span className="text-lg font-bold" style={{ color: 'var(--brand-latte)' }}>
+                {total.toFixed(2)} EGP
+              </span>
+            </div>
+          )}
         </div>
-        <DialogFooter>
-          <Button variant="outline" onClick={onClose} disabled={saving}>{t('cancel')}</Button>
-          <Button onClick={handleSave} disabled={saving || !canSave}>{t('create_purchase')}</Button>
-        </DialogFooter>
+
+        {/* Footer */}
+        <div className="px-6 pb-6 pt-3 border-t bg-muted/20 flex gap-3 justify-end">
+          <Button variant="outline" onClick={onClose} disabled={saving} className="min-w-[90px]">
+            {t('cancel')}
+          </Button>
+          <Button
+            onClick={handleSave}
+            disabled={saving || !canSave}
+            className="min-w-[140px] bg-[var(--brand-latte)] hover:bg-[var(--brand-latte)]/90 text-white"
+          >
+            {saving ? (
+              <><Loader2 size={15} className="animate-spin me-2" />{t('saving')}</>
+            ) : (
+              <><ShoppingBag size={15} className="me-2" />{t('create_purchase')}</>
+            )}
+          </Button>
+        </div>
       </DialogContent>
     </Dialog>
   );
@@ -220,47 +263,55 @@ function PurchaseDetailPanel({
   if (!purchaseId || !detail) return null;
 
   return (
-    <div className="fixed inset-y-0 right-0 w-[420px] bg-background border-l shadow-xl z-50 flex flex-col">
-      <div className="flex items-center justify-between p-4 border-b">
+    <div className="fixed inset-y-0 end-0 w-[420px] bg-background border-s shadow-2xl z-50 flex flex-col">
+      <div className="flex items-center justify-between p-4 border-b bg-muted/30">
         <div>
-          <h2 className="font-semibold">{t('purchase_details')}</h2>
-          <p className="text-sm text-muted-foreground">{supplierName} · {detail.purchase.created_at.split('T')[0]}</p>
+          <h2 className="font-semibold text-foreground">{t('purchase_details')}</h2>
+          <p className="text-sm text-muted-foreground mt-0.5">{supplierName} · {detail.purchase.created_at.split('T')[0]}</p>
         </div>
-        <Button variant="ghost" size="icon" onClick={onClose}><X className="h-4 w-4" /></Button>
+        <button
+          onClick={onClose}
+          className="w-8 h-8 rounded-lg flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
+        >
+          <X size={16} />
+        </button>
       </div>
 
-      <div className="flex-1 overflow-y-auto p-4 space-y-6">
-        {/* Summary */}
-        <div className="rounded-md border p-4 space-y-2 text-sm">
-          <div className="flex justify-between">
-            <span className="text-muted-foreground">{t('status')}</span>
+      <div className="flex-1 overflow-y-auto p-4 space-y-5">
+        {/* Summary Cards */}
+        <div className="grid grid-cols-2 gap-3">
+          <div className="rounded-xl border bg-card p-3 space-y-1">
+            <p className="text-xs text-muted-foreground">{t('total')}</p>
+            <p className="text-lg font-bold text-foreground">{detail.purchase.total_amount.toFixed(2)} <span className="text-xs font-normal">EGP</span></p>
+          </div>
+          <div className="rounded-xl border bg-card p-3 space-y-1">
+            <p className="text-xs text-muted-foreground">{t('status')}</p>
             <StatusBadge status={detail.purchase.payment_status} />
           </div>
-          <div className="flex justify-between">
-            <span className="text-muted-foreground">{t('total')}</span>
-            <span className="font-medium">{detail.purchase.total_amount.toFixed(2)} EGP</span>
+          <div className="rounded-xl border bg-emerald-50 dark:bg-emerald-500/10 p-3 space-y-1">
+            <p className="text-xs text-emerald-600 dark:text-emerald-400">{t('paid')}</p>
+            <p className="text-lg font-bold text-emerald-700 dark:text-emerald-400">{detail.purchase.amount_paid.toFixed(2)} <span className="text-xs font-normal">EGP</span></p>
           </div>
-          <div className="flex justify-between">
-            <span className="text-muted-foreground">{t('paid')}</span>
-            <span className="font-medium text-green-600">{detail.purchase.amount_paid.toFixed(2)} EGP</span>
-          </div>
-          <div className="flex justify-between">
-            <span className="text-muted-foreground">{t('remaining')}</span>
-            <span className="font-medium text-red-600">{detail.purchase.amount_remaining.toFixed(2)} EGP</span>
+          <div className="rounded-xl border bg-red-50 dark:bg-red-500/10 p-3 space-y-1">
+            <p className="text-xs text-red-600 dark:text-red-400">{t('remaining')}</p>
+            <p className="text-lg font-bold text-red-700 dark:text-red-400">{detail.purchase.amount_remaining.toFixed(2)} <span className="text-xs font-normal">EGP</span></p>
           </div>
         </div>
 
         {/* Items */}
         <div>
-          <h3 className="text-sm font-semibold mb-2">{t('items')}</h3>
-          <div className="divide-y border rounded-md">
+          <h3 className="text-sm font-semibold mb-2 text-foreground">{t('items')}</h3>
+          <div className="divide-y border rounded-xl overflow-hidden bg-card">
             {detail.items.map(item => (
-              <div key={item.id} className="flex justify-between px-3 py-2 text-sm">
-                <span>{inventoryItems[item.inventory_item_id] || 'Unknown'}</span>
-                <span className="text-muted-foreground">
-                  {item.quantity} × {item.unit_cost.toFixed(2)} EGP
-                </span>
-                <span className="font-medium">{item.subtotal.toFixed(2)} EGP</span>
+              <div key={item.id} className="flex items-center justify-between px-4 py-2.5 text-sm">
+                <div className="flex items-center gap-2">
+                  <Package size={14} className="text-muted-foreground shrink-0" />
+                  <span className="font-medium">{inventoryItems[item.inventory_item_id] || 'Unknown'}</span>
+                </div>
+                <div className="text-end">
+                  <p className="text-muted-foreground text-xs">{item.quantity} × {item.unit_cost.toFixed(2)} EGP</p>
+                  <p className="font-semibold">{item.subtotal.toFixed(2)} EGP</p>
+                </div>
               </div>
             ))}
           </div>
@@ -268,16 +319,18 @@ function PurchaseDetailPanel({
 
         {/* Payment History */}
         <div>
-          <h3 className="text-sm font-semibold mb-2">{t('payments')}</h3>
+          <h3 className="text-sm font-semibold mb-2 text-foreground">{t('payments')}</h3>
           {detail.payments.length === 0 ? (
-            <p className="text-sm text-muted-foreground">{t('no_payments_yet')}</p>
+            <p className="text-sm text-muted-foreground py-3 text-center border rounded-xl bg-muted/30">{t('no_payments_yet')}</p>
           ) : (
-            <div className="divide-y border rounded-md">
+            <div className="divide-y border rounded-xl overflow-hidden bg-card">
               {detail.payments.map(p => (
-                <div key={p.id} className="flex justify-between px-3 py-2 text-sm">
-                  <span className="text-muted-foreground">{p.payment_date}</span>
-                  <span>{p.notes || '—'}</span>
-                  <span className="font-medium text-green-600">+{p.amount.toFixed(2)} EGP</span>
+                <div key={p.id} className="flex items-center justify-between px-4 py-2.5 text-sm">
+                  <div>
+                    <p className="text-muted-foreground text-xs">{p.payment_date}</p>
+                    <p className="text-foreground">{p.notes || '—'}</p>
+                  </div>
+                  <span className="font-semibold text-emerald-600 dark:text-emerald-400">+{p.amount.toFixed(2)} EGP</span>
                 </div>
               ))}
             </div>
@@ -341,64 +394,73 @@ export default function PurchasesPage() {
   return (
     <div className="p-6 max-w-5xl mx-auto space-y-6">
       {/* Header */}
-      <div className="flex items-center justify-between gap-3 flex-wrap">
+      <div className="flex items-start justify-between gap-3 flex-wrap">
         <div>
           <h1 className="text-2xl font-display font-bold text-foreground">{t('purchases')}</h1>
-          <p className="text-muted-foreground mt-1">{t('track_purchases_desc')}</p>
+          <p className="text-muted-foreground mt-1 text-sm">{t('track_purchases_desc')}</p>
         </div>
         <div className="flex items-center gap-3">
           <div className="relative">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+            <Search className="absolute start-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
             <input
               type="text"
               placeholder={t('search_by_supplier')}
               value={searchQuery}
               onChange={(e) => handleSearch(e.target.value)}
-              className="h-10 rounded-md border border-input bg-background px-3 py-2 pl-9 text-sm w-60 focus:outline-none focus:ring-2 focus:ring-ring"
+              className="h-10 rounded-md border border-input bg-background px-3 py-2 ps-9 text-sm w-60 focus:outline-none focus:ring-2 focus:ring-ring"
             />
           </div>
-          <Button onClick={() => setCreateOpen(true)}>
-            <PlusCircle className="mr-2 h-4 w-4" /> {t('new_purchase')}
+          <Button
+            onClick={() => setCreateOpen(true)}
+            className="bg-[var(--brand-latte)] hover:bg-[var(--brand-latte)]/90 text-white"
+          >
+            <PlusCircle className="me-2 h-4 w-4" /> {t('new_purchase')}
           </Button>
         </div>
       </div>
 
       {/* Table */}
-      <div className="border rounded-md">
+      <div className="border rounded-xl overflow-hidden shadow-sm">
         <Table>
           <TableHeader>
-            <TableRow>
-              <TableHead>{t('date')}</TableHead>
-              <TableHead>{t('supplier')}</TableHead>
-              <TableHead className="text-right">{t('total_amount')}</TableHead>
-              <TableHead className="text-right">{t('remaining')}</TableHead>
-              <TableHead>{t('status')}</TableHead>
-              <TableHead className="w-[80px]">{t('actions')}</TableHead>
+            <TableRow className="bg-muted/40">
+              <TableHead className="font-semibold">{t('date')}</TableHead>
+              <TableHead className="font-semibold">{t('supplier')}</TableHead>
+              <TableHead className="text-end font-semibold">{t('total_amount')}</TableHead>
+              <TableHead className="text-end font-semibold">{t('remaining')}</TableHead>
+              <TableHead className="font-semibold">{t('status')}</TableHead>
+              <TableHead className="w-[60px]"></TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
             {paginated.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={6} className="py-10 text-center text-muted-foreground">
-                  {searchQuery ? t('no_purchases_search') : t('no_purchases_yet')}
+                <TableCell colSpan={6} className="py-16 text-center">
+                  <div className="flex flex-col items-center gap-3 text-muted-foreground">
+                    <ShoppingBag size={36} className="opacity-30" />
+                    <p className="text-sm">{searchQuery ? t('no_purchases_search') : t('no_purchases_yet')}</p>
+                  </div>
                 </TableCell>
               </TableRow>
             ) : (
               paginated.map(p => (
                 <TableRow
                   key={p.id}
-                  className="cursor-pointer hover:bg-muted/30"
+                  className={`cursor-pointer transition-colors ${selectedPurchaseId === p.id ? 'bg-[var(--brand-latte)]/5' : 'hover:bg-muted/30'}`}
                   onClick={() => setSelectedPurchaseId(p.id === selectedPurchaseId ? null : p.id)}
                 >
-                  <TableCell className="text-sm">{p.created_at.split('T')[0]}</TableCell>
+                  <TableCell className="text-sm text-muted-foreground">{p.created_at.split('T')[0]}</TableCell>
                   <TableCell className="font-medium">{supplierMap[p.supplier_id] || '—'}</TableCell>
-                  <TableCell className="text-right">{p.total_amount.toFixed(2)}</TableCell>
-                  <TableCell className="text-right text-red-600">{p.amount_remaining.toFixed(2)}</TableCell>
+                  <TableCell className="text-end font-medium">{p.total_amount.toFixed(2)} EGP</TableCell>
+                  <TableCell className="text-end font-semibold text-red-600 dark:text-red-400">{p.amount_remaining.toFixed(2)} EGP</TableCell>
                   <TableCell><StatusBadge status={p.payment_status} /></TableCell>
                   <TableCell>
-                    <Button variant="ghost" size="icon" onClick={e => { e.stopPropagation(); setSelectedPurchaseId(p.id); }}>
-                      <ChevronRight className="h-4 w-4" />
-                    </Button>
+                    <button
+                      className="w-8 h-8 rounded-lg flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
+                      onClick={e => { e.stopPropagation(); setSelectedPurchaseId(p.id); }}
+                    >
+                      <ChevronRight className="h-4 w-4 rtl:rotate-180" />
+                    </button>
                   </TableCell>
                 </TableRow>
               ))
@@ -409,16 +471,16 @@ export default function PurchasesPage() {
 
       {/* Pagination */}
       {totalPages > 1 && (
-        <div className="flex items-center justify-between pt-2">
+        <div className="flex items-center justify-between pt-1">
           <p className="text-sm text-muted-foreground">
             {t('page')} {currentPage} / {totalPages} ({filtered.length} {t('results')})
           </p>
           <div className="flex gap-2">
             <Button variant="outline" size="sm" onClick={() => setCurrentPage(p => Math.max(1, p - 1))} disabled={currentPage === 1}>
-              <ChevronLeft className="h-4 w-4" />
+              <ChevronLeft className="h-4 w-4 rtl:rotate-180" />
             </Button>
             <Button variant="outline" size="sm" onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))} disabled={currentPage === totalPages}>
-              <ChevronRight className="h-4 w-4" />
+              <ChevronRight className="h-4 w-4 rtl:rotate-180" />
             </Button>
           </div>
         </div>

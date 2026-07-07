@@ -35,13 +35,11 @@ export function ProductsTab() {
   }, [cafeId]);
 
   const handleAdd = () => {
-  const { t } = useTranslation();
     setProductToEdit(null);
     setIsModalOpen(true);
   };
 
   const handleEdit = (product: Product) => {
-  const { t } = useTranslation();
     setProductToEdit(product);
     setIsModalOpen(true);
   };
