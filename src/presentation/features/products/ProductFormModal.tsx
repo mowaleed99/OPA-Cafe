@@ -107,7 +107,13 @@ export function ProductFormModal({ isOpen, onClose, productToEdit, onSaved }: Pr
             <label className="text-sm font-medium mb-1 block">Category</label>
             <Select value={categoryId} onValueChange={setCategoryId}>
               <SelectTrigger>
-                <SelectValue placeholder="Select a category" />
+                {/* Compute the name ourselves — never rely on Radix's
+                    item-scanning which fails when items load asynchronously */}
+                <span className={categoryId && categories.find(c => c.id === categoryId) ? '' : 'text-muted-foreground'}>
+                  {categoryId
+                    ? (categories.find(c => c.id === categoryId)?.name ?? 'Loading...')
+                    : 'Select a category'}
+                </span>
               </SelectTrigger>
               <SelectContent>
                 {categories.map(cat => (
