@@ -1,10 +1,12 @@
-import { useEffect } from 'react';
-import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
+import { useState, useEffect } from 'react';
+import { HashRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { useAuthStore } from './application/store/useAuthStore';
 import { useSettingsStore } from './application/store/useSettingsStore';
 import { processSyncQueue, startRealtimeSync } from './application/sync/syncQueue';
+import { pullInitialData } from './application/sync/pullInitialData';
 import { fetchSettings } from './application/useCases/settings/manageSettings';
 import { useTranslation } from 'react-i18next';
+import { RefreshCw } from 'lucide-react';
 
 // Layouts
 import AuthLayout from './presentation/layouts/AuthLayout';
@@ -34,7 +36,8 @@ import SettingsPage from './presentation/pages/SettingsPage';
 export default function App() {
   const { initialize, appUser } = useAuthStore();
   const { language } = useSettingsStore();
-  const { i18n } = useTranslation();
+  const { i18n, t } = useTranslation();
+  const [isInitializingData, setIsInitializingData] = useState(false);
 
   // Restore session on app start
   useEffect(() => {
@@ -50,15 +53,33 @@ export default function App() {
 
   // Once authenticated, start sync mechanisms and fetch settings
   useEffect(() => {
-    if (appUser?.cafe_id) {
+    async function initSync() {
+      if (!appUser?.cafe_id) return;
+      
+      setIsInitializingData(true);
+      await pullInitialData(appUser.cafe_id);
+      setIsInitializingData(false);
+
       processSyncQueue();
       startRealtimeSync(appUser.cafe_id);
       fetchSettings(appUser.cafe_id);
     }
+    
+    initSync();
   }, [appUser?.cafe_id]);
 
+  if (isInitializingData) {
+    return (
+      <div className="flex flex-col items-center justify-center min-h-screen bg-background">
+        <RefreshCw size={48} className="animate-spin text-[var(--brand-latte)] mb-4" />
+        <h2 className="text-xl font-medium text-foreground">Synchronizing Cafe Data...</h2>
+        <p className="text-muted-foreground mt-2">Please wait while we initialize your local database.</p>
+      </div>
+    );
+  }
+
   return (
-    <BrowserRouter>
+    <HashRouter>
       <Routes>
         {/* Public routes */}
         <Route element={<AuthLayout />}>
@@ -91,6 +112,6 @@ export default function App() {
         {/* Fallback */}
         <Route path="*" element={<Navigate to="/pos" replace />} />
       </Routes>
-    </BrowserRouter>
+    </HashRouter>
   );
 }
