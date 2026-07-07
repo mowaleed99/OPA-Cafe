@@ -141,5 +141,14 @@
   "add_item": "Add Item",
   "qty": "Qty",
   "page": "Page",
-  "results": "results"
+  "results": "results",
+  "dine_in_tables": "Dine-in Tables",
+  "manage_tables_desc": "Manage tables and active dine-in orders.",
+  "add_table": "Add Table",
+  "table_name_placeholder": "e.g., Table 1 or Patio A",
+  "occupied": "Occupied",
+  "available": "Available",
+  "no_tables_yet": "No tables configured yet.",
+  "add_table_hint": "Click \"Add Table\" to set up your floor plan.",
+  "delete_table_confirm": "Are you sure you want to delete this table?"
 }

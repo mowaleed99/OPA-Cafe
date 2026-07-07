@@ -141,5 +141,14 @@
   "add_item": "إضافة عنصر",
   "qty": "الكمية",
   "page": "صفحة",
-  "results": "نتيجة"
+  "results": "نتيجة",
+  "dine_in_tables": "طاولات الجلوس",
+  "manage_tables_desc": "إدارة الطاولات وطلبات الجلوس النشطة.",
+  "add_table": "إضافة طاولة",
+  "table_name_placeholder": "مثال: طاولة 1 أو فناء أ",
+  "occupied": "مشغولة",
+  "available": "متاحة",
+  "no_tables_yet": "لا توجد طاولات مُعدَّة بعد.",
+  "add_table_hint": "انقر على \"إضافة طاولة\" لإعداد مخطط قاعتك.",
+  "delete_table_confirm": "هل أنت متأكد من حذف هذه الطاولة؟"
 }

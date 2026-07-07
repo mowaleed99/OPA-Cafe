@@ -107,7 +107,7 @@ export default function LoginPage() {
       {/* Footer text */}
       <div className="pt-2 text-center">
         <p className="text-xs text-[#A89F91]">
-          Powered by Crema Point of Sale
+          Powered by O P A Cafe Point of Sale
         </p>
       </div>
     </div>

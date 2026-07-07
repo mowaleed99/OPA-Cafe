@@ -22,6 +22,7 @@ export default function ClosingPage() {
   const { t } = useTranslation();
   const [closings, setClosings] = useState<DailyClosing[]>([]);
   const [alreadyClosed, setAlreadyClosed] = useState(false);
+  const [needsUpdate, setNeedsUpdate] = useState(false);
   const [isClosing, setIsClosing] = useState(false);
   const [report, setReport] = useState<ClosingReport | null>(null);
   const [products, setProducts] = useState<Record<string, string>>({});
@@ -29,13 +30,17 @@ export default function ClosingPage() {
 
   const load = async () => {
     if (!cafeId) return;
-    const [allClosings, todayClosing, prods] = await Promise.all([
+    const today = new Date().toISOString().split('T')[0];
+    const [allClosings, todayClosing, prods, todayOrdersCount] = await Promise.all([
       getDailyClosings(cafeId),
       getTodayClosing(cafeId),
       db.products.where('cafe_id').equals(cafeId).toArray(),
+      db.orders.where('cafe_id').equals(cafeId).filter(o => o.status === 'paid' && o.created_at.startsWith(today)).count(),
     ]);
     setClosings(allClosings);
     setAlreadyClosed(!!todayClosing);
+    setNeedsUpdate(!!todayClosing && todayClosing.total_orders !== todayOrdersCount);
+    
     const prodMap: Record<string, string> = {};
     prods.forEach(p => prodMap[p.id] = p.name);
     setProducts(prodMap);
@@ -51,6 +56,7 @@ export default function ClosingPage() {
       const result = await closingDay(cafeId);
       setReport(result);
       setAlreadyClosed(true);
+      setNeedsUpdate(false);
       load();
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to close day.');
@@ -118,7 +124,7 @@ export default function ClosingPage() {
           <h1 className="text-2xl font-display font-bold text-foreground">{t('closing')}</h1>
         </div>
         <div className="flex items-center gap-3">
-          {alreadyClosed ? (
+          {alreadyClosed && !needsUpdate ? (
             <div className="flex items-center gap-2 text-green-600 font-medium">
               <CheckCircle2 className="h-5 w-5" />
               <span>{t('today_is_closed')}</span>
@@ -127,7 +133,7 @@ export default function ClosingPage() {
             <Button onClick={handleCloseDay} disabled={isClosing} size="lg" className="gap-2">
               {isClosing && <Loader2 className="h-4 w-4 animate-spin" />}
               <CalendarDays className="h-4 w-4" />
-              {t('close_today')} ({today})
+              {needsUpdate ? t('update_closing') || 'Update Closing' : t('close_today')} ({today})
             </Button>
           )}
         </div>

@@ -40,19 +40,8 @@ export interface ClosingReport {
   items: DailyClosingItem[];
 }
 
-/**
- * Aggregates all PAID orders for today and creates a DailyClosing snapshot.
- * This is the main "Close Day" action.
- */
 export async function closingDay(cafeId: string): Promise<ClosingReport> {
   const today = new Date().toISOString().split('T')[0];
-
-  // Check for duplicate
-  const existing = await getTodayClosing(cafeId);
-  if (existing) {
-    const items = await getDailyClosingItems(existing.id);
-    return { closing: existing, items };
-  }
 
   // 1. Find all paid orders for today
   const todayOrders = await db.orders
@@ -84,15 +73,17 @@ export async function closingDay(cafeId: string): Promise<ClosingReport> {
     productTotals[item.product_id].revenue += item.subtotal;
   }
 
-  // 4. Create the DailyClosing record
-  const closingId = crypto.randomUUID();
+  // 4. Check for existing duplicate and update it if necessary
+  const existing = await getTodayClosing(cafeId);
+  const closingId = existing ? existing.id : crypto.randomUUID();
+
   const closing: DailyClosing = {
     id: closingId,
     cafe_id: cafeId,
     closing_date: today,
     total_sales: totalSales,
     total_orders: todayOrders.length,
-    created_at: new Date().toISOString(),
+    created_at: existing ? existing.created_at : new Date().toISOString(),
   };
 
   // 5. Build line items
@@ -106,11 +97,31 @@ export async function closingDay(cafeId: string): Promise<ClosingReport> {
 
   // 6. Write to Dexie and sync
   await db.transaction('rw', db.daily_closings, db.daily_closing_items, db.sync_queue, async () => {
-    await db.daily_closings.add(closing);
-    await db.daily_closing_items.bulkAdd(closingItems);
-    await enqueueSync('insert', 'daily_closings', closing as unknown as Record<string, unknown>);
-    for (const item of closingItems) {
-      await enqueueSync('insert', 'daily_closing_items', item as unknown as Record<string, unknown>);
+    if (existing) {
+      await db.daily_closings.put(closing);
+      
+      // Fetch and delete old items
+      const oldItems = await db.daily_closing_items.where('daily_closing_id').equals(closingId).toArray();
+      const oldItemIds = oldItems.map(i => i.id);
+      await db.daily_closing_items.bulkDelete(oldItemIds);
+      
+      for (const oldItem of oldItems) {
+        await enqueueSync('delete', 'daily_closing_items', oldItem as unknown as Record<string, unknown>);
+      }
+      
+      await db.daily_closing_items.bulkAdd(closingItems);
+      
+      await enqueueSync('update', 'daily_closings', closing as unknown as Record<string, unknown>);
+      for (const item of closingItems) {
+        await enqueueSync('insert', 'daily_closing_items', item as unknown as Record<string, unknown>);
+      }
+    } else {
+      await db.daily_closings.add(closing);
+      await db.daily_closing_items.bulkAdd(closingItems);
+      await enqueueSync('insert', 'daily_closings', closing as unknown as Record<string, unknown>);
+      for (const item of closingItems) {
+        await enqueueSync('insert', 'daily_closing_items', item as unknown as Record<string, unknown>);
+      }
     }
   });
 

@@ -7,6 +7,7 @@ import { Input } from '../components/ui/input';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../components/ui/table';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '../components/ui/dialog';
 import { PlusCircle, Search, Edit2, Trash2, Package } from 'lucide-react';
+import { ConfirmDialog } from '../components/ui/confirm-dialog';
 import { useTranslation } from 'react-i18next';
 
 export default function InventoryPage() {
@@ -75,11 +76,10 @@ export default function InventoryPage() {
     }
   };
 
-  const handleDelete = async (id: string) => {
-    if (confirm('Are you sure you want to delete this inventory item?')) {
-      await deleteInventoryItem(id);
-      await load();
-    }
+  const [deletingItemId, setDeletingItemId] = useState<string | null>(null);
+
+  const handleDelete = (id: string) => {
+    setDeletingItemId(id);
   };
 
   return (
@@ -209,6 +209,20 @@ export default function InventoryPage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      <ConfirmDialog
+        isOpen={!!deletingItemId}
+        onClose={() => setDeletingItemId(null)}
+        onConfirm={async () => {
+          if (deletingItemId) {
+            await deleteInventoryItem(deletingItemId);
+            setDeletingItemId(null);
+            await load();
+          }
+        }}
+        title="Delete Item"
+        description="Are you sure you want to delete this inventory item?"
+      />
     </div>
   );
 }

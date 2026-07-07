@@ -15,8 +15,8 @@ export default defineConfig(() => {
           enabled: true
         },
         manifest: {
-          name: 'Crema — Cafe Management System',
-          short_name: 'Crema',
+          name: 'O P A Cafe',
+          short_name: 'O P A Cafe',
           description: 'A commercial Cafe Management System',
           theme_color: '#ffffff',
           icons: [

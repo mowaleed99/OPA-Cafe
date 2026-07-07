@@ -7,6 +7,7 @@ import type { Category } from '../../../core/entities/category';
 import { useAuthStore } from '../../../application/store/useAuthStore';
 import { getCategories, softDeleteCategory } from '../../../application/useCases/products/manageCategories';
 import { CategoryFormModal } from './CategoryFormModal';
+import { ConfirmDialog } from '../../components/ui/confirm-dialog';
 
 export function CategoriesTab() {
   const { t } = useTranslation();
@@ -35,11 +36,10 @@ export function CategoriesTab() {
     setIsModalOpen(true);
   };
 
-  const handleDelete = async (category: Category) => {
-    if (confirm(`Are you sure you want to delete ${category.name}?`)) {
-      await softDeleteCategory(category);
-      loadCategories();
-    }
+  const [deletingCategory, setDeletingCategory] = useState<Category | null>(null);
+
+  const handleDelete = (category: Category) => {
+    setDeletingCategory(category);
   };
 
   return (
@@ -93,6 +93,20 @@ export function CategoriesTab() {
         onClose={() => setIsModalOpen(false)} 
         categoryToEdit={categoryToEdit}
         onSaved={loadCategories}
+      />
+
+      <ConfirmDialog
+        isOpen={!!deletingCategory}
+        onClose={() => setDeletingCategory(null)}
+        onConfirm={async () => {
+          if (deletingCategory) {
+            await softDeleteCategory(deletingCategory);
+            setDeletingCategory(null);
+            loadCategories();
+          }
+        }}
+        title="Delete Category"
+        description={`Are you sure you want to delete ${deletingCategory?.name}?`}
       />
     </div>
   );

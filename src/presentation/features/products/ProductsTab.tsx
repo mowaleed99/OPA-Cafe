@@ -10,6 +10,7 @@ import { useAuthStore } from '../../../application/store/useAuthStore';
 import { getProducts, softDeleteProduct } from '../../../application/useCases/products/manageProducts';
 import { getCategories } from '../../../application/useCases/products/manageCategories';
 import { ProductFormModal } from './ProductFormModal';
+import { ConfirmDialog } from '../../components/ui/confirm-dialog';
 
 export function ProductsTab() {
   const { t } = useTranslation();
@@ -44,11 +45,10 @@ export function ProductsTab() {
     setIsModalOpen(true);
   };
 
-  const handleDelete = async (product: Product) => {
-    if (confirm(`Are you sure you want to delete ${product.name}?`)) {
-      await softDeleteProduct(product);
-      loadData();
-    }
+  const [deletingProduct, setDeletingProduct] = useState<Product | null>(null);
+
+  const handleDelete = (product: Product) => {
+    setDeletingProduct(product);
   };
 
   const filtered = products.filter(p =>
@@ -199,6 +199,20 @@ export function ProductsTab() {
         onClose={() => setIsModalOpen(false)} 
         productToEdit={productToEdit}
         onSaved={loadData}
+      />
+
+      <ConfirmDialog
+        isOpen={!!deletingProduct}
+        onClose={() => setDeletingProduct(null)}
+        onConfirm={async () => {
+          if (deletingProduct) {
+            await softDeleteProduct(deletingProduct);
+            setDeletingProduct(null);
+            loadData();
+          }
+        }}
+        title="Delete Product"
+        description={`Are you sure you want to delete ${deletingProduct?.name}?`}
       />
     </div>
   );

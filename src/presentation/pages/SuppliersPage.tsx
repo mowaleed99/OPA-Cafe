@@ -11,6 +11,7 @@ import { Button } from '../components/ui/button';
 import { Input } from '../components/ui/input';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../components/ui/table';
 import { PlusCircle, Pencil, Trash2, Truck } from 'lucide-react';
+import { ConfirmDialog } from '../components/ui/confirm-dialog';
 import type { Supplier } from '../../core/entities/supplier';
 import { useAuthStore } from '../../application/store/useAuthStore';
 import {
@@ -101,11 +102,10 @@ export default function SuppliersPage() {
 
   const handleEdit = (s: Supplier) => { setEditing(s); setModalOpen(true); };
   const handleAdd = () => { setEditing(null); setModalOpen(true); };
-  const handleDelete = async (s: Supplier) => {
-    if (confirm(`Delete supplier "${s.name}"? This cannot be undone.`)) {
-      await deleteSupplier(s);
-      load();
-    }
+  const [deletingSupplier, setDeletingSupplier] = useState<Supplier | null>(null);
+
+  const handleDelete = (s: Supplier) => {
+    setDeletingSupplier(s);
   };
 
   return (
@@ -164,6 +164,20 @@ export default function SuppliersPage() {
         onClose={() => setModalOpen(false)}
         supplierToEdit={editing}
         onSaved={load}
+      />
+
+      <ConfirmDialog
+        isOpen={!!deletingSupplier}
+        onClose={() => setDeletingSupplier(null)}
+        onConfirm={async () => {
+          if (deletingSupplier) {
+            await deleteSupplier(deletingSupplier);
+            setDeletingSupplier(null);
+            load();
+          }
+        }}
+        title="Delete Supplier"
+        description={`Delete supplier "${deletingSupplier?.name}"? This cannot be undone.`}
       />
     </div>
   );
