@@ -48,11 +48,9 @@ export default function AppLayout() {
       {/* Sidebar */}
       <aside className="w-16 md:w-56 flex flex-col flex-shrink-0 border-r border-border bg-card">
         {/* Logo */}
-        <div className="h-14 flex items-center justify-center md:justify-start px-4 border-b border-border">
-          <span className="hidden md:block font-display font-bold text-lg text-foreground tracking-tight">
-            Crema
-          </span>
-          <span className="block md:hidden font-display font-bold text-lg text-foreground">☕</span>
+        <div className="h-16 flex items-center justify-center md:justify-start px-4 border-b border-border">
+          <img src="/OPA-logo.png" alt="OPA CAFE" className="hidden md:block h-8 w-auto object-contain" />
+          <img src="/OPA-logo.png" alt="OPA CAFE" className="block md:hidden h-8 w-auto object-contain" />
         </div>
 
         {/* Navigation */}

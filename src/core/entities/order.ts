@@ -1,5 +1,6 @@
 export type OrderType = 'dine_in' | 'takeaway';
 export type OrderStatus = 'open' | 'closed' | 'paid';
+export type PaymentMethod = 'cash' | 'instapay' | 'vodafone_cash';
 
 export interface Order {
   id: string;
@@ -7,6 +8,7 @@ export interface Order {
   table_id?: string | null;
   order_type: OrderType;
   status: OrderStatus;
+  payment_method?: PaymentMethod | null;
   total_amount: number;
   created_at: string;
 }
