@@ -1,3 +1,4 @@
+import { useTranslation } from 'react-i18next';
 import { useState } from 'react';
 import { useAuthStore } from '../../application/store/useAuthStore';
 import { useCashiers } from '../../application/useCases/users/getCashiers';
@@ -5,6 +6,7 @@ import { createCashier } from '../../application/useCases/users/createCashier';
 import { Users, Plus, Shield, Loader2, X } from 'lucide-react';
 
 export default function UsersPage() {
+  const { t } = useTranslation();
   const { cafeId } = useAuthStore();
   const currentCafeId = cafeId();
   const { cashiers, isLoading, error, refetch } = useCashiers(currentCafeId);
@@ -92,7 +94,7 @@ export default function UsersPage() {
                       <Shield size={18} />
                     </div>
                     <div>
-                      <p className="font-medium text-foreground">Cashier Account</p>
+                      <p className="font-medium text-foreground">{t('cashier_account')}</p>
                       <p className="text-xs text-muted-foreground">ID: {cashier.id.substring(0, 8)}...</p>
                     </div>
                   </div>
@@ -111,7 +113,7 @@ export default function UsersPage() {
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm animate-in fade-in duration-200">
           <div className="bg-background rounded-2xl shadow-xl w-full max-w-md overflow-hidden animate-in zoom-in-95 duration-200">
             <div className="flex items-center justify-between p-4 border-b border-border">
-              <h3 className="font-bold text-lg">Create New Cashier</h3>
+              <h3 className="font-bold text-lg">{t('create_cashier')}</h3>
               <button 
                 onClick={() => setIsModalOpen(false)}
                 className="p-1 text-muted-foreground hover:bg-muted rounded-full transition-colors"
@@ -140,7 +142,7 @@ export default function UsersPage() {
               </div>
 
               <div className="space-y-1.5">
-                <label className="text-sm font-medium text-foreground">Email Address</label>
+                <label className="text-sm font-medium text-foreground">{t('email_address')}</label>
                 <input
                   required
                   type="email"
@@ -152,7 +154,7 @@ export default function UsersPage() {
               </div>
 
               <div className="space-y-1.5">
-                <label className="text-sm font-medium text-foreground">Password</label>
+                <label className="text-sm font-medium text-foreground">{t('password')}</label>
                 <input
                   required
                   type="password"

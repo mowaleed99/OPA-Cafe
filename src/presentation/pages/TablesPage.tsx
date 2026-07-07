@@ -1,3 +1,4 @@
+import { useTranslation } from 'react-i18next';
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuthStore } from '../../application/store/useAuthStore';
@@ -6,6 +7,7 @@ import { addTable, removeTable } from '../../application/useCases/tables/tableMa
 import { Plus, Trash2, Users } from 'lucide-react';
 
 export default function TablesPage() {
+  const { t } = useTranslation();
   const { cafeId, isOwner } = useAuthStore();
   const currentCafeId = cafeId();
   const tables = useTables(currentCafeId);
@@ -32,6 +34,7 @@ export default function TablesPage() {
   };
 
   const handleTableClick = (tableId: string) => {
+  const { t } = useTranslation();
     navigate(`/pos?table_id=${tableId}`);
   };
 
@@ -65,7 +68,7 @@ export default function TablesPage() {
         {isAdding && (
           <form onSubmit={handleAddTable} className="mb-6 bg-background p-4 rounded-xl border border-border flex items-end gap-4 animate-in slide-in-from-top-4">
             <div className="flex-1">
-              <label className="block text-sm font-medium mb-1">Table Name or Number</label>
+              <label className="block text-sm font-medium mb-1">{t('table_name')}</label>
               <input
                 autoFocus
                 required

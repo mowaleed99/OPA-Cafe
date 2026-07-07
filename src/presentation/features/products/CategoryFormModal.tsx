@@ -1,3 +1,4 @@
+import { useTranslation } from 'react-i18next';
 import { useState, useEffect } from 'react';
 import {
   Dialog,
@@ -20,6 +21,7 @@ interface CategoryFormModalProps {
 }
 
 export function CategoryFormModal({ isOpen, onClose, categoryToEdit, onSaved }: CategoryFormModalProps) {
+  const { t } = useTranslation();
   const [name, setName] = useState('');
   const [isSaving, setIsSaving] = useState(false);
   const cafeId = useAuthStore(state => state.cafeId());
@@ -66,7 +68,7 @@ export function CategoryFormModal({ isOpen, onClose, categoryToEdit, onSaved }: 
           />
         </div>
         <DialogFooter>
-          <Button variant="outline" onClick={onClose} disabled={isSaving}>Cancel</Button>
+          <Button variant="outline" onClick={onClose} disabled={isSaving}>{t('cancel')}</Button>
           <Button onClick={handleSave} disabled={isSaving || !name.trim()}>Save</Button>
         </DialogFooter>
       </DialogContent>

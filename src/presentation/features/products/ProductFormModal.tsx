@@ -1,3 +1,4 @@
+import { useTranslation } from 'react-i18next';
 import { useState, useEffect } from 'react';
 import {
   Dialog,
@@ -29,6 +30,7 @@ interface ProductFormModalProps {
 }
 
 export function ProductFormModal({ isOpen, onClose, productToEdit, onSaved }: ProductFormModalProps) {
+  const { t } = useTranslation();
   const [name, setName] = useState('');
   const [price, setPrice] = useState('');
   const [cost, setCost] = useState('');
@@ -146,7 +148,7 @@ export function ProductFormModal({ isOpen, onClose, productToEdit, onSaved }: Pr
           </div>
         </div>
         <DialogFooter>
-          <Button variant="outline" onClick={onClose} disabled={isSaving}>Cancel</Button>
+          <Button variant="outline" onClick={onClose} disabled={isSaving}>{t('cancel')}</Button>
           <Button onClick={handleSave} disabled={isSaving || !name.trim() || !price || !categoryId}>Save</Button>
         </DialogFooter>
       </DialogContent>

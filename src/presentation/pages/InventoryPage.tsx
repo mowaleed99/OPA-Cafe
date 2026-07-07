@@ -87,14 +87,14 @@ export default function InventoryPage() {
       <div className="flex items-center justify-between gap-3">
         <div>
           <h1 className="text-2xl font-display font-bold text-foreground">Inventory</h1>
-          <p className="text-muted-foreground mt-1">Manage your raw materials and stock levels.</p>
+          <p className="text-muted-foreground mt-1">{t('manage_inventory_desc')}</p>
         </div>
         <div className="flex items-center gap-3">
           <div className="relative">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
             <input
               type="text"
-              placeholder="Search items..."
+              placeholder={t('search_items')}
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               className="h-10 rounded-md border border-input bg-background px-3 py-2 pl-9 text-sm w-60 focus:outline-none focus:ring-2 focus:ring-ring"
@@ -110,11 +110,11 @@ export default function InventoryPage() {
         <Table>
           <TableHeader>
             <TableRow>
-              <TableHead>Item Name</TableHead>
-              <TableHead>Stock Level</TableHead>
-              <TableHead>Unit</TableHead>
-              <TableHead>Unit Cost</TableHead>
-              <TableHead className="w-[100px]">Actions</TableHead>
+              <TableHead>{t('item_name')}</TableHead>
+              <TableHead>{t('stock_level')}</TableHead>
+              <TableHead>{t('unit')}</TableHead>
+              <TableHead>{t('unit_cost')}</TableHead>
+              <TableHead className="w-[100px]">{t('actions')}</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -164,7 +164,7 @@ export default function InventoryPage() {
           </DialogHeader>
           <div className="space-y-4 py-4">
             <div>
-              <label className="text-sm font-medium mb-1 block">Name</label>
+              <label className="text-sm font-medium mb-1 block">{t('name')}</label>
               <Input
                 value={formData.name}
                 onChange={e => setFormData({ ...formData, name: e.target.value })}
@@ -182,7 +182,7 @@ export default function InventoryPage() {
                 />
               </div>
               <div>
-                <label className="text-sm font-medium mb-1 block">Unit</label>
+                <label className="text-sm font-medium mb-1 block">{t('unit')}</label>
                 <Input
                   value={formData.unit}
                   onChange={e => setFormData({ ...formData, unit: e.target.value })}
@@ -202,7 +202,7 @@ export default function InventoryPage() {
             </div>
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setIsModalOpen(false)} disabled={saving}>Cancel</Button>
+            <Button variant="outline" onClick={() => setIsModalOpen(false)} disabled={saving}>{t('cancel')}</Button>
             <Button onClick={handleSave} disabled={saving || !formData.name || !formData.unit}>
               {saving ? 'Saving...' : 'Save Item'}
             </Button>

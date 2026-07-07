@@ -1,3 +1,4 @@
+import { useTranslation } from 'react-i18next';
 import { useState, useEffect } from 'react';
 import { Button } from '../../components/ui/button';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../../components/ui/table';
@@ -8,6 +9,7 @@ import { getCategories, softDeleteCategory } from '../../../application/useCases
 import { CategoryFormModal } from './CategoryFormModal';
 
 export function CategoriesTab() {
+  const { t } = useTranslation();
   const [categories, setCategories] = useState<Category[]>([]);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [categoryToEdit, setCategoryToEdit] = useState<Category | null>(null);
@@ -24,11 +26,13 @@ export function CategoriesTab() {
   }, [cafeId]);
 
   const handleAdd = () => {
+  const { t } = useTranslation();
     setCategoryToEdit(null);
     setIsModalOpen(true);
   };
 
   const handleEdit = (category: Category) => {
+  const { t } = useTranslation();
     setCategoryToEdit(category);
     setIsModalOpen(true);
   };
@@ -54,8 +58,8 @@ export function CategoriesTab() {
         <Table>
           <TableHeader>
             <TableRow>
-              <TableHead>Name</TableHead>
-              <TableHead className="w-[100px]">Actions</TableHead>
+              <TableHead>{t('name')}</TableHead>
+              <TableHead className="w-[100px]">{t('actions')}</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>

@@ -10,7 +10,7 @@ import { db } from '../../infrastructure/database/db';
 
 export default function ReportsPage() {
   const cafeId = useAuthStore(s => s.cafeId());
-  const { currency, cafeName } = useSettingsStore();
+  const { cafeName } = useSettingsStore();
   const { t } = useTranslation();
   
   const [selectedMonth, setSelectedMonth] = useState<string>(new Date().toISOString().slice(0, 7)); // YYYY-MM
@@ -37,16 +37,16 @@ export default function ReportsPage() {
     let csvContent = "data:text/csv;charset=utf-8,";
     csvContent += `Monthly Closing Report - ${report.month}\n\n`;
     csvContent += `Total Orders,${report.total_orders}\n`;
-    csvContent += `Total Sales,${report.total_sales.toFixed(2)} ${currency}\n`;
+    csvContent += `Total Sales,${report.total_sales.toFixed(2)} EGP\n`;
     const avgOrder = report.total_orders > 0 ? (report.total_sales / report.total_orders).toFixed(2) : '0.00';
-    csvContent += `Avg Order,${avgOrder} ${currency}\n\n`;
+    csvContent += `Avg Order,${avgOrder} EGP\n\n`;
     
     csvContent += `Product,Qty Sold,Revenue\n`;
     
     Object.entries(report.aggregatedItems).forEach(([productId, data]) => {
       const productName = products[productId] || productId;
       const safeName = `"${productName.replace(/"/g, '""')}"`;
-      csvContent += `${safeName},${data.quantity},"${data.revenue.toFixed(2)} ${currency}"\n`;
+      csvContent += `${safeName},${data.quantity},"${data.revenue.toFixed(2)} EGP"\n`;
     });
     
     const encodedUri = encodeURI(csvContent);
@@ -66,7 +66,7 @@ export default function ReportsPage() {
     <div className="p-6 max-w-5xl mx-auto space-y-8">
       {/* Header */}
       <div className="flex items-center justify-between print:hidden">
-        <h1 className="text-2xl font-display font-bold text-foreground">Monthly Reports</h1>
+        <h1 className="text-2xl font-display font-bold text-foreground">{t('monthly_reports')}</h1>
         <div className="flex items-center gap-3">
           <input 
             type="month" 
@@ -104,7 +104,7 @@ export default function ReportsPage() {
             </div>
             <div className="rounded-lg bg-muted/50 p-4 text-center print:border print:bg-transparent">
               <TrendingUp className="h-6 w-6 mx-auto mb-1 text-muted-foreground print:hidden" />
-              <p className="text-2xl font-bold">{report.total_sales.toFixed(2)} <span className="text-sm font-normal">{currency}</span></p>
+              <p className="text-2xl font-bold">{report.total_sales.toFixed(2)} EGP</p>
               <p className="text-xs text-muted-foreground mt-1">Total Sales</p>
             </div>
             <div className="rounded-lg bg-muted/50 p-4 text-center print:border print:bg-transparent">
@@ -112,7 +112,7 @@ export default function ReportsPage() {
               <p className="text-2xl font-bold">
                 {report.total_orders > 0
                   ? (report.total_sales / report.total_orders).toFixed(2)
-                  : '0.00'} <span className="text-sm font-normal">{currency}</span>
+                  : '0.00'} EGP
               </p>
               <p className="text-xs text-muted-foreground mt-1">Avg Order</p>
             </div>
@@ -133,7 +133,7 @@ export default function ReportsPage() {
                     <TableRow key={productId}>
                       <TableCell>{products[productId] || productId}</TableCell>
                       <TableCell className="text-right">{data.quantity}</TableCell>
-                      <TableCell className="text-right">{data.revenue.toFixed(2)} {currency}</TableCell>
+                      <TableCell className="text-right font-medium">{data.revenue.toFixed(2)} EGP</TableCell>
                     </TableRow>
                   ))}
                 </TableBody>

@@ -25,6 +25,7 @@ import InventoryPage from './presentation/pages/InventoryPage';
 import CategoriesPage from './presentation/pages/CategoriesPage';
 import SuppliersPage from './presentation/pages/SuppliersPage';
 import PurchasesPage from './presentation/pages/PurchasesPage';
+import DebtsPage from './presentation/pages/DebtsPage';
 import ClosingPage from './presentation/pages/ClosingPage';
 import ReportsPage from './presentation/pages/ReportsPage';
 import UsersPage from './presentation/pages/UsersPage';
@@ -78,6 +79,7 @@ export default function App() {
               <Route path="/categories" element={<CategoriesPage />} />
               <Route path="/suppliers" element={<SuppliersPage />} />
               <Route path="/purchases" element={<PurchasesPage />} />
+              <Route path="/debts" element={<DebtsPage />} />
               <Route path="/closing" element={<ClosingPage />} />
               <Route path="/reports" element={<ReportsPage />} />
               <Route path="/users" element={<UsersPage />} />

@@ -15,20 +15,24 @@ import {
   LineChart,
   TerminalSquare,
   Coffee,
+  Banknote,
 } from 'lucide-react';
 
 const ownerNav = [
   { to: '/dashboard', icon: LayoutDashboard, labelKey: 'dashboard' },
   { to: '/pos', icon: TerminalSquare, labelKey: 'pos' },
+  { to: '/tables', icon: UtensilsCrossed, labelKey: 'tables' },
   { to: '/products', icon: Coffee, labelKey: 'products' },
   { to: '/inventory', icon: Package, labelKey: 'inventory' },
   { to: '/suppliers', icon: Truck, labelKey: 'suppliers' },
   { to: '/purchases', icon: ClipboardList, labelKey: 'purchases' },
+  { to: '/debts', icon: Banknote, labelKey: 'debts' },
   { to: '/closing', icon: BookOpen, labelKey: 'closing' },
   { to: '/reports', icon: LineChart, labelKey: 'reports' },
   { to: '/users', icon: Users, labelKey: 'users' },
   { to: '/settings', icon: Settings, labelKey: 'settings' },
 ];
+
 
 // Cashiers only see POS and Tables
 const cashierNav = [

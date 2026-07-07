@@ -149,8 +149,8 @@ export default function SettingsPage() {
             <div className="w-12 h-12 rounded-full bg-blue-100 flex items-center justify-center mb-4">
               <Download className="text-blue-600" size={24} />
             </div>
-            <h3 className="text-lg font-semibold">Export Backup</h3>
-            <p className="text-sm text-muted-foreground">Download a complete JSON backup of your local database.</p>
+            <h3 className="text-lg font-semibold">{t('export_backup')}</h3>
+            <p className="text-sm text-muted-foreground">{t('export_backup_desc')}</p>
             <Button onClick={handleExport} disabled={isExporting} className="w-full mt-4">
               {isExporting ? 'Exporting...' : 'Download Backup'}
             </Button>
@@ -160,12 +160,12 @@ export default function SettingsPage() {
             <div className="w-12 h-12 rounded-full bg-amber-100 flex items-center justify-center mb-4">
               <Upload className="text-amber-600" size={24} />
             </div>
-            <h3 className="text-lg font-semibold">Restore Backup</h3>
-            <p className="text-sm text-muted-foreground">Upload a JSON backup file to restore your local database.</p>
+            <h3 className="text-lg font-semibold">{t('restore_backup')}</h3>
+            <p className="text-sm text-muted-foreground">{t('restore_backup_desc')}</p>
             
             <div className="rounded-md border border-amber-200 bg-amber-50 p-3 flex gap-2 items-start mt-4">
               <AlertCircle className="text-amber-600 shrink-0 mt-0.5" size={16} />
-              <p className="text-xs text-amber-800">Restoring will overwrite all existing local data. Use with caution.</p>
+              <p className="text-xs text-amber-800">{t('restore_warning')}</p>
             </div>
 
             <div className="relative w-full">

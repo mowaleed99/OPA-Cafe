@@ -1,3 +1,4 @@
+import { useTranslation } from 'react-i18next';
 import { useState, useEffect } from 'react';
 import { Button } from '../../components/ui/button';
 import { Input } from '../../components/ui/input';
@@ -11,6 +12,7 @@ import { getCategories } from '../../../application/useCases/products/manageCate
 import { ProductFormModal } from './ProductFormModal';
 
 export function ProductsTab() {
+  const { t } = useTranslation();
   const [products, setProducts] = useState<Product[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -33,11 +35,13 @@ export function ProductsTab() {
   }, [cafeId]);
 
   const handleAdd = () => {
+  const { t } = useTranslation();
     setProductToEdit(null);
     setIsModalOpen(true);
   };
 
   const handleEdit = (product: Product) => {
+  const { t } = useTranslation();
     setProductToEdit(product);
     setIsModalOpen(true);
   };
@@ -74,7 +78,7 @@ export function ProductsTab() {
         <div className="relative flex-1 max-w-sm">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
           <Input
-            placeholder="Search products..."
+            placeholder={t('search_products')}
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             className="pl-9"
@@ -106,10 +110,10 @@ export function ProductsTab() {
                   <Table>
                     <TableHeader>
                       <TableRow>
-                        <TableHead>Name</TableHead>
+                        <TableHead>{t('name')}</TableHead>
                         <TableHead>Price</TableHead>
                         <TableHead>Cost</TableHead>
-                        <TableHead className="w-[100px]">Actions</TableHead>
+                        <TableHead className="w-[100px]">{t('actions')}</TableHead>
                       </TableRow>
                     </TableHeader>
                     <TableBody>
@@ -153,10 +157,10 @@ export function ProductsTab() {
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead>Name</TableHead>
+                    <TableHead>{t('name')}</TableHead>
                     <TableHead>Price</TableHead>
                     <TableHead>Cost</TableHead>
-                    <TableHead className="w-[100px]">Actions</TableHead>
+                    <TableHead className="w-[100px]">{t('actions')}</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>

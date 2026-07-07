@@ -1,3 +1,4 @@
+import { useTranslation } from 'react-i18next';
 import { useState } from 'react';
 import {
   ShoppingCart,
@@ -20,10 +21,10 @@ import { useSettingsStore } from '../../../application/store/useSettingsStore';
 import { useNavigate } from 'react-router-dom';
 import type { PaymentMethod } from '../../../core/entities/order';
 
-const PAYMENT_METHODS: { id: PaymentMethod; label: string; icon: React.ReactNode }[] = [
-  { id: 'cash', label: 'Cash', icon: <Banknote size={15} /> },
-  { id: 'instapay', label: 'Instapay', icon: <Smartphone size={15} /> },
-  { id: 'vodafone_cash', label: 'Vodafone Cash', icon: <CreditCard size={15} /> },
+const PAYMENT_METHOD_KEYS: { id: PaymentMethod; labelKey: string; icon: React.ReactNode }[] = [
+  { id: 'cash', labelKey: 'cash', icon: <Banknote size={15} /> },
+  { id: 'instapay', labelKey: 'instapay', icon: <Smartphone size={15} /> },
+  { id: 'vodafone_cash', labelKey: 'vodafone_cash', icon: <CreditCard size={15} /> },
 ];
 
 interface CartPanelProps {
@@ -31,6 +32,7 @@ interface CartPanelProps {
 }
 
 export default function CartPanel({ onOrderPlaced }: CartPanelProps) {
+  const { t } = useTranslation();
   const {
     items,
     paymentMethod,
@@ -105,7 +107,7 @@ export default function CartPanel({ onOrderPlaced }: CartPanelProps) {
       }
     } catch (err) {
       console.error('[CartPanel] Failed to place order:', err);
-      setError('Failed to place/update order. Please try again.');
+      setError(t('failed_place_order'));
     } finally {
       setIsPlacing(false);
     }
@@ -129,7 +131,7 @@ export default function CartPanel({ onOrderPlaced }: CartPanelProps) {
       }, 1500);
     } catch (err) {
       console.error('[CartPanel] Failed to checkout:', err);
-      setError('Failed to checkout. Please try again.');
+      setError(t('failed_checkout'));
     } finally {
       setIsCheckingOut(false);
     }
@@ -142,7 +144,7 @@ export default function CartPanel({ onOrderPlaced }: CartPanelProps) {
         <div className="flex items-center gap-2">
           <ShoppingCart size={17} className="text-muted-foreground" />
           <span className="font-display font-semibold text-foreground text-base">
-            Current Order
+            {t('current_order')}
           </span>
           {itemCount > 0 && (
             <span className="text-xs font-bold bg-[var(--brand-latte)] text-white rounded-full min-w-[20px] h-5 flex items-center justify-center px-1.5">
@@ -156,7 +158,7 @@ export default function CartPanel({ onOrderPlaced }: CartPanelProps) {
             className="text-xs text-muted-foreground hover:text-destructive transition-colors flex items-center gap-1"
           >
             <Trash2 size={13} />
-            Clear
+            {t('clear')}
           </button>
         )}
       </div>
@@ -169,9 +171,9 @@ export default function CartPanel({ onOrderPlaced }: CartPanelProps) {
               <ShoppingCart size={20} className="text-muted-foreground" />
             </div>
             <div>
-              <p className="text-sm font-medium text-foreground">No items yet</p>
+              <p className="text-sm font-medium text-foreground">{t('no_items_yet')}</p>
               <p className="text-xs text-muted-foreground mt-0.5">
-                Tap a product to add it to the order
+                {t('tap_product_to_add')}
               </p>
             </div>
           </div>
@@ -204,7 +206,7 @@ export default function CartPanel({ onOrderPlaced }: CartPanelProps) {
                     {item.product.name}
                   </p>
                   <p className="text-xs text-muted-foreground">
-                    {item.unit_price.toLocaleString('en-EG')} EGP each
+                    {item.unit_price.toLocaleString('en-EG')} EGP {t('each')}
                   </p>
                 </div>
 
@@ -232,10 +234,10 @@ export default function CartPanel({ onOrderPlaced }: CartPanelProps) {
           {/* Payment method */}
           <div className="space-y-2">
             <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
-              Payment Method
+              {t('payment_method')}
             </p>
             <div className="flex gap-2">
-              {PAYMENT_METHODS.map((method) => (
+              {PAYMENT_METHOD_KEYS.map((method) => (
                 <button
                   key={method.id}
                   onClick={() => setPaymentMethod(method.id)}
@@ -247,7 +249,7 @@ export default function CartPanel({ onOrderPlaced }: CartPanelProps) {
                   )}
                 >
                   {method.icon}
-                  <span className="text-[10px] leading-tight text-center">{method.label}</span>
+                  <span className="text-[10px] leading-tight text-center">{t(method.labelKey)}</span>
                 </button>
               ))}
             </div>
@@ -256,7 +258,7 @@ export default function CartPanel({ onOrderPlaced }: CartPanelProps) {
           {/* Discount */}
           <div className="flex items-center gap-3">
             <label htmlFor="pos-discount" className="text-xs font-medium text-muted-foreground whitespace-nowrap">
-              Discount %
+              {t('discount_percentage')}
             </label>
             <input
               id="pos-discount"
@@ -275,7 +277,7 @@ export default function CartPanel({ onOrderPlaced }: CartPanelProps) {
             <div className="space-y-2 rounded-xl border border-border bg-muted/40 p-3">
               <div className="flex items-center gap-3">
                 <label htmlFor="pos-cash-received" className="text-xs font-medium text-muted-foreground whitespace-nowrap">
-                  Cash received
+                  {t('cash_received')}
                 </label>
                 <input
                   id="pos-cash-received"
@@ -306,7 +308,7 @@ export default function CartPanel({ onOrderPlaced }: CartPanelProps) {
                         : 'text-red-600 dark:text-red-400'
                     )}
                   >
-                    {hasEnoughCash ? 'Change due' : 'Not enough cash'}
+                    {hasEnoughCash ? t('change_due') : t('not_enough_cash')}
                   </span>
                   <span
                     className={cn(
@@ -328,17 +330,17 @@ export default function CartPanel({ onOrderPlaced }: CartPanelProps) {
           {/* Totals */}
           <div className="space-y-1.5 py-3 border-y border-border">
             <div className="flex justify-between text-sm text-muted-foreground">
-              <span>Subtotal</span>
+              <span>{t('subtotal')}</span>
               <span className="tabular-nums">{subtotal.toLocaleString('en-EG')} EGP</span>
             </div>
             {discount > 0 && (
               <div className="flex justify-between text-sm text-emerald-600 dark:text-emerald-400">
-                <span>Discount ({discount}%)</span>
+                <span>{t('discount_label')} ({discount}%)</span>
                 <span className="tabular-nums">−{discountAmount.toLocaleString('en-EG')} EGP</span>
               </div>
             )}
             <div className="flex justify-between text-base font-bold text-foreground pt-1">
-              <span>Total</span>
+              <span>{t('total')}</span>
               <span className="tabular-nums" style={{ color: 'var(--brand-latte)' }}>
                 {total.toLocaleString('en-EG')} EGP
               </span>
@@ -365,13 +367,13 @@ export default function CartPanel({ onOrderPlaced }: CartPanelProps) {
               )}
             >
               {isPlacing ? (
-                <><Loader2 size={17} className="animate-spin" /> Saving…</>
+                <><Loader2 size={17} className="animate-spin" /> {t('saving')}</>
               ) : success && !isCheckingOut ? (
-                <><CheckCircle2 size={17} /> Done!</>
+                <><CheckCircle2 size={17} /> {t('done')}</>
               ) : tableId ? (
-                activeOrderId ? 'Update Order' : 'Send Order'
+                activeOrderId ? t('update_order') : t('send_order')
               ) : (
-                'Place Order'
+                t('place_order')
               )}
             </button>
 
@@ -387,11 +389,11 @@ export default function CartPanel({ onOrderPlaced }: CartPanelProps) {
                 )}
               >
                 {isCheckingOut ? (
-                  <><Loader2 size={17} className="animate-spin" /> Checking out…</>
+                  <><Loader2 size={17} className="animate-spin" /> {t('checking_out')}</>
                 ) : success && isCheckingOut ? (
-                  <><CheckCircle2 size={17} /> Paid!</>
+                  <><CheckCircle2 size={17} /> {t('paid')}</>
                 ) : (
-                  'Checkout'
+                  t('checkout')
                 )}
               </button>
             )}

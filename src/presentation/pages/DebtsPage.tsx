@@ -9,15 +9,8 @@ import {
 } from '../components/ui/dialog';
 import { Button } from '../components/ui/button';
 import { Input } from '../components/ui/input';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '../components/ui/select';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../components/ui/table';
-import { PlusCircle, ChevronRight, X, Search, ChevronLeft } from 'lucide-react';
+import { Banknote, ChevronRight, X, Search } from 'lucide-react';
 import type { Supplier, Purchase, PurchaseItem, SupplierPayment } from '../../core/entities/supplier';
 import type { InventoryItem } from '../../core/entities/inventory';
 import { useAuthStore } from '../../application/store/useAuthStore';
@@ -25,19 +18,18 @@ import { getSuppliers } from '../../application/useCases/suppliers/manageSupplie
 import {
   getPurchases,
   getPurchaseDetails,
-  createPurchase,
-  type CreatePurchaseParams,
+  recordPayment,
 } from '../../application/useCases/suppliers/managePurchases';
 import { getInventoryItems } from '../../application/useCases/inventory/manageInventory';
 
 // ── Status Badge ──────────────────────────────────────────────────────────────
 function StatusBadge({ status }: { status: Purchase['payment_status'] }) {
-  const { t } = useTranslation();
   const colors: Record<typeof status, string> = {
     paid: 'bg-green-100 text-green-700',
     partial: 'bg-yellow-100 text-yellow-700',
     unpaid: 'bg-red-100 text-red-700',
   };
+  const { t } = useTranslation();
   const labels: Record<typeof status, string> = {
     paid: t('status_paid'),
     partial: t('status_partial'),
@@ -50,67 +42,33 @@ function StatusBadge({ status }: { status: Purchase['payment_status'] }) {
   );
 }
 
-// ── Create Purchase Modal ─────────────────────────────────────────────────────
-interface PurchaseLineItem {
-  inventoryItemId: string;
-  quantity: string;
-  unitCost: string;
-}
-
-function CreatePurchaseModal({
+// ── Record Payment Modal ──────────────────────────────────────────────────────
+function RecordPaymentModal({
   isOpen,
   onClose,
-  suppliers,
-  inventoryItems,
-  cafeId,
-  onCreated,
+  purchase,
+  onPaymentRecorded,
 }: {
   isOpen: boolean;
   onClose: () => void;
-  suppliers: Supplier[];
-  inventoryItems: InventoryItem[];
-  cafeId: string;
-  onCreated: () => void;
+  purchase: Purchase | null;
+  onPaymentRecorded: () => void;
 }) {
   const { t } = useTranslation();
-  const [supplierId, setSupplierId] = useState('');
-  const [lines, setLines] = useState<PurchaseLineItem[]>([
-    { inventoryItemId: '', quantity: '', unitCost: '' },
-  ]);
+  const [amount, setAmount] = useState('');
+  const [notes, setNotes] = useState('');
   const [saving, setSaving] = useState(false);
 
-  useEffect(() => {
-    if (isOpen) { setSupplierId(''); setLines([{ inventoryItemId: '', quantity: '', unitCost: '' }]); }
-  }, [isOpen]);
+  useEffect(() => { setAmount(''); setNotes(''); }, [purchase]);
 
-  const addLine = () => setLines(l => [...l, { inventoryItemId: '', quantity: '', unitCost: '' }]);
-  const removeLine = (i: number) => setLines(l => l.filter((_, idx) => idx !== i));
-  const updateLine = (i: number, field: keyof PurchaseLineItem, value: string) =>
-    setLines(l => l.map((line, idx) => idx === i ? { ...line, [field]: value } : line));
-
-  const total = lines.reduce((sum, l) => {
-    const qty = parseFloat(l.quantity) || 0;
-    const cost = parseFloat(l.unitCost) || 0;
-    return sum + qty * cost;
-  }, 0);
-
-  const canSave = supplierId && lines.every(l => l.inventoryItemId && l.quantity && l.unitCost);
+  const maxAmount = purchase?.amount_remaining ?? 0;
 
   const handleSave = async () => {
-    if (!canSave) return;
+    if (!purchase || !amount) return;
     setSaving(true);
     try {
-      const params: CreatePurchaseParams = {
-        cafeId,
-        supplierId,
-        items: lines.map(l => ({
-          inventoryItemId: l.inventoryItemId,
-          quantity: parseFloat(l.quantity),
-          unitCost: parseFloat(l.unitCost),
-        })),
-      };
-      await createPurchase(params);
-      onCreated();
+      await recordPayment(purchase, parseFloat(amount), notes);
+      onPaymentRecorded();
       onClose();
     } finally {
       setSaving(false);
@@ -119,74 +77,37 @@ function CreatePurchaseModal({
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="max-w-2xl">
+      <DialogContent>
         <DialogHeader>
-          <DialogTitle>{t('new_purchase')}</DialogTitle>
+          <DialogTitle>{t('record_payment')}</DialogTitle>
         </DialogHeader>
         <div className="space-y-4 py-4">
-          {/* Supplier */}
-          <div>
-            <label className="text-sm font-medium mb-1 block">{t('supplier')}</label>
-            <Select value={supplierId} onValueChange={setSupplierId}>
-              <SelectTrigger><SelectValue placeholder={t('select_supplier')} /></SelectTrigger>
-              <SelectContent>
-                {suppliers.map(s => <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>)}
-              </SelectContent>
-            </Select>
+          <div className="rounded-md bg-muted/50 px-4 py-3 text-sm space-y-1">
+            <div className="flex justify-between"><span>{t('total_amount')}</span><span>{purchase?.total_amount.toFixed(2)} EGP</span></div>
+            <div className="flex justify-between"><span>{t('already_paid')}</span><span>{purchase?.amount_paid.toFixed(2)} EGP</span></div>
+            <div className="flex justify-between font-semibold"><span>{t('remaining')}</span><span>{maxAmount.toFixed(2)} EGP</span></div>
           </div>
-
-          {/* Line Items */}
           <div>
-            <label className="text-sm font-medium mb-2 block">{t('items')}</label>
-            <div className="space-y-2">
-              {lines.map((line, i) => (
-                <div key={i} className="flex gap-2 items-center">
-                  <div className="flex-1">
-                    <Select value={line.inventoryItemId} onValueChange={v => updateLine(i, 'inventoryItemId', v)}>
-                      <SelectTrigger><SelectValue placeholder={t('item_name')} /></SelectTrigger>
-                      <SelectContent>
-                        {inventoryItems.map(p => <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>)}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <Input
-                    type="number"
-                    className="w-24"
-                    placeholder={t('qty')}
-                    value={line.quantity}
-                    onChange={e => updateLine(i, 'quantity', e.target.value)}
-                  />
-                  <Input
-                    type="number"
-                    className="w-28"
-                    placeholder={t('unit_cost')}
-                    value={line.unitCost}
-                    onChange={e => updateLine(i, 'unitCost', e.target.value)}
-                  />
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    onClick={() => removeLine(i)}
-                    disabled={lines.length === 1}
-                  >
-                    <X className="h-4 w-4" />
-                  </Button>
-                </div>
-              ))}
-            </div>
-            <Button variant="outline" size="sm" className="mt-2" onClick={addLine}>
-              <PlusCircle className="h-3.5 w-3.5 mr-1" /> {t('add_item')}
-            </Button>
+            <label className="text-sm font-medium mb-1 block">{t('payment_amount')}</label>
+            <Input
+              type="number"
+              step="0.01"
+              max={maxAmount}
+              value={amount}
+              onChange={e => setAmount(e.target.value)}
+              placeholder={`Max ${maxAmount.toFixed(2)} EGP`}
+            />
           </div>
-
-          {/* Total */}
-          <div className="flex justify-end">
-            <span className="text-sm font-semibold">{t('total')}: {total.toFixed(2)} EGP</span>
+          <div>
+            <label className="text-sm font-medium mb-1 block">{t('notes_optional')}</label>
+            <Input value={notes} onChange={e => setNotes(e.target.value)} placeholder={t('notes_placeholder')} />
           </div>
         </div>
         <DialogFooter>
           <Button variant="outline" onClick={onClose} disabled={saving}>{t('cancel')}</Button>
-          <Button onClick={handleSave} disabled={saving || !canSave}>{t('create_purchase')}</Button>
+          <Button onClick={handleSave} disabled={saving || !amount || parseFloat(amount) <= 0}>
+            {t('record_payment')}
+          </Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>
@@ -289,19 +210,16 @@ function PurchaseDetailPanel({
 }
 
 // ── Main Page ─────────────────────────────────────────────────────────────────
-export default function PurchasesPage() {
+export default function DebtsPage() {
   const { t } = useTranslation();
   const cafeId = useAuthStore(s => s.cafeId());
   const [purchases, setPurchases] = useState<Purchase[]>([]);
-  const [suppliers, setSuppliers] = useState<Supplier[]>([]);
-  const [inventoryItems, setInventoryItems] = useState<InventoryItem[]>([]);
-  const [inventoryItemMap, setInventoryItemMap] = useState<Record<string, string>>({});
   const [supplierMap, setSupplierMap] = useState<Record<string, string>>({});
-  const [createOpen, setCreateOpen] = useState(false);
+  const [inventoryItemMap, setInventoryItemMap] = useState<Record<string, string>>({});
+  const [paymentOpen, setPaymentOpen] = useState(false);
+  const [payingPurchase, setPayingPurchase] = useState<Purchase | null>(null);
   const [selectedPurchaseId, setSelectedPurchaseId] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
-  const [currentPage, setCurrentPage] = useState(1);
-  const PAGE_SIZE = 10;
 
   const load = async () => {
     if (!cafeId) return;
@@ -310,14 +228,13 @@ export default function PurchasesPage() {
       getSuppliers(cafeId),
       getInventoryItems(cafeId),
     ]);
-    setPurchases(allPurchases);
-    setSuppliers(allSuppliers);
-    setInventoryItems(allInventory);
+    // Only show unpaid / partial
+    setPurchases(allPurchases.filter(p => p.payment_status !== 'paid'));
     const sm: Record<string, string> = {};
     allSuppliers.forEach(s => sm[s.id] = s.name);
     setSupplierMap(sm);
     const im: Record<string, string> = {};
-    allInventory.forEach(p => im[p.id] = p.name);
+    allInventory.forEach(i => im[i.id] = i.name);
     setInventoryItemMap(im);
   };
 
@@ -330,38 +247,40 @@ export default function PurchasesPage() {
   const filtered = purchases.filter(p =>
     (supplierMap[p.supplier_id] || '').toLowerCase().includes(searchQuery.toLowerCase())
   );
-  const totalPages = Math.ceil(filtered.length / PAGE_SIZE);
-  const paginated = filtered.slice((currentPage - 1) * PAGE_SIZE, currentPage * PAGE_SIZE);
 
-  const handleSearch = (q: string) => {
-    setSearchQuery(q);
-    setCurrentPage(1);
-  };
+  // Totals summary
+  const totalOutstanding = filtered.reduce((sum, p) => sum + p.amount_remaining, 0);
 
   return (
     <div className="p-6 max-w-5xl mx-auto space-y-6">
       {/* Header */}
       <div className="flex items-center justify-between gap-3 flex-wrap">
         <div>
-          <h1 className="text-2xl font-display font-bold text-foreground">{t('purchases')}</h1>
-          <p className="text-muted-foreground mt-1">{t('track_purchases_desc')}</p>
+          <h1 className="text-2xl font-display font-bold text-foreground">{t('debts')}</h1>
+          <p className="text-muted-foreground mt-1">{t('debts_desc')}</p>
         </div>
-        <div className="flex items-center gap-3">
-          <div className="relative">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-            <input
-              type="text"
-              placeholder={t('search_by_supplier')}
-              value={searchQuery}
-              onChange={(e) => handleSearch(e.target.value)}
-              className="h-10 rounded-md border border-input bg-background px-3 py-2 pl-9 text-sm w-60 focus:outline-none focus:ring-2 focus:ring-ring"
-            />
-          </div>
-          <Button onClick={() => setCreateOpen(true)}>
-            <PlusCircle className="mr-2 h-4 w-4" /> {t('new_purchase')}
-          </Button>
+        <div className="relative">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+          <input
+            type="text"
+            placeholder={t('search_by_supplier')}
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            className="h-10 rounded-md border border-input bg-background px-3 py-2 pl-9 text-sm w-60 focus:outline-none focus:ring-2 focus:ring-ring"
+          />
         </div>
       </div>
+
+      {/* Summary Card */}
+      {filtered.length > 0 && (
+        <div className="rounded-xl border bg-red-50 dark:bg-red-500/10 border-red-200 dark:border-red-500/20 p-4 flex items-center justify-between">
+          <div>
+            <p className="text-sm font-medium text-red-700 dark:text-red-400">{t('total_outstanding')}</p>
+            <p className="text-2xl font-bold text-red-700 dark:text-red-400">{totalOutstanding.toFixed(2)} EGP</p>
+          </div>
+          <Banknote className="h-10 w-10 text-red-300" />
+        </div>
+      )}
 
       {/* Table */}
       <div className="border rounded-md">
@@ -371,20 +290,21 @@ export default function PurchasesPage() {
               <TableHead>{t('date')}</TableHead>
               <TableHead>{t('supplier')}</TableHead>
               <TableHead className="text-right">{t('total_amount')}</TableHead>
+              <TableHead className="text-right">{t('already_paid')}</TableHead>
               <TableHead className="text-right">{t('remaining')}</TableHead>
               <TableHead>{t('status')}</TableHead>
-              <TableHead className="w-[80px]">{t('actions')}</TableHead>
+              <TableHead className="w-[130px]">{t('actions')}</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
-            {paginated.length === 0 ? (
+            {filtered.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={6} className="py-10 text-center text-muted-foreground">
-                  {searchQuery ? t('no_purchases_search') : t('no_purchases_yet')}
+                <TableCell colSpan={7} className="py-10 text-center text-muted-foreground">
+                  {searchQuery ? t('no_debts_search') : t('no_debts')}
                 </TableCell>
               </TableRow>
             ) : (
-              paginated.map(p => (
+              filtered.map(p => (
                 <TableRow
                   key={p.id}
                   className="cursor-pointer hover:bg-muted/30"
@@ -393,12 +313,22 @@ export default function PurchasesPage() {
                   <TableCell className="text-sm">{p.created_at.split('T')[0]}</TableCell>
                   <TableCell className="font-medium">{supplierMap[p.supplier_id] || '—'}</TableCell>
                   <TableCell className="text-right">{p.total_amount.toFixed(2)}</TableCell>
-                  <TableCell className="text-right text-red-600">{p.amount_remaining.toFixed(2)}</TableCell>
+                  <TableCell className="text-right text-green-600">{p.amount_paid.toFixed(2)}</TableCell>
+                  <TableCell className="text-right text-red-600 font-semibold">{p.amount_remaining.toFixed(2)}</TableCell>
                   <TableCell><StatusBadge status={p.payment_status} /></TableCell>
                   <TableCell>
-                    <Button variant="ghost" size="icon" onClick={e => { e.stopPropagation(); setSelectedPurchaseId(p.id); }}>
-                      <ChevronRight className="h-4 w-4" />
-                    </Button>
+                    <div className="flex gap-1">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={e => { e.stopPropagation(); setPayingPurchase(p); setPaymentOpen(true); }}
+                      >
+                        <Banknote className="h-3.5 w-3.5 mr-1" /> {t('pay')}
+                      </Button>
+                      <Button variant="ghost" size="icon" onClick={e => { e.stopPropagation(); setSelectedPurchaseId(p.id); }}>
+                        <ChevronRight className="h-4 w-4" />
+                      </Button>
+                    </div>
                   </TableCell>
                 </TableRow>
               ))
@@ -407,34 +337,15 @@ export default function PurchasesPage() {
         </Table>
       </div>
 
-      {/* Pagination */}
-      {totalPages > 1 && (
-        <div className="flex items-center justify-between pt-2">
-          <p className="text-sm text-muted-foreground">
-            {t('page')} {currentPage} / {totalPages} ({filtered.length} {t('results')})
-          </p>
-          <div className="flex gap-2">
-            <Button variant="outline" size="sm" onClick={() => setCurrentPage(p => Math.max(1, p - 1))} disabled={currentPage === 1}>
-              <ChevronLeft className="h-4 w-4" />
-            </Button>
-            <Button variant="outline" size="sm" onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))} disabled={currentPage === totalPages}>
-              <ChevronRight className="h-4 w-4" />
-            </Button>
-          </div>
-        </div>
-      )}
-
-      {/* Create Modal */}
-      <CreatePurchaseModal
-        isOpen={createOpen}
-        onClose={() => setCreateOpen(false)}
-        suppliers={suppliers}
-        inventoryItems={inventoryItems}
-        cafeId={cafeId ?? ''}
-        onCreated={load}
+      {/* Record Payment Modal */}
+      <RecordPaymentModal
+        isOpen={paymentOpen}
+        purchase={payingPurchase}
+        onClose={() => { setPaymentOpen(false); setPayingPurchase(null); }}
+        onPaymentRecorded={load}
       />
 
-      {/* Side Panel */}
+      {/* Side Detail Panel */}
       <PurchaseDetailPanel
         purchaseId={selectedPurchaseId}
         inventoryItems={inventoryItemMap}

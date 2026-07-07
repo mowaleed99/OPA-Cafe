@@ -100,9 +100,9 @@ export default function ClosingPage() {
     const opt = {
       margin: 10,
       filename: `closing-report-${report.closing.closing_date}.pdf`,
-      image: { type: 'jpeg', quality: 0.98 },
+      image: { type: 'jpeg' as const, quality: 0.98 },
       html2canvas: { scale: 2 },
-      jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' }
+      jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' as const }
     };
 
     html2pdf().set(opt).from(element).save();
@@ -214,7 +214,7 @@ export default function ClosingPage() {
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead>Date</TableHead>
+                <TableHead>{t('date')}</TableHead>
                 <TableHead className="text-right">{t('total_orders')}</TableHead>
                 <TableHead className="text-right">{t('total_sales')}</TableHead>
                 <TableHead className="w-[100px]"></TableHead>
@@ -234,7 +234,7 @@ export default function ClosingPage() {
                     <TableCell className="text-right">{c.total_orders}</TableCell>
                     <TableCell className="text-right">{c.total_sales.toFixed(2)} EGP</TableCell>
                     <TableCell>
-                      <Button variant="ghost" size="sm" onClick={() => viewReport(c)}>View</Button>
+                      <Button variant="ghost" size="sm" onClick={() => viewReport(c)}>{t('view')}</Button>
                     </TableCell>
                   </TableRow>
                 ))

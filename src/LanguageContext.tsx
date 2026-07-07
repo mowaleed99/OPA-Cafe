@@ -1,5 +1,11 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
-import { translations, Language } from './translations';
+import i18n from './application/i18n/i18n';
+
+export type Language = 'en' | 'ar';
+
+// Compatibility shim — new code should use react-i18next directly
+const translations = { en: {} as Record<string, string>, ar: {} as Record<string, string> };
+
 
 interface LanguageContextProps {
   language: Language;

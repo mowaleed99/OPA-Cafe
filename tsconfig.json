@@ -22,5 +22,12 @@
     },
     "allowImportingTsExtensions": true,
     "noEmit": true
-  }
+  },
+  "exclude": [
+    "node_modules",
+    "supabase/functions",
+    "setup-admin-service.ts",
+    "setup-admin.ts"
+  ]
 }
+

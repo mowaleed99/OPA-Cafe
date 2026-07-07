@@ -1,3 +1,4 @@
+import { useTranslation } from 'react-i18next';
 import { useState, useEffect } from 'react';
 import {
   Dialog,
@@ -31,6 +32,7 @@ function SupplierModal({
   supplierToEdit: Supplier | null;
   onSaved: () => void;
 }) {
+  const { t } = useTranslation();
   const [name, setName] = useState('');
   const [contact, setContact] = useState('');
   const [saving, setSaving] = useState(false);
@@ -65,7 +67,7 @@ function SupplierModal({
         </DialogHeader>
         <div className="space-y-4 py-4">
           <div>
-            <label className="text-sm font-medium mb-1 block">Supplier Name</label>
+            <label className="text-sm font-medium mb-1 block">{t('supplier_name')}</label>
             <Input value={name} onChange={e => setName(e.target.value)} placeholder="e.g. Al Reef Coffee Co." autoFocus />
           </div>
           <div>
@@ -74,7 +76,7 @@ function SupplierModal({
           </div>
         </div>
         <DialogFooter>
-          <Button variant="outline" onClick={onClose} disabled={saving}>Cancel</Button>
+          <Button variant="outline" onClick={onClose} disabled={saving}>{t('cancel')}</Button>
           <Button onClick={handleSave} disabled={saving || !name.trim()}>Save</Button>
         </DialogFooter>
       </DialogContent>
@@ -84,6 +86,7 @@ function SupplierModal({
 
 // ── Main Page ─────────────────────────────────────────────────────────────────
 export default function SuppliersPage() {
+  const { t } = useTranslation();
   const cafeId = useAuthStore(s => s.cafeId());
   const [suppliers, setSuppliers] = useState<Supplier[]>([]);
   const [modalOpen, setModalOpen] = useState(false);
@@ -110,7 +113,7 @@ export default function SuppliersPage() {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-display font-bold text-foreground">Suppliers</h1>
-          <p className="text-muted-foreground mt-1">Manage your suppliers and view their purchase history.</p>
+          <p className="text-muted-foreground mt-1">{t('manage_suppliers_desc')}</p>
         </div>
         <Button onClick={handleAdd}>
           <PlusCircle className="mr-2 h-4 w-4" /> Add Supplier
@@ -121,9 +124,9 @@ export default function SuppliersPage() {
         <Table>
           <TableHeader>
             <TableRow>
-              <TableHead>Name</TableHead>
-              <TableHead>Contact Info</TableHead>
-              <TableHead className="w-[100px]">Actions</TableHead>
+              <TableHead>{t('name')}</TableHead>
+              <TableHead>{t('contact_info')}</TableHead>
+              <TableHead className="w-[100px]">{t('actions')}</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
