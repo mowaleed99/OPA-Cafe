@@ -31,7 +31,11 @@ export async function enqueueSync(
   });
 
   if (navigator.onLine) {
-    processSyncQueue();
+    // Decouple from any active Dexie transaction using setTimeout.
+    // Calling an async network request inside a Dexie transaction aborts the transaction!
+    setTimeout(() => {
+      processSyncQueue().catch(console.error);
+    }, 100);
   }
 }
 
@@ -40,9 +44,10 @@ export async function enqueueSync(
 export async function processSyncQueue(): Promise<void> {
   if (!navigator.onLine) return;
 
+  // We want to process pending, failed, and anything stuck in syncing
   const pendingItems = await db.sync_queue
     .where('status')
-    .equals('pending')
+    .anyOf('pending', 'failed', 'syncing')
     .sortBy('created_at');
 
   if (pendingItems.length === 0) return;

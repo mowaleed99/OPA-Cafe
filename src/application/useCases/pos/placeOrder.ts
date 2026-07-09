@@ -28,13 +28,18 @@ export async function placeOrder(params: PlaceOrderParams): Promise<PlaceOrderRe
   const status = params.status || 'paid';
   const orderType = params.orderType || (params.tableId ? 'dine_in' : 'takeaway');
 
+  let supabasePaymentMethod = params.paymentMethod || null;
+  if (supabasePaymentMethod && !['cash', 'card', 'other'].includes(supabasePaymentMethod)) {
+    supabasePaymentMethod = 'other' as PaymentMethod;
+  }
+
   const order: Order = {
     id: orderId,
     cafe_id: params.cafeId,
     table_id: params.tableId || null,
     order_type: orderType,
     status: status,
-    payment_method: params.paymentMethod || null,
+    payment_method: supabasePaymentMethod,
     total_amount: params.total,
     created_at: now,
   };

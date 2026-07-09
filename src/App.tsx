@@ -57,10 +57,10 @@ export default function App() {
       if (!appUser?.cafe_id) return;
       
       setIsInitializingData(true);
-      await pullInitialData(appUser.cafe_id);
+      await processSyncQueue(); // Push local changes first
+      await pullInitialData(appUser.cafe_id); // Then pull remote data
       setIsInitializingData(false);
 
-      processSyncQueue();
       startRealtimeSync(appUser.cafe_id);
       fetchSettings(appUser.cafe_id);
     }

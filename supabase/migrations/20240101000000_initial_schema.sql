@@ -77,6 +77,9 @@ CREATE TABLE IF NOT EXISTS public.orders (
   created_at      TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
+-- Add payment_method column if the table already existed without it
+ALTER TABLE public.orders ADD COLUMN IF NOT EXISTS payment_method TEXT;
+
 -- order_items
 CREATE TABLE IF NOT EXISTS public.order_items (
   id          UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
@@ -207,86 +210,84 @@ AS $$
 $$;
 
 -- ---------------------------------------------------------------------------
--- RLS POLICIES (idempotent via DO blocks)
+-- RLS POLICIES (idempotent via DROP and re-CREATE)
 -- ---------------------------------------------------------------------------
 
-DO $$ BEGIN
-  CREATE POLICY "Users see their cafe" ON public.app_users
-    FOR ALL USING (cafe_id = public.my_cafe_id());
-EXCEPTION WHEN duplicate_object THEN NULL; END $$;
+DROP POLICY IF EXISTS "Users see their cafe" ON public.app_users;
+CREATE POLICY "Users see their cafe" ON public.app_users
+  FOR ALL USING (cafe_id = public.my_cafe_id()) WITH CHECK (cafe_id = public.my_cafe_id());
 
-DO $$ BEGIN
-  CREATE POLICY "cafe_access" ON public.categories
-    FOR ALL USING (cafe_id = public.my_cafe_id());
-EXCEPTION WHEN duplicate_object THEN NULL; END $$;
+DROP POLICY IF EXISTS "cafe_access" ON public.categories;
+CREATE POLICY "cafe_access" ON public.categories
+  FOR ALL USING (cafe_id = public.my_cafe_id()) WITH CHECK (cafe_id = public.my_cafe_id());
 
-DO $$ BEGIN
-  CREATE POLICY "cafe_access" ON public.products
-    FOR ALL USING (cafe_id = public.my_cafe_id());
-EXCEPTION WHEN duplicate_object THEN NULL; END $$;
+DROP POLICY IF EXISTS "cafe_access" ON public.products;
+CREATE POLICY "cafe_access" ON public.products
+  FOR ALL USING (cafe_id = public.my_cafe_id()) WITH CHECK (cafe_id = public.my_cafe_id());
 
-DO $$ BEGIN
-  CREATE POLICY "cafe_access" ON public.inventory_items
-    FOR ALL USING (cafe_id = public.my_cafe_id());
-EXCEPTION WHEN duplicate_object THEN NULL; END $$;
+DROP POLICY IF EXISTS "cafe_access" ON public.inventory_items;
+CREATE POLICY "cafe_access" ON public.inventory_items
+  FOR ALL USING (cafe_id = public.my_cafe_id()) WITH CHECK (cafe_id = public.my_cafe_id());
 
-DO $$ BEGIN
-  CREATE POLICY "cafe_access" ON public.tables
-    FOR ALL USING (cafe_id = public.my_cafe_id());
-EXCEPTION WHEN duplicate_object THEN NULL; END $$;
+DROP POLICY IF EXISTS "cafe_access" ON public.tables;
+CREATE POLICY "cafe_access" ON public.tables
+  FOR ALL USING (cafe_id = public.my_cafe_id()) WITH CHECK (cafe_id = public.my_cafe_id());
 
-DO $$ BEGIN
-  CREATE POLICY "cafe_access" ON public.orders
-    FOR ALL USING (cafe_id = public.my_cafe_id());
-EXCEPTION WHEN duplicate_object THEN NULL; END $$;
+DROP POLICY IF EXISTS "cafe_access" ON public.orders;
+CREATE POLICY "cafe_access" ON public.orders
+  FOR ALL USING (cafe_id = public.my_cafe_id()) WITH CHECK (cafe_id = public.my_cafe_id());
 
-DO $$ BEGIN
-  CREATE POLICY "cafe_access" ON public.suppliers
-    FOR ALL USING (cafe_id = public.my_cafe_id());
-EXCEPTION WHEN duplicate_object THEN NULL; END $$;
+DROP POLICY IF EXISTS "cafe_access" ON public.suppliers;
+CREATE POLICY "cafe_access" ON public.suppliers
+  FOR ALL USING (cafe_id = public.my_cafe_id()) WITH CHECK (cafe_id = public.my_cafe_id());
 
-DO $$ BEGIN
-  CREATE POLICY "cafe_access" ON public.purchases
-    FOR ALL USING (cafe_id = public.my_cafe_id());
-EXCEPTION WHEN duplicate_object THEN NULL; END $$;
+DROP POLICY IF EXISTS "cafe_access" ON public.purchases;
+CREATE POLICY "cafe_access" ON public.purchases
+  FOR ALL USING (cafe_id = public.my_cafe_id()) WITH CHECK (cafe_id = public.my_cafe_id());
 
-DO $$ BEGIN
-  CREATE POLICY "cafe_access" ON public.daily_closings
-    FOR ALL USING (cafe_id = public.my_cafe_id());
-EXCEPTION WHEN duplicate_object THEN NULL; END $$;
+DROP POLICY IF EXISTS "cafe_access" ON public.daily_closings;
+CREATE POLICY "cafe_access" ON public.daily_closings
+  FOR ALL USING (cafe_id = public.my_cafe_id()) WITH CHECK (cafe_id = public.my_cafe_id());
 
-DO $$ BEGIN
-  CREATE POLICY "cafe_access" ON public.settings
-    FOR ALL USING (cafe_id = public.my_cafe_id());
-EXCEPTION WHEN duplicate_object THEN NULL; END $$;
+DROP POLICY IF EXISTS "cafe_access" ON public.settings;
+CREATE POLICY "cafe_access" ON public.settings
+  FOR ALL USING (cafe_id = public.my_cafe_id()) WITH CHECK (cafe_id = public.my_cafe_id());
 
-DO $$ BEGIN
-  CREATE POLICY "cafe_access" ON public.order_items
-    FOR ALL USING (
-      order_id IN (SELECT id FROM public.orders WHERE cafe_id = public.my_cafe_id())
-    );
-EXCEPTION WHEN duplicate_object THEN NULL; END $$;
+DROP POLICY IF EXISTS "cafe_access" ON public.order_items;
+CREATE POLICY "cafe_access" ON public.order_items
+  FOR ALL USING (
+    order_id IN (SELECT id FROM public.orders WHERE cafe_id = public.my_cafe_id())
+  ) WITH CHECK (
+    order_id IN (SELECT id FROM public.orders WHERE cafe_id = public.my_cafe_id())
+  );
 
-DO $$ BEGIN
-  CREATE POLICY "cafe_access" ON public.purchase_items
-    FOR ALL USING (
-      purchase_id IN (SELECT id FROM public.purchases WHERE cafe_id = public.my_cafe_id())
-    );
-EXCEPTION WHEN duplicate_object THEN NULL; END $$;
+DROP POLICY IF EXISTS "cafe_access" ON public.purchase_items;
+CREATE POLICY "cafe_access" ON public.purchase_items
+  FOR ALL USING (
+    purchase_id IN (SELECT id FROM public.purchases WHERE cafe_id = public.my_cafe_id())
+  ) WITH CHECK (
+    purchase_id IN (SELECT id FROM public.purchases WHERE cafe_id = public.my_cafe_id())
+  );
 
-DO $$ BEGIN
-  CREATE POLICY "cafe_access" ON public.supplier_payments
-    FOR ALL USING (
-      supplier_id IN (SELECT id FROM public.suppliers WHERE cafe_id = public.my_cafe_id())
-    );
-EXCEPTION WHEN duplicate_object THEN NULL; END $$;
+DROP POLICY IF EXISTS "cafe_access" ON public.supplier_payments;
+CREATE POLICY "cafe_access" ON public.supplier_payments
+  FOR ALL USING (
+    supplier_id IN (SELECT id FROM public.suppliers WHERE cafe_id = public.my_cafe_id())
+  ) WITH CHECK (
+    supplier_id IN (SELECT id FROM public.suppliers WHERE cafe_id = public.my_cafe_id())
+  );
 
-DO $$ BEGIN
-  CREATE POLICY "cafe_access" ON public.daily_closing_items
-    FOR ALL USING (
-      daily_closing_id IN (SELECT id FROM public.daily_closings WHERE cafe_id = public.my_cafe_id())
-    );
-EXCEPTION WHEN duplicate_object THEN NULL; END $$;
+DROP POLICY IF EXISTS "cafe_access" ON public.daily_closing_items;
+CREATE POLICY "cafe_access" ON public.daily_closing_items
+  FOR ALL USING (
+    daily_closing_id IN (SELECT id FROM public.daily_closings WHERE cafe_id = public.my_cafe_id())
+  ) WITH CHECK (
+    daily_closing_id IN (SELECT id FROM public.daily_closings WHERE cafe_id = public.my_cafe_id())
+  );
+
+-- Fix for payment_method check constraint to match local PaymentMethod enum
+ALTER TABLE public.orders DROP CONSTRAINT IF EXISTS orders_payment_method_check;
+ALTER TABLE public.orders ADD CONSTRAINT orders_payment_method_check CHECK (payment_method IN ('cash', 'instapay', 'vodafone_cash', 'card', 'other'));
 
 -- ---------------------------------------------------------------------------
 -- REALTIME (idempotent via DO blocks)
@@ -342,3 +343,4 @@ EXCEPTION WHEN duplicate_object THEN NULL; END $$;
 DO $$ BEGIN
   ALTER PUBLICATION supabase_realtime ADD TABLE public.settings;
 EXCEPTION WHEN duplicate_object THEN NULL; END $$;
+

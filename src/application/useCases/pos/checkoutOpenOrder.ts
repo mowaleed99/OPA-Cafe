@@ -7,9 +7,15 @@ export async function checkoutOpenOrder(orderId: string, paymentMethod: PaymentM
     const order = await db.orders.get(orderId);
     if (!order) throw new Error('Order not found');
 
+    // Map invalid payment methods to 'other' for Supabase CHECK constraint
+    let supabasePaymentMethod = paymentMethod;
+    if (supabasePaymentMethod && !['cash', 'card', 'other'].includes(supabasePaymentMethod)) {
+      supabasePaymentMethod = 'other' as PaymentMethod;
+    }
+
     // Update order status to paid
-    await db.orders.update(orderId, { status: 'paid', payment_method: paymentMethod });
-    await enqueueSync('update', 'orders', { id: orderId, status: 'paid', payment_method: paymentMethod });
+    await db.orders.update(orderId, { status: 'paid', payment_method: supabasePaymentMethod });
+    await enqueueSync('update', 'orders', { id: orderId, status: 'paid', payment_method: supabasePaymentMethod });
 
     // Update table status to available
     if (order.table_id) {
