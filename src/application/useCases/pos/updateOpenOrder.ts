@@ -13,10 +13,12 @@ export async function updateOpenOrder(orderId: string, items: CartItem[], total:
     subtotal: item.subtotal,
   }));
 
+  const order = await db.orders.get(orderId);
+  
   await db.transaction('rw', db.orders, db.order_items, db.sync_queue, async () => {
     // Update order total
     await db.orders.update(orderId, { total_amount: total });
-    await enqueueSync('update', 'orders', { id: orderId, total_amount: total });
+    await enqueueSync('update', 'orders', { id: orderId, cafe_id: order?.cafe_id, total_amount: total });
 
     // Delete existing items
     const existingItems = await db.order_items.where('order_id').equals(orderId).toArray();

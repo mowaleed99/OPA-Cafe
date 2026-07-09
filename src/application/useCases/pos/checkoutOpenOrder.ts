@@ -15,12 +15,12 @@ export async function checkoutOpenOrder(orderId: string, paymentMethod: PaymentM
 
     // Update order status to paid
     await db.orders.update(orderId, { status: 'paid', payment_method: supabasePaymentMethod });
-    await enqueueSync('update', 'orders', { id: orderId, status: 'paid', payment_method: supabasePaymentMethod });
+    await enqueueSync('update', 'orders', { id: orderId, cafe_id: order.cafe_id, status: 'paid', payment_method: supabasePaymentMethod });
 
     // Update table status to available
     if (order.table_id) {
       await db.dining_tables.update(order.table_id, { status: 'available', current_order_id: null });
-      await enqueueSync('update', 'dining_tables', { id: order.table_id, status: 'available', current_order_id: null });
+      await enqueueSync('update', 'dining_tables', { id: order.table_id, cafe_id: order.cafe_id, status: 'available', current_order_id: null });
     }
   });
 }

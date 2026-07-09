@@ -61,7 +61,7 @@ export async function placeOrder(params: PlaceOrderParams): Promise<PlaceOrderRe
     // If there's a table and it's an open order, mark it as occupied
     if (params.tableId && status === 'open') {
       await db.dining_tables.update(params.tableId, { status: 'occupied', current_order_id: orderId });
-      await enqueueSync('update', 'dining_tables', { id: params.tableId, status: 'occupied', current_order_id: orderId });
+      await enqueueSync('update', 'dining_tables', { id: params.tableId, cafe_id: params.cafeId, status: 'occupied', current_order_id: orderId });
     }
     
     // 2. Enqueue sync to Supabase (runs immediately if online, queued if offline)
