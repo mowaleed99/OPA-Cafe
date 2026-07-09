@@ -1,21 +1,22 @@
 {
-  "name": "react-example",
+  "name": "opa-cafe",
   "private": true,
-  "version": "0.0.0",
+  "version": "1.0.0",
   "type": "module",
   "main": "electron/main.cjs",
   "scripts": {
     "dev": "vite --port=3000 --host=0.0.0.0",
     "build": "vite build",
     "preview": "vite preview",
-    "clean": "rm -rf dist server.js",
+    "clean": "npx rimraf dist server.js",
     "lint": "tsc --noEmit",
-    "dev:electron": "concurrently -k \"cross-env BROWSER=none npm run dev\" \"wait-on http://localhost:5173 && electron .\"",
+    "dev:electron": "concurrently -k \"cross-env BROWSER=none npm run dev\" \"wait-on http://localhost:3000 && electron .\"",
     "build:electron": "npm run build && electron-builder"
   },
   "build": {
     "appId": "com.opacafe.pos",
-    "productName": "OPA Cafe POS",
+    "productName": "OPA Cafe",
+    "icon": "build/icon.png",
     "directories": {
       "output": "dist-electron"
     },
@@ -61,13 +62,15 @@
     "concurrently": "^10.0.3",
     "cross-env": "^10.1.0",
     "electron": "^41.7.1",
-    "electron-builder": "^26.15.3",
+    "electron-builder": "^24.13.3",
     "esbuild": "^0.25.0",
+    "sharp": "^0.35.3",
     "tailwindcss": "^4.1.14",
     "tsx": "^4.21.0",
     "typescript": "~5.8.2",
     "vite": "^6.2.3",
     "vite-plugin-pwa": "^1.3.0",
     "wait-on": "^9.0.10"
-  }
+  },
+  "overrides": {}
 }

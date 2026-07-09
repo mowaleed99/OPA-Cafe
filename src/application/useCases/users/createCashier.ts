@@ -5,7 +5,7 @@ export async function createCashier(email: string, password: string, name: strin
     // We call our secure Edge Function to bypass email confirmation
     // and securely insert into app_users using the Service Role Key.
     const { data, error } = await supabase.functions.invoke('create-cashier', {
-      body: { email, password, cafe_id: cafeId }
+      body: { email, password, name, cafe_id: cafeId }
     });
 
     if (error) {

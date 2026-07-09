@@ -78,9 +78,9 @@ export default function POSPage() {
     };
   }, [fetchData]);
 
-  const handleAddProduct = (product: Product) => {
+  const handleAddProduct = useCallback((product: Product) => {
     addItem(product);
-  };
+  }, [addItem]);
 
   const handleSeedData = async () => {
     const cafe = cafeId();

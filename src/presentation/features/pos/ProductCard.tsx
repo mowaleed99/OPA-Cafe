@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import React, { useState } from 'react';
 import { Plus } from 'lucide-react';
 import { cn } from '../../lib/utils';
 import type { Product } from '../../../core/entities/product';
@@ -28,7 +28,7 @@ function getCardColor(name: string): string {
   return colors[Math.abs(hash) % colors.length];
 }
 
-export default function ProductCard({ product, cartQuantity, onAdd }: ProductCardProps) {
+export default React.memo(function ProductCard({ product, cartQuantity, onAdd }: ProductCardProps) {
   const [isAdding, setIsAdding] = useState(false);
   const color = getCardColor(product.name);
   const initial = product.name.charAt(0).toUpperCase();
@@ -100,4 +100,4 @@ export default function ProductCard({ product, cartQuantity, onAdd }: ProductCar
       </div>
     </button>
   );
-}
+});

@@ -2,6 +2,17 @@ import { db, type SyncQueueItem } from '../../infrastructure/database/db';
 import { supabase } from '../../infrastructure/api/supabase';
 import type { Table } from 'dexie';
 
+// ── Name bridge: local Dexie name → Supabase table name ───────────────────
+// Dexie uses 'dining_tables'; Supabase schema uses 'tables'.
+// All other table names are identical on both sides.
+const LOCAL_TO_SUPABASE: Record<string, string> = {
+  dining_tables: 'tables',
+};
+
+function toSupabaseName(localName: string): string {
+  return LOCAL_TO_SUPABASE[localName] ?? localName;
+}
+
 // ── Enqueue ────────────────────────────────────────────────────────────────
 // Writes go to Dexie FIRST, then this adds the action to the queue.
 // If online, it flushes the queue immediately.
@@ -42,18 +53,20 @@ export async function processSyncQueue(): Promise<void> {
     try {
       await db.sync_queue.update(item.id, { status: 'syncing' });
 
+      const supabaseTable = toSupabaseName(item.table);
+
       if (item.action === 'insert') {
-        const { error } = await supabase.from(item.table).insert(item.payload);
+        const { error } = await supabase.from(supabaseTable).insert(item.payload);
         if (error) throw error;
       } else if (item.action === 'update') {
         const { error } = await supabase
-          .from(item.table)
+          .from(supabaseTable)
           .update(item.payload)
           .eq('id', item.payload['id'] as string);
         if (error) throw error;
       } else if (item.action === 'delete') {
         const { error } = await supabase
-          .from(item.table)
+          .from(supabaseTable)
           .delete()
           .eq('id', item.payload['id'] as string);
         if (error) throw error;
@@ -91,10 +104,16 @@ const SYNCED_TABLES = [
 
 type SyncedTable = typeof SYNCED_TABLES[number];
 
+// ── Name bridge: Supabase table name → Dexie table name ──────────────────
+// Supabase uses 'tables'; Dexie uses 'dining_tables'.
+const SUPABASE_TO_DEXIE: Partial<Record<SyncedTable, string>> = {
+  tables: 'dining_tables',
+};
+
 // Map Supabase table name → Dexie table
 const dexieTable = (tableName: SyncedTable) => {
-  // All table names match exactly except 'app_users' which maps to db.app_users
-  return (db as unknown as Record<string, Table<unknown, unknown>>)[tableName];
+  const dexieName = SUPABASE_TO_DEXIE[tableName] ?? tableName;
+  return (db as unknown as Record<string, Table<unknown, unknown>>)[dexieName];
 };
 
 let realtimeChannel: ReturnType<typeof supabase.channel> | null = null;

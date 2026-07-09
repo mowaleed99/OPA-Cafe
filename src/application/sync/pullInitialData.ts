@@ -1,23 +1,29 @@
 import { db } from '../../infrastructure/database/db';
 import { supabase } from '../../infrastructure/api/supabase';
 
+function chunkArray<T>(arr: T[], size: number): T[][] {
+  const result: T[][] = [];
+  for (let i = 0; i < arr.length; i += size) {
+    result.push(arr.slice(i, i + size));
+  }
+  return result;
+}
+
 /**
- * Performs a one-time sync to pull all existing data from Supabase
- * into the local Dexie DB, if the Dexie DB is currently empty.
- * This acts as a safety net for new installations or cleared local storage.
+ * Performs a FULL sync from Supabase into the local Dexie DB using bulkPut.
+ * Safe to run on every login — existing records are upserted, new ones inserted.
+ * This ensures the local device always reflects the latest server state.
  */
 export async function pullInitialData(cafeId: string): Promise<void> {
-  // Check if we already have categories. If so, assume DB is populated.
-  const existingCategoriesCount = await db.categories.where('cafe_id').equals(cafeId).count();
-  if (existingCategoriesCount > 0) {
-    console.log('[InitialSync] Local DB already populated, skipping initial pull.');
+  if (!navigator.onLine) {
+    console.log('[Sync] Offline — skipping pull from Supabase.');
     return;
   }
 
-  console.log('[InitialSync] Local DB is empty. Pulling data from Supabase...');
-  
+  console.log('[Sync] Pulling latest data from Supabase...');
+
   try {
-    // 1. Fetch parent tables
+    // 1. Fetch all parent tables in parallel
     const [
       { data: categories },
       { data: products },
@@ -37,10 +43,10 @@ export async function pullInitialData(cafeId: string): Promise<void> {
       supabase.from('suppliers').select('*').eq('cafe_id', cafeId),
       supabase.from('purchases').select('*').eq('cafe_id', cafeId),
       supabase.from('daily_closings').select('*').eq('cafe_id', cafeId),
-      supabase.from('settings').select('*').eq('cafe_id', cafeId)
+      supabase.from('settings').select('*').eq('cafe_id', cafeId),
     ]);
 
-    // Save parent tables
+    // 2. Upsert all parent tables (bulkPut = insert or update)
     if (categories && categories.length > 0) await db.categories.bulkPut(categories as any[]);
     if (products && products.length > 0) await db.products.bulkPut(products as any[]);
     if (inventoryItems && inventoryItems.length > 0) await db.inventory_items.bulkPut(inventoryItems as any[]);
@@ -51,41 +57,41 @@ export async function pullInitialData(cafeId: string): Promise<void> {
     if (dailyClosings && dailyClosings.length > 0) await db.daily_closings.bulkPut(dailyClosings as any[]);
     if (settings && settings.length > 0) await db.settings.bulkPut(settings as any[]);
 
-    // 2. Fetch child tables
-    // To be safe and since we don't know if the child tables have cafe_id, 
-    // we use the parent IDs to fetch children.
-    
+    // 3. Fetch child tables in chunks to avoid HTTP 414 URI Too Long
     // Order Items
     if (orders && orders.length > 0) {
       const orderIds = orders.map(o => o.id);
-      const { data: orderItems } = await supabase.from('order_items').select('*').in('order_id', orderIds);
-      if (orderItems && orderItems.length > 0) await db.order_items.bulkPut(orderItems as any[]);
+      for (const chunk of chunkArray(orderIds, 100)) {
+        const { data: orderItems } = await supabase.from('order_items').select('*').in('order_id', chunk);
+        if (orderItems && orderItems.length > 0) await db.order_items.bulkPut(orderItems as any[]);
+      }
     }
 
     // Purchase Items & Supplier Payments
     if (purchases && purchases.length > 0) {
       const purchaseIds = purchases.map(p => p.id);
-      const [
-        { data: purchaseItems },
-        { data: supplierPayments }
-      ] = await Promise.all([
-        supabase.from('purchase_items').select('*').in('purchase_id', purchaseIds),
-        supabase.from('supplier_payments').select('*').in('purchase_id', purchaseIds)
-      ]);
-      if (purchaseItems && purchaseItems.length > 0) await db.purchase_items.bulkPut(purchaseItems as any[]);
-      if (supplierPayments && supplierPayments.length > 0) await db.supplier_payments.bulkPut(supplierPayments as any[]);
+      for (const chunk of chunkArray(purchaseIds, 100)) {
+        const [{ data: purchaseItems }, { data: supplierPayments }] = await Promise.all([
+          supabase.from('purchase_items').select('*').in('purchase_id', chunk),
+          supabase.from('supplier_payments').select('*').in('purchase_id', chunk),
+        ]);
+        if (purchaseItems && purchaseItems.length > 0) await db.purchase_items.bulkPut(purchaseItems as any[]);
+        if (supplierPayments && supplierPayments.length > 0) await db.supplier_payments.bulkPut(supplierPayments as any[]);
+      }
     }
 
     // Daily Closing Items
     if (dailyClosings && dailyClosings.length > 0) {
       const closingIds = dailyClosings.map(c => c.id);
-      const { data: closingItems } = await supabase.from('daily_closing_items').select('*').in('daily_closing_id', closingIds);
-      if (closingItems && closingItems.length > 0) await db.daily_closing_items.bulkPut(closingItems as any[]);
+      for (const chunk of chunkArray(closingIds, 100)) {
+        const { data: closingItems } = await supabase.from('daily_closing_items').select('*').in('daily_closing_id', chunk);
+        if (closingItems && closingItems.length > 0) await db.daily_closing_items.bulkPut(closingItems as any[]);
+      }
     }
 
-    console.log('[InitialSync] Initial pull complete!');
+    console.log('[Sync] Pull from Supabase complete!');
 
   } catch (err) {
-    console.error('[InitialSync] Failed to pull initial data from Supabase:', err);
+    console.error('[Sync] Failed to pull data from Supabase:', err);
   }
 }

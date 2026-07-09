@@ -12,7 +12,7 @@ serve(async (req) => {
   }
 
   try {
-    const { email, password, cafe_id } = await req.json()
+    const { email, password, name, cafe_id } = await req.json()
 
     // Create a Supabase client with the Auth context of the logged in user.
     const supabaseClient = createClient(
@@ -60,6 +60,7 @@ serve(async (req) => {
       id: newAuthUser.user.id,
       cafe_id: cafe_id,
       role: 'cashier',
+      name: name ?? null,
     })
 
     if (dbError) {
