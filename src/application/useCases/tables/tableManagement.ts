@@ -30,7 +30,9 @@ export async function removeTable(tableId: string): Promise<void> {
 
 export async function updateTableStatus(tableId: string, status: 'available' | 'occupied', orderId: string | null): Promise<void> {
   await db.transaction('rw', db.dining_tables, db.sync_queue, async () => {
+    const table = await db.dining_tables.get(tableId);
+    if (!table) return;
     await db.dining_tables.update(tableId, { status, current_order_id: orderId });
-    await enqueueSync('update', 'dining_tables', { id: tableId, status, current_order_id: orderId });
+    await enqueueSync('update', 'dining_tables', { id: tableId, cafe_id: table.cafe_id, status, current_order_id: orderId });
   });
 }
