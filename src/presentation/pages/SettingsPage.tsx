@@ -322,11 +322,13 @@ export default function SettingsPage() {
                     if (cafeId) updateSettings(cafeId, { language: val });
                   }}>
                     <SelectTrigger className="w-44">
-                      <SelectValue placeholder={t('language')} />
+                      <SelectValue placeholder={t('language')}>
+                        {language === 'ar' ? '🇸🇦 Arabic (العربية)' : '🇬🇧 English'}
+                      </SelectValue>
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="ar">???? Arabic (???????)</SelectItem>
-                      <SelectItem value="en">???? English</SelectItem>
+                      <SelectItem value="ar">Arabic</SelectItem>
+                      <SelectItem value="en">English</SelectItem>
                     </SelectContent>
                   </Select>
                 </SettingRow>
@@ -339,7 +341,9 @@ export default function SettingsPage() {
                     if (cafeId) updateSettings(cafeId, { print_paper_size: val });
                   }}>
                     <SelectTrigger className="w-44">
-                      <SelectValue placeholder={t('print_paper_size')} />
+                      <SelectValue placeholder={t('print_paper_size')}>
+                        {printPaperSize === 'A4' ? 'A4 (Standard)' : printPaperSize === '80mm' ? 'Thermal 80mm' : 'Thermal 58mm'}
+                      </SelectValue>
                     </SelectTrigger>
                     <SelectContent>
                       <SelectItem value="A4">A4 (Standard)</SelectItem>

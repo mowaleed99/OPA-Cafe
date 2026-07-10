@@ -23,6 +23,7 @@ export interface PurchaseItem {
   id: string;
   purchase_id: string;
   inventory_item_id: string;
+  item_name?: string;
   quantity: number;
   unit_cost: number;
   subtotal: number;

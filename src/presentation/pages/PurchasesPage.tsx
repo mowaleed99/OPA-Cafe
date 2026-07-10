@@ -101,6 +101,7 @@ function CreatePurchaseModal({
         supplierId,
         items: lines.map(l => ({
           inventoryItemId: l.inventoryItemId,
+          itemName: inventoryItems.find(p => p.id === l.inventoryItemId)?.name || '',
           quantity: parseFloat(l.quantity),
           unitCost: parseFloat(l.unitCost),
         })),
@@ -135,7 +136,9 @@ function CreatePurchaseModal({
             <label className="text-sm font-semibold text-foreground">{t('supplier')}</label>
             <Select value={supplierId} onValueChange={setSupplierId}>
               <SelectTrigger className="h-10">
-                <SelectValue placeholder={t('select_supplier')} />
+                <SelectValue placeholder={t('select_supplier')}>
+                  {suppliers.find(s => s.id === supplierId)?.name || t('select_supplier')}
+                </SelectValue>
               </SelectTrigger>
               <SelectContent>
                 {suppliers.map(s => (
@@ -158,7 +161,9 @@ function CreatePurchaseModal({
                   <div className="flex-1 min-w-0">
                     <Select value={line.inventoryItemId} onValueChange={v => updateLine(i, 'inventoryItemId', v)}>
                       <SelectTrigger className="h-9 text-sm">
-                        <SelectValue placeholder={t('item_name')} />
+                        <SelectValue placeholder={t('item_name')}>
+                          {inventoryItems.find(p => p.id === line.inventoryItemId)?.name || t('item_name')}
+                        </SelectValue>
                       </SelectTrigger>
                       <SelectContent>
                         {inventoryItems.map(p => (
@@ -306,7 +311,7 @@ function PurchaseDetailPanel({
               <div key={item.id} className="flex items-center justify-between px-4 py-2.5 text-sm">
                 <div className="flex items-center gap-2">
                   <Package size={14} className="text-muted-foreground shrink-0" />
-                  <span className="font-medium">{inventoryItems[item.inventory_item_id] || 'Unknown'}</span>
+                  <span className="font-medium">{item.item_name || inventoryItems[item.inventory_item_id] || 'Unknown'}</span>
                 </div>
                 <div className="text-end">
                   <p className="text-muted-foreground text-xs">{item.quantity} × {item.unit_cost.toFixed(2)} EGP</p>

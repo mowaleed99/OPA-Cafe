@@ -11,7 +11,7 @@ export interface PurchaseWithItems {
 export interface CreatePurchaseParams {
   cafeId: string;
   supplierId: string;
-  items: Array<{ inventoryItemId: string; quantity: number; unitCost: number }>;
+  items: Array<{ inventoryItemId: string; itemName?: string; quantity: number; unitCost: number }>;
 }
 
 export async function getPurchases(cafeId: string): Promise<Purchase[]> {
@@ -37,6 +37,7 @@ export async function createPurchase(params: CreatePurchaseParams): Promise<Purc
     id: crypto.randomUUID(),
     purchase_id: purchaseId,
     inventory_item_id: item.inventoryItemId,
+    item_name: item.itemName,
     quantity: item.quantity,
     unit_cost: item.unitCost,
     subtotal: item.quantity * item.unitCost,

@@ -117,10 +117,14 @@ CREATE TABLE IF NOT EXISTS public.purchase_items (
   id           UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
   purchase_id  UUID NOT NULL REFERENCES public.purchases(id) ON DELETE CASCADE,
   product_id   UUID REFERENCES public.products(id) ON DELETE SET NULL,
+  item_name    TEXT,
   quantity     NUMERIC NOT NULL DEFAULT 1,
   unit_price   NUMERIC(10, 2) NOT NULL DEFAULT 0,
   subtotal     NUMERIC(10, 2) NOT NULL DEFAULT 0
 );
+
+-- Add item_name column if the table already existed without it
+ALTER TABLE public.purchase_items ADD COLUMN IF NOT EXISTS item_name TEXT;
 
 -- supplier_payments
 CREATE TABLE IF NOT EXISTS public.supplier_payments (

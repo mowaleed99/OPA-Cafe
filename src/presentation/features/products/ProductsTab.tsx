@@ -60,13 +60,9 @@ export function ProductsTab() {
   categories.forEach(c => {
     groupedProducts[c.id] = [];
   });
-  const uncategorized: Product[] = [];
-
   filtered.forEach(p => {
     if (p.category_id && groupedProducts[p.category_id]) {
       groupedProducts[p.category_id].push(p);
-    } else {
-      uncategorized.push(p);
     }
   });
 
@@ -142,48 +138,7 @@ export function ProductsTab() {
           );
         })}
 
-        {uncategorized.length > 0 && (
-          <div className="space-y-3">
-            <div className="flex items-center gap-2 border-b pb-2">
-              <Coffee className="h-5 w-5 text-muted-foreground" />
-              <h3 className="text-lg font-semibold text-foreground">Uncategorized</h3>
-              <span className="text-sm text-muted-foreground bg-muted px-2 py-0.5 rounded-full ml-2">
-                {uncategorized.length}
-              </span>
-            </div>
-            <div className="border rounded-md bg-card">
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>{t('name')}</TableHead>
-                    <TableHead>Price</TableHead>
-                    <TableHead>Cost</TableHead>
-                    <TableHead className="w-[100px]">{t('actions')}</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {uncategorized.map(product => (
-                    <TableRow key={product.id}>
-                      <TableCell className="font-medium">{product.name}</TableCell>
-                      <TableCell>{product.price.toFixed(2)} EGP</TableCell>
-                      <TableCell>{product.cost.toFixed(2)} EGP</TableCell>
-                      <TableCell>
-                        <div className="flex gap-2">
-                          <Button variant="ghost" size="icon" onClick={() => handleEdit(product)}>
-                            <Pencil className="h-4 w-4" />
-                          </Button>
-                          <Button variant="ghost" size="icon" className="text-destructive" onClick={() => handleDelete(product)}>
-                            <Trash2 className="h-4 w-4" />
-                          </Button>
-                        </div>
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            </div>
-          </div>
-        )}
+
 
         {filtered.length === 0 && (
           <div className="text-center py-12 border rounded-lg bg-card border-dashed">
