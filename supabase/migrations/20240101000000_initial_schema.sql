@@ -143,6 +143,7 @@ CREATE TABLE IF NOT EXISTS public.daily_closings (
   closing_date  DATE NOT NULL,
   total_sales   NUMERIC(10, 2) NOT NULL DEFAULT 0,
   total_orders  INT NOT NULL DEFAULT 0,
+  total_expenses NUMERIC(10, 2) NOT NULL DEFAULT 0,
   notes         TEXT,
   created_at    TIMESTAMPTZ NOT NULL DEFAULT now()
 );
@@ -348,3 +349,6 @@ DO $$ BEGIN
   ALTER PUBLICATION supabase_realtime ADD TABLE public.settings;
 EXCEPTION WHEN duplicate_object THEN NULL; END $$;
 
+- -   A d d   t o t a l _ e x p e n s e s   t o   d a i l y _ c l o s i n g s  
+ A L T E R   T A B L E   p u b l i c . d a i l y _ c l o s i n g s   A D D   C O L U M N   I F   N O T   E X I S T S   t o t a l _ e x p e n s e s   N U M E R I C ( 1 0 ,   2 )   N O T   N U L L   D E F A U L T   0 ;  
+ 

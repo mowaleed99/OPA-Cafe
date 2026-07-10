@@ -4,6 +4,7 @@ export interface DailyClosing {
   closing_date: string; // ISO date string: YYYY-MM-DD
   total_sales: number;
   total_orders: number;
+  total_expenses?: number;
   created_at: string;
 }
 

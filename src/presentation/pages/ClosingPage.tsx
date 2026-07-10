@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Button } from '../components/ui/button';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../components/ui/table';
 import { CalendarDays, TrendingUp, ShoppingBag, Loader2, CheckCircle2, Download, FileText } from 'lucide-react';
@@ -9,42 +9,53 @@ import {
   closingDay,
   getDailyClosings,
   getDailyClosingItems,
-  getTodayClosing,
+  getClosingByDate,
+  getClosingPayments,
   type ClosingReport,
 } from '../../application/useCases/closing/dailyClosing';
 import type { DailyClosing } from '../../core/entities/daily_closing';
 import type { Product } from '../../core/entities/product';
 import { db } from '../../infrastructure/database/db';
-import html2pdf from 'html2pdf.js';
 
 export default function ClosingPage() {
   const cafeId = useAuthStore(s => s.cafeId());
   const { t } = useTranslation();
+  const todayIso = new Date().toISOString().split('T')[0];
+  const [selectedDate, setSelectedDate] = useState(todayIso);
   const [closings, setClosings] = useState<DailyClosing[]>([]);
   const [alreadyClosed, setAlreadyClosed] = useState(false);
   const [needsUpdate, setNeedsUpdate] = useState(false);
   const [isClosing, setIsClosing] = useState(false);
   const [report, setReport] = useState<ClosingReport | null>(null);
-  const [products, setProducts] = useState<Record<string, string>>({});
+  const [products, setProducts] = useState<Record<string, {name: string, category: string}>>({});
+  const [categories, setCategories] = useState<Record<string, string>>({});
   const [error, setError] = useState<string | null>(null);
 
   const load = async () => {
     if (!cafeId) return;
-    const today = new Date().toISOString().split('T')[0];
-    const [allClosings, todayClosing, prods, todayOrdersCount] = await Promise.all([
+    const [allClosings, targetClosing, prods, cats] = await Promise.all([
       getDailyClosings(cafeId),
-      getTodayClosing(cafeId),
+      getClosingByDate(cafeId, selectedDate),
       db.products.where('cafe_id').equals(cafeId).toArray(),
-      db.orders.where('cafe_id').equals(cafeId).filter(o => o.status === 'paid' && o.created_at.startsWith(today)).count(),
+      db.categories.where('cafe_id').equals(cafeId).toArray(),
     ]);
-    setClosings(allClosings);
-    setAlreadyClosed(!!todayClosing);
-    setNeedsUpdate(!!todayClosing && todayClosing.total_orders !== todayOrdersCount);
     
-    const prodMap: Record<string, string> = {};
-    prods.forEach(p => prodMap[p.id] = p.name);
+    // We can't reliably count today's unclosed orders easily for "needsUpdate" without running the full logic,
+    // so we'll just check if it's already closed. The user can just hit Update.
+    setClosings(allClosings);
+    setAlreadyClosed(!!targetClosing);
+    setNeedsUpdate(!!targetClosing); // just show update button if it exists
+    
+    const catMap: Record<string, string> = {};
+    cats.forEach(c => catMap[c.id] = c.name);
+    setCategories(catMap);
+
+    const prodMap: Record<string, {name: string, category: string}> = {};
+    prods.forEach(p => prodMap[p.id] = { name: p.name, category: catMap[p.category_id] || 'Unknown' });
     setProducts(prodMap);
   };
+
+  useEffect(() => { load(); }, [cafeId, selectedDate]);
 
   useEffect(() => { load(); }, [cafeId]);
 
@@ -53,10 +64,10 @@ export default function ClosingPage() {
     setIsClosing(true);
     setError(null);
     try {
-      const result = await closingDay(cafeId);
+      const result = await closingDay(cafeId, selectedDate);
       setReport(result);
       setAlreadyClosed(true);
-      setNeedsUpdate(false);
+      setNeedsUpdate(true);
       load();
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to close day.');
@@ -66,187 +77,349 @@ export default function ClosingPage() {
   };
 
   const viewReport = async (closing: DailyClosing) => {
+    if (!cafeId) return;
     const items = await getDailyClosingItems(closing.id);
-    setReport({ closing, items });
+    const payments = await getClosingPayments(cafeId, closing.closing_date);
+    setReport({ closing, items, expenses: closing.total_expenses || 0, payments });
   };
 
   const exportToCSV = () => {
     if (!report) return;
     
-    let csvContent = "data:text/csv;charset=utf-8,";
+    let csvContent = "";
     csvContent += "Daily Closing Report - " + report.closing.closing_date + "\n\n";
     csvContent += `${t('total_orders')},${report.closing.total_orders}\n`;
     csvContent += `${t('total_sales')},${report.closing.total_sales.toFixed(2)} EGP\n`;
     const avgOrder = report.closing.total_orders > 0 ? (report.closing.total_sales / report.closing.total_orders).toFixed(2) : '0.00';
     csvContent += `${t('avg_order')},${avgOrder} EGP\n\n`;
     
-    csvContent += `${t('product')},${t('qty_sold')},${t('revenue')}\n`;
+    csvContent += `${t('product')},Category,${t('qty_sold')},${t('revenue')}\n`;
     
     report.items.forEach(item => {
-      const productName = products[item.product_id] || item.product_id;
+      const p = products[item.product_id];
+      const productName = p ? p.name : item.product_id;
+      const categoryName = p ? p.category : 'Unknown';
       const safeName = `"${productName.replace(/"/g, '""')}"`;
-      csvContent += `${safeName},${item.quantity_sold},"${item.total_revenue.toFixed(2)} EGP"\n`;
+      csvContent += `${safeName},"${categoryName}",${item.quantity_sold},"${item.total_revenue.toFixed(2)} EGP"\n`;
     });
     
-    const encodedUri = encodeURI(csvContent);
+    csvContent += `\nTotal Expenses,${(report.expenses || 0).toFixed(2)} EGP\n`;
+    
+    const blob = new Blob(["\uFEFF" + csvContent], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
     const link = document.createElement("a");
-    link.setAttribute("href", encodedUri);
+    link.setAttribute("href", url);
     link.setAttribute("download", `closing-report-${report.closing.closing_date}.csv`);
     document.body.appendChild(link);
     link.click();
-    link.remove();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
   };
 
-  const exportToPDF = () => {
-    if (!report) return;
-    
-    const element = document.getElementById('closing-report-content');
-    if (!element) return;
-
-    const opt = {
-      margin: 10,
-      filename: `closing-report-${report.closing.closing_date}.pdf`,
-      image: { type: 'jpeg' as const, quality: 0.98 },
-      html2canvas: { scale: 2 },
-      jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' as const }
-    };
-
-    html2pdf().set(opt).from(element).save();
+  const handlePrint = () => {
+    window.print();
   };
 
   const today = new Date().toISOString().split('T')[0];
 
   return (
-    <div className="p-6 max-w-5xl mx-auto space-y-8">
-      {/* Header */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-display font-bold text-foreground">{t('closing')}</h1>
-        </div>
-        <div className="flex items-center gap-3">
-          {alreadyClosed && !needsUpdate ? (
-            <div className="flex items-center gap-2 text-green-600 font-medium">
-              <CheckCircle2 className="h-5 w-5" />
-              <span>{t('today_is_closed')}</span>
+    <div className="p-6 max-w-5xl mx-auto space-y-8 print:p-0 print:m-0 print:max-w-none">
+      {/* Hidden block just for printing the professional report */}
+      {report && (
+        <div className="hidden print:block w-full bg-white text-black p-8 font-sans">
+          <div className="text-center mb-8 border-b-2 border-black pb-4">
+            <h1 className="text-4xl font-bold mb-2 uppercase tracking-widest">{useSettingsStore.getState().cafeName}</h1>
+            <h2 className="text-2xl font-semibold text-gray-700">DAILY REPORT</h2>
+            <p className="text-lg text-gray-500 mt-2">Date: {report.closing.closing_date}</p>
+          </div>
+
+          <div className="grid grid-cols-4 gap-4 mb-8 text-center">
+            <div className="border border-gray-300 p-4 rounded-lg bg-gray-50">
+              <p className="text-sm font-bold text-gray-500 uppercase">Total Orders</p>
+              <p className="text-3xl font-bold">{report.closing.total_orders}</p>
             </div>
-          ) : (
+            <div className="border border-gray-300 p-4 rounded-lg bg-gray-50">
+              <p className="text-sm font-bold text-gray-500 uppercase">Total Sales</p>
+              <p className="text-3xl font-bold">{report.closing.total_sales.toFixed(2)} EGP</p>
+            </div>
+            <div className="border border-gray-300 p-4 rounded-lg bg-gray-50">
+              <p className="text-sm font-bold text-gray-500 uppercase">Avg Order</p>
+              <p className="text-3xl font-bold">
+                {report.closing.total_orders > 0 ? (report.closing.total_sales / report.closing.total_orders).toFixed(2) : '0.00'} EGP
+              </p>
+            </div>
+            <div className="border border-gray-300 p-4 rounded-lg bg-red-50">
+              <p className="text-sm font-bold text-red-500 uppercase">Total Expenses</p>
+              <p className="text-3xl font-bold text-red-600">{(report.expenses || 0).toFixed(2)} EGP</p>
+            </div>
+          </div>
+
+          <div className="mb-8">
+            <h3 className="text-xl font-bold mb-4 border-b border-gray-300 pb-2">Sales Breakdown by Category</h3>
+            <table className="w-full text-left border-collapse">
+              <thead>
+                <tr className="bg-gray-100 border-b-2 border-gray-300">
+                  <th className="p-3 font-bold">Product</th>
+                  <th className="p-3 font-bold">Category</th>
+                  <th className="p-3 font-bold text-right">Qty</th>
+                  <th className="p-3 font-bold text-right">Revenue</th>
+                </tr>
+              </thead>
+              <tbody>
+                {(() => {
+                  const byCategory: Record<string, { qty: number, rev: number, items: any[] }> = {};
+                  report.items.forEach(item => {
+                    const p = products[item.product_id];
+                    const cat = p ? p.category : 'Unknown';
+                    if (!byCategory[cat]) byCategory[cat] = { qty: 0, rev: 0, items: [] };
+                    byCategory[cat].qty += item.quantity_sold;
+                    byCategory[cat].rev += item.total_revenue;
+                    byCategory[cat].items.push(item);
+                  });
+
+                  return Object.entries(byCategory).map(([catName, data]) => (
+                    <React.Fragment key={`print-cat-${catName}`}>
+                      <tr className="bg-gray-50 border-b border-gray-200 font-bold">
+                        <td colSpan={2} className="p-3">{catName} (Total)</td>
+                        <td className="p-3 text-right">{data.qty}</td>
+                        <td className="p-3 text-right">{data.rev.toFixed(2)} EGP</td>
+                      </tr>
+                      {data.items.map(item => {
+                        const p = products[item.product_id];
+                        return (
+                          <tr key={`print-${item.id}`} className="border-b border-gray-100">
+                            <td className="p-3 pl-8">{p ? p.name : item.product_id}</td>
+                            <td className="p-3 text-gray-500">{catName}</td>
+                            <td className="p-3 text-right">{item.quantity_sold}</td>
+                            <td className="p-3 text-right">{item.total_revenue.toFixed(2)} EGP</td>
+                          </tr>
+                        );
+                      })}
+                    </React.Fragment>
+                  ));
+                })()}
+              </tbody>
+            </table>
+          </div>
+
+          {report.payments && report.payments.length > 0 && (
+            <div className="mb-8">
+              <h3 className="text-xl font-bold mb-4 border-b border-gray-300 pb-2">Purchase Details</h3>
+              <table className="w-full text-left border-collapse">
+                <thead>
+                  <tr className="bg-gray-100 border-b-2 border-gray-300">
+                    <th className="p-3 font-bold">Supplier</th>
+                    <th className="p-3 font-bold">Notes</th>
+                    <th className="p-3 font-bold text-right">Amount</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {report.payments.map((payment, i) => (
+                    <tr key={`print-pay-${payment.id || i}`} className="border-b border-gray-100">
+                      <td className="p-3 font-semibold">{payment.supplierName}</td>
+                      <td className="p-3 text-gray-500">{payment.notes || '-'}</td>
+                      <td className="p-3 text-right text-red-600 font-bold">{payment.amount.toFixed(2)} EGP</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+
+          <div className="mt-16 text-center text-sm text-gray-400">
+            <p>End of Daily Report</p>
+            <p>Generated automatically from database records</p>
+          </div>
+        </div>
+      )}
+
+      {/* Normal UI (Hidden on Print) */}
+      <div className="print:hidden space-y-8">
+        {/* Header */}
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+          <div>
+            <h1 className="text-2xl font-display font-bold text-foreground">{t('closing')}</h1>
+          </div>
+          <div className="flex flex-col sm:flex-row items-center gap-3">
+            <input 
+              type="date" 
+              value={selectedDate} 
+              onChange={(e) => setSelectedDate(e.target.value)}
+              className="h-10 rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background"
+            />
             <Button onClick={handleCloseDay} disabled={isClosing} size="lg" className="gap-2">
               {isClosing && <Loader2 className="h-4 w-4 animate-spin" />}
               <CalendarDays className="h-4 w-4" />
-              {needsUpdate ? t('update_closing') || 'Update Closing' : t('close_today')} ({today})
+              {alreadyClosed ? t('update_closing') || 'Update Closing' : t('close_today')} ({selectedDate})
             </Button>
-          )}
+          </div>
         </div>
-      </div>
 
-      {error && (
-        <div className="rounded-md bg-destructive/10 border border-destructive/20 px-4 py-3 text-sm text-destructive">
-          {error}
-        </div>
-      )}
+        {error && (
+          <div className="rounded-md bg-destructive/10 border border-destructive/20 px-4 py-3 text-sm text-destructive">
+            {error}
+          </div>
+        )}
 
-      {/* Closing Report Card */}
-      {report && (
-        <div className="rounded-xl border bg-card shadow-sm p-6 space-y-4">
-          <div className="flex items-center justify-between">
-            <h2 className="text-lg font-semibold">{t('report')} — {report.closing.closing_date}</h2>
-            <div className="flex gap-2">
-              <Button variant="outline" size="sm" onClick={exportToCSV} className="gap-2">
-                <Download className="h-4 w-4" /> {t('export_csv')}
-              </Button>
-              <Button variant="outline" size="sm" onClick={exportToPDF} className="gap-2">
-                <FileText className="h-4 w-4" /> {t('export_pdf')}
-              </Button>
-              <Button variant="ghost" size="sm" onClick={() => setReport(null)}>{t('close')}</Button>
+        {/* Closing Report Card */}
+        {report && (
+          <div className="rounded-xl border bg-card shadow-sm p-6 space-y-4">
+            <div className="flex items-center justify-between">
+              <h2 className="text-lg font-semibold">{t('report')} — {report.closing.closing_date}</h2>
+              <div className="flex gap-2">
+                <Button variant="outline" size="sm" onClick={exportToCSV} className="gap-2">
+                  <Download className="h-4 w-4" /> {t('export_csv')}
+                </Button>
+                <Button variant="outline" size="sm" onClick={handlePrint} className="gap-2">
+                  <FileText className="h-4 w-4" /> {t('export_pdf')} / Print
+                </Button>
+                <Button variant="ghost" size="sm" onClick={() => setReport(null)}>{t('close')}</Button>
+              </div>
+            </div>
+
+            <div className="p-4 bg-background">
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+                <div className="rounded-lg bg-muted/50 p-4 text-center">
+                  <ShoppingBag className="h-6 w-6 mx-auto mb-1 text-muted-foreground" />
+                  <p className="text-2xl font-bold">{report.closing.total_orders}</p>
+                  <p className="text-xs text-muted-foreground mt-1">{t('total_orders')}</p>
+                </div>
+                <div className="rounded-lg bg-muted/50 p-4 text-center">
+                  <TrendingUp className="h-6 w-6 mx-auto mb-1 text-muted-foreground" />
+                  <p className="text-2xl font-bold">{report.closing.total_sales.toFixed(2)} <span className="text-sm font-normal">EGP</span></p>
+                  <p className="text-xs text-muted-foreground mt-1">{t('total_sales')}</p>
+                </div>
+                <div className="rounded-lg bg-muted/50 p-4 text-center">
+                  <TrendingUp className="h-6 w-6 mx-auto mb-1 text-muted-foreground" />
+                  <p className="text-2xl font-bold">
+                    {report.closing.total_orders > 0
+                      ? (report.closing.total_sales / report.closing.total_orders).toFixed(2)
+                      : '0.00'} <span className="text-sm font-normal">EGP</span>
+                  </p>
+                  <p className="text-xs text-muted-foreground mt-1">{t('avg_order')}</p>
+                </div>
+                <div className="rounded-lg bg-red-500/10 p-4 text-center">
+                  <TrendingUp className="h-6 w-6 mx-auto mb-1 text-red-500" />
+                  <p className="text-2xl font-bold text-red-600">{(report.expenses || 0).toFixed(2)} <span className="text-sm font-normal">EGP</span></p>
+                  <p className="text-xs text-red-500 mt-1">Expenses (Purchases)</p>
+                </div>
+              </div>
+
+              {report.items.length > 0 && (() => {
+                // Group by category
+                const byCategory: Record<string, { qty: number, rev: number, items: any[] }> = {};
+                report.items.forEach(item => {
+                  const p = products[item.product_id];
+                  const cat = p ? p.category : 'Unknown';
+                  if (!byCategory[cat]) byCategory[cat] = { qty: 0, rev: 0, items: [] };
+                  byCategory[cat].qty += item.quantity_sold;
+                  byCategory[cat].rev += item.total_revenue;
+                  byCategory[cat].items.push(item);
+                });
+
+                return (
+                  <div className="border rounded-md mt-2">
+                    <Table>
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead>{t('product')}</TableHead>
+                          <TableHead>Category</TableHead>
+                          <TableHead className="text-right">{t('qty_sold')}</TableHead>
+                          <TableHead className="text-right">{t('revenue')}</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {Object.entries(byCategory).map(([catName, data]) => (
+                          <React.Fragment key={`cat-${catName}`}>
+                            <TableRow className="bg-muted/30 font-semibold">
+                              <TableCell colSpan={2}>{catName} (Total)</TableCell>
+                              <TableCell className="text-right">{data.qty}</TableCell>
+                              <TableCell className="text-right">{data.rev.toFixed(2)} EGP</TableCell>
+                            </TableRow>
+                            {data.items.map(item => {
+                              const p = products[item.product_id];
+                              return (
+                                <TableRow key={item.id}>
+                                  <TableCell className="pl-6">{p ? p.name : item.product_id}</TableCell>
+                                  <TableCell className="text-muted-foreground text-sm">{catName}</TableCell>
+                                  <TableCell className="text-right">{item.quantity_sold}</TableCell>
+                                  <TableCell className="text-right">{item.total_revenue.toFixed(2)} EGP</TableCell>
+                                </TableRow>
+                              );
+                            })}
+                          </React.Fragment>
+                        ))}
+                      </TableBody>
+                    </Table>
+                  </div>
+                );
+              })()}
+
+              {report.payments && report.payments.length > 0 && (
+                <div className="border rounded-md mt-6">
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>Purchase Supplier</TableHead>
+                        <TableHead>Notes</TableHead>
+                        <TableHead className="text-right">Amount Paid</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {report.payments.map((payment, i) => (
+                        <TableRow key={`pay-${payment.id || i}`}>
+                          <TableCell className="font-semibold">{payment.supplierName}</TableCell>
+                          <TableCell className="text-muted-foreground">{payment.notes || '-'}</TableCell>
+                          <TableCell className="text-right text-red-500 font-medium">
+                            {payment.amount.toFixed(2)} EGP
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </div>
+              )}
             </div>
           </div>
+        )}
 
-          <div id="closing-report-content" className="p-4 bg-background">
-            {/* Added for PDF clarity */}
-            <h3 className="text-xl font-bold mb-4 hidden print:block">{t('report')} — {report.closing.closing_date}</h3>
-            
-            <div className="grid grid-cols-3 gap-4 mb-6">
-              <div className="rounded-lg bg-muted/50 p-4 text-center">
-                <ShoppingBag className="h-6 w-6 mx-auto mb-1 text-muted-foreground" />
-                <p className="text-2xl font-bold">{report.closing.total_orders}</p>
-                <p className="text-xs text-muted-foreground mt-1">{t('total_orders')}</p>
-              </div>
-              <div className="rounded-lg bg-muted/50 p-4 text-center">
-                <TrendingUp className="h-6 w-6 mx-auto mb-1 text-muted-foreground" />
-                <p className="text-2xl font-bold">{report.closing.total_sales.toFixed(2)} <span className="text-sm font-normal">EGP</span></p>
-                <p className="text-xs text-muted-foreground mt-1">{t('total_sales')}</p>
-              </div>
-              <div className="rounded-lg bg-muted/50 p-4 text-center">
-                <TrendingUp className="h-6 w-6 mx-auto mb-1 text-muted-foreground" />
-                <p className="text-2xl font-bold">
-                  {report.closing.total_orders > 0
-                    ? (report.closing.total_sales / report.closing.total_orders).toFixed(2)
-                    : '0.00'} <span className="text-sm font-normal">EGP</span>
-                </p>
-                <p className="text-xs text-muted-foreground mt-1">{t('avg_order')}</p>
-              </div>
-          </div>
-
-            {report.items.length > 0 && (
-              <div className="border rounded-md mt-2">
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>{t('product')}</TableHead>
-                      <TableHead className="text-right">{t('qty_sold')}</TableHead>
-                      <TableHead className="text-right">{t('revenue')}</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {report.items.map(item => (
-                      <TableRow key={item.id}>
-                        <TableCell>{products[item.product_id] || item.product_id}</TableCell>
-                        <TableCell className="text-right">{item.quantity_sold}</TableCell>
-                        <TableCell className="text-right">{item.total_revenue.toFixed(2)} EGP</TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-              </div>
-            )}
-          </div>
-        </div>
-      )}
-
-      {/* History Table */}
-      <div>
-        <h2 className="text-lg font-semibold mb-3">{t('history')}</h2>
-        <div className="border rounded-md">
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>{t('date')}</TableHead>
-                <TableHead className="text-right">{t('total_orders')}</TableHead>
-                <TableHead className="text-right">{t('total_sales')}</TableHead>
-                <TableHead className="w-[100px]"></TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {closings.length === 0 ? (
+        {/* History Table */}
+        <div>
+          <h2 className="text-lg font-semibold mb-3">{t('history')}</h2>
+          <div className="border rounded-md">
+            <Table>
+              <TableHeader>
                 <TableRow>
-                  <TableCell colSpan={4} className="text-center py-8 text-muted-foreground">
-                    No closing records yet.
-                  </TableCell>
+                  <TableHead>{t('date')}</TableHead>
+                  <TableHead className="text-right">{t('total_orders')}</TableHead>
+                  <TableHead className="text-right">{t('total_sales')}</TableHead>
+                  <TableHead className="text-right text-red-500">Expenses</TableHead>
+                  <TableHead className="w-[100px]"></TableHead>
                 </TableRow>
-              ) : (
-                closings.map(c => (
-                  <TableRow key={c.id}>
-                    <TableCell className="font-medium">{c.closing_date}</TableCell>
-                    <TableCell className="text-right">{c.total_orders}</TableCell>
-                    <TableCell className="text-right">{c.total_sales.toFixed(2)} EGP</TableCell>
-                    <TableCell>
-                      <Button variant="ghost" size="sm" onClick={() => viewReport(c)}>{t('view')}</Button>
+              </TableHeader>
+              <TableBody>
+                {closings.length === 0 ? (
+                  <TableRow>
+                    <TableCell colSpan={4} className="text-center py-8 text-muted-foreground">
+                      No closing records yet.
                     </TableCell>
                   </TableRow>
-                ))
-              )}
-            </TableBody>
-          </Table>
+                ) : (
+                  closings.map(c => (
+                    <TableRow key={c.id}>
+                      <TableCell className="font-medium">{c.closing_date}</TableCell>
+                      <TableCell className="text-right">{c.total_orders}</TableCell>
+                      <TableCell className="text-right">{c.total_sales.toFixed(2)} EGP</TableCell>
+                      <TableCell className="text-right text-red-500">{(c.total_expenses || 0).toFixed(2)} EGP</TableCell>
+                      <TableCell>
+                        <Button variant="ghost" size="sm" onClick={() => viewReport(c)}>{t('view')}</Button>
+                      </TableCell>
+                    </TableRow>
+                  ))
+                )}
+              </TableBody>
+            </Table>
+          </div>
         </div>
       </div>
     </div>

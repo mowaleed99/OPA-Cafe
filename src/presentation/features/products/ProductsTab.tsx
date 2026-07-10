@@ -7,7 +7,7 @@ import { PlusCircle, Pencil, Trash2, Search, Coffee } from 'lucide-react';
 import type { Product } from '../../../core/entities/product';
 import type { Category } from '../../../core/entities/category';
 import { useAuthStore } from '../../../application/store/useAuthStore';
-import { getProducts, softDeleteProduct } from '../../../application/useCases/products/manageProducts';
+import { getProducts, deleteProduct } from '../../../application/useCases/products/manageProducts';
 import { getCategories } from '../../../application/useCases/products/manageCategories';
 import { ProductFormModal } from './ProductFormModal';
 import { ConfirmDialog } from '../../components/ui/confirm-dialog';
@@ -161,7 +161,7 @@ export function ProductsTab() {
         onClose={() => setDeletingProduct(null)}
         onConfirm={async () => {
           if (deletingProduct) {
-            await softDeleteProduct(deletingProduct);
+            await deleteProduct(deletingProduct);
             setDeletingProduct(null);
             loadData();
           }

@@ -48,23 +48,18 @@ export async function updateCategory(category: Category): Promise<Category> {
   return category;
 }
 
-export async function softDeleteCategory(category: Category): Promise<Category> {
-  const updatedCategory = { ...category, status: 'inactive' as const };
-  await db.categories.put(updatedCategory);
-  await enqueueSync('update', 'categories', updatedCategory as unknown as Record<string, unknown>);
+export async function deleteCategory(category: Category): Promise<void> {
+  await db.categories.delete(category.id);
+  await enqueueSync('delete', 'categories', { id: category.id });
 
   // Delete all products associated with this category
   const products = await db.products
     .where('category_id')
     .equals(category.id)
-    .filter(p => p.status !== 'inactive')
     .toArray();
 
   for (const product of products) {
-    const updatedProduct = { ...product, status: 'inactive' as const };
-    await db.products.put(updatedProduct);
-    await enqueueSync('update', 'products', updatedProduct as unknown as Record<string, unknown>);
+    await db.products.delete(product.id);
+    await enqueueSync('delete', 'products', { id: product.id });
   }
-
-  return updatedCategory;
 }

@@ -5,7 +5,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '.
 import { PlusCircle, Pencil, Trash2 } from 'lucide-react';
 import type { Category } from '../../../core/entities/category';
 import { useAuthStore } from '../../../application/store/useAuthStore';
-import { getCategories, softDeleteCategory } from '../../../application/useCases/products/manageCategories';
+import { getCategories, deleteCategory } from '../../../application/useCases/products/manageCategories';
 import { CategoryFormModal } from './CategoryFormModal';
 import { ConfirmDialog } from '../../components/ui/confirm-dialog';
 
@@ -100,7 +100,7 @@ export function CategoriesTab() {
         onClose={() => setDeletingCategory(null)}
         onConfirm={async () => {
           if (deletingCategory) {
-            await softDeleteCategory(deletingCategory);
+            await deleteCategory(deletingCategory);
             setDeletingCategory(null);
             loadCategories();
           }

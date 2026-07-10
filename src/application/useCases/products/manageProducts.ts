@@ -39,9 +39,7 @@ export async function updateProduct(product: Product): Promise<Product> {
   return product;
 }
 
-export async function softDeleteProduct(product: Product): Promise<Product> {
-  const updatedProduct = { ...product, status: 'inactive' as const };
-  await db.products.put(updatedProduct);
-  await enqueueSync('update', 'products', updatedProduct as unknown as Record<string, unknown>);
-  return updatedProduct;
+export async function deleteProduct(product: Product): Promise<void> {
+  await db.products.delete(product.id);
+  await enqueueSync('delete', 'products', { id: product.id });
 }

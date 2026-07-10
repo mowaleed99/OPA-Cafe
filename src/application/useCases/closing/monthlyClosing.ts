@@ -5,8 +5,10 @@ export interface MonthlyClosingReport {
   month: string;
   total_sales: number;
   total_orders: number;
+  total_expenses: number;
   closings: DailyClosing[];
   aggregatedItems: Record<string, { quantity: number; revenue: number }>;
+  payments?: any[];
 }
 
 /**
@@ -21,10 +23,11 @@ export async function getMonthlyClosing(cafeId: string, monthPrefix: string): Pr
     
   let total_sales = 0;
   let total_orders = 0;
+  let total_expenses = 0;
   const aggregatedItems: Record<string, { quantity: number; revenue: number }> = {};
   
   if (closings.length === 0) {
-    return { month: monthPrefix, total_sales, total_orders, closings, aggregatedItems };
+    return { month: monthPrefix, total_sales, total_orders, total_expenses, closings, aggregatedItems };
   }
 
   const closingIds = closings.map(c => c.id);
@@ -46,5 +49,24 @@ export async function getMonthlyClosing(cafeId: string, monthPrefix: string): Pr
     aggregatedItems[item.product_id].revenue += item.total_revenue;
   }
 
-  return { month: monthPrefix, total_sales, total_orders, closings, aggregatedItems };
+  const cafeSuppliers = await db.suppliers.where('cafe_id').equals(cafeId).toArray();
+  const cafeSupplierIds = new Set(cafeSuppliers.map(s => s.id));
+  
+  const monthPayments = await db.supplier_payments
+    .filter(p => p.payment_date.startsWith(monthPrefix))
+    .toArray();
+
+  const cafeShiftPayments = monthPayments.filter(p => cafeSupplierIds.has(p.supplier_id));
+
+  total_expenses = cafeShiftPayments.reduce((sum, p) => sum + p.amount, 0);
+
+  const enrichedPayments = cafeShiftPayments.map(p => {
+    const supplier = cafeSuppliers.find(s => s.id === p.supplier_id);
+    return {
+      ...p,
+      supplierName: supplier ? supplier.name : 'Unknown Supplier',
+    };
+  });
+
+  return { month: monthPrefix, total_sales, total_orders, total_expenses, closings, aggregatedItems, payments: enrichedPayments };
 }
