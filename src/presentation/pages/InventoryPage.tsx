@@ -86,7 +86,7 @@ export default function InventoryPage() {
     <div className="p-6 max-w-5xl mx-auto space-y-6">
       <div className="flex items-center justify-between gap-3">
         <div>
-          <h1 className="text-2xl font-display font-bold text-foreground">Inventory</h1>
+          <h1 className="text-2xl font-display font-bold text-foreground">{t('inventory')}</h1>
           <p className="text-muted-foreground mt-1">{t('manage_inventory_desc')}</p>
         </div>
         <div className="flex items-center gap-3">
@@ -101,7 +101,7 @@ export default function InventoryPage() {
             />
           </div>
           <Button onClick={() => handleOpenModal()}>
-            <PlusCircle className="mr-2 h-4 w-4" /> Add Item
+            <PlusCircle className="mr-2 h-4 w-4" /> {t('add_item_btn')}
           </Button>
         </div>
       </div>
@@ -121,7 +121,7 @@ export default function InventoryPage() {
             {filtered.length === 0 ? (
               <TableRow>
                 <TableCell colSpan={5} className="py-10 text-center text-muted-foreground">
-                  No inventory items found. Add some to get started.
+                  {t('no_inventory_found')}
                 </TableCell>
               </TableRow>
             ) : (
@@ -160,7 +160,7 @@ export default function InventoryPage() {
       <Dialog open={isModalOpen} onOpenChange={setIsModalOpen}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>{editingItem ? 'Edit Item' : 'Add Item'}</DialogTitle>
+            <DialogTitle>{editingItem ? t('edit_item') : t('add_item_btn')}</DialogTitle>
           </DialogHeader>
           <div className="space-y-4 py-4">
             <div>
@@ -173,7 +173,7 @@ export default function InventoryPage() {
             </div>
             <div className="grid grid-cols-2 gap-4">
               <div>
-                <label className="text-sm font-medium mb-1 block">Stock Quantity</label>
+                <label className="text-sm font-medium mb-1 block">{t('stock_quantity')}</label>
                 <Input
                   type="number"
                   value={formData.stock_quantity}
@@ -186,12 +186,12 @@ export default function InventoryPage() {
                 <Input
                   value={formData.unit}
                   onChange={e => setFormData({ ...formData, unit: e.target.value })}
-                  placeholder="e.g. kg, L, pcs"
+                  placeholder={t('example_unit')}
                 />
               </div>
             </div>
             <div>
-              <label className="text-sm font-medium mb-1 block">Unit Cost (EGP)</label>
+              <label className="text-sm font-medium mb-1 block">{t('unit_cost_egp')}</label>
               <Input
                 type="number"
                 step="0.01"
@@ -204,7 +204,7 @@ export default function InventoryPage() {
           <DialogFooter>
             <Button variant="outline" onClick={() => setIsModalOpen(false)} disabled={saving}>{t('cancel')}</Button>
             <Button onClick={handleSave} disabled={saving || !formData.name || !formData.unit}>
-              {saving ? 'Saving...' : 'Save Item'}
+              {saving ? t('saving') : t('save_item')}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -220,8 +220,8 @@ export default function InventoryPage() {
             await load();
           }
         }}
-        title="Delete Item"
-        description="Are you sure you want to delete this inventory item?"
+        title={t('delete_item')}
+        description={t('delete_item_confirm')}
       />
     </div>
   );

@@ -4,17 +4,29 @@ import { supabase } from '../../../infrastructure/api/supabase';
 import type { Category } from '../../../core/entities/category';
 
 export async function getCategories(cafeId: string): Promise<Category[]> {
-  // Try local Dexie first (offline-first)
+  // Always deduplicate local data by ID and name before returning
   const local = await db.categories
     .where('cafe_id')
     .equals(cafeId)
     .filter(c => !c.status || c.status !== 'inactive')
     .toArray();
 
-  if (local.length > 0) return local;
+  // Deduplicate by id (primary) then by name (case-insensitive)
+  const seenIds = new Set<string>();
+  const seenNames = new Set<string>();
+  const unique = local.filter(c => {
+    const nameKey = c.name.trim().toLowerCase();
+    if (seenIds.has(c.id) || seenNames.has(nameKey)) return false;
+    seenIds.add(c.id);
+    seenNames.add(nameKey);
+    return true;
+  });
 
-  // Fallback: fetch from Supabase if local DB is empty (e.g. first load)
+  if (unique.length > 0) return unique;
+
+  // Fallback: fetch from Supabase when local is empty (first load / fresh install)
   if (!navigator.onLine) return [];
+
   const { data, error } = await supabase
     .from('categories')
     .select('*')
@@ -23,16 +35,36 @@ export async function getCategories(cafeId: string): Promise<Category[]> {
 
   if (error || !data) return [];
 
-  // Cache into Dexie so future calls are offline-first
-  await db.categories.bulkPut(data as Category[]);
-  return data as Category[];
+  // Deduplicate remote data before caching
+  const seenRemoteIds = new Set<string>();
+  const seenRemoteNames = new Set<string>();
+  const uniqueRemote = (data as Category[]).filter(c => {
+    const nameKey = c.name.trim().toLowerCase();
+    if (seenRemoteIds.has(c.id) || seenRemoteNames.has(nameKey)) return false;
+    seenRemoteIds.add(c.id);
+    seenRemoteNames.add(nameKey);
+    return true;
+  });
+
+  // Wipe existing local duplicates then cache clean data
+  await db.categories.where('cafe_id').equals(cafeId).delete();
+  await db.categories.bulkPut(uniqueRemote);
+  return uniqueRemote;
 }
 
 export async function createCategory(cafeId: string, name: string): Promise<Category> {
+  // Guard: prevent duplicate category names in the same cafe
+  const existing = await db.categories
+    .where('cafe_id').equals(cafeId)
+    .filter(c => c.name.trim().toLowerCase() === name.trim().toLowerCase() && c.status !== 'inactive')
+    .first();
+
+  if (existing) return existing;
+
   const category: Category = {
     id: crypto.randomUUID(),
     cafe_id: cafeId,
-    name,
+    name: name.trim(),
     status: 'active',
     created_at: new Date().toISOString(),
   };

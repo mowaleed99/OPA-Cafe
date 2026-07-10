@@ -18,12 +18,12 @@ import { useNavigate } from 'react-router-dom';
 
 type Tab = 'general' | 'appearance' | 'account' | 'backup' | 'danger';
 
-const tabs: { id: Tab; label: string; icon: React.ElementType; color: string }[] = [
-  { id: 'general',    label: 'General',          icon: Store,     color: 'text-blue-500' },
-  { id: 'appearance', label: 'Appearance',        icon: Palette,   color: 'text-violet-500' },
-  { id: 'account',    label: 'Account',           icon: User,      color: 'text-emerald-500' },
-  { id: 'backup',     label: 'Backup & Restore',  icon: HardDrive, color: 'text-amber-500' },
-  { id: 'danger',     label: 'Danger Zone',       icon: Shield,    color: 'text-red-500' },
+const tabs: { id: Tab; labelKey: string; icon: React.ElementType; color: string }[] = [
+  { id: 'general',    labelKey: 'tab_general',    icon: Store,     color: 'text-blue-500' },
+  { id: 'appearance', labelKey: 'tab_appearance', icon: Palette,   color: 'text-violet-500' },
+  { id: 'account',    labelKey: 'tab_account',    icon: User,      color: 'text-emerald-500' },
+  { id: 'backup',     labelKey: 'tab_backup',     icon: HardDrive, color: 'text-amber-500' },
+  { id: 'danger',     labelKey: 'tab_danger',     icon: Shield,    color: 'text-red-500' },
 ];
 
 function SettingRow({ label, description, children }: { label: string; description?: string; children: React.ReactNode }) {
@@ -96,9 +96,9 @@ export default function SettingsPage() {
       a.click();
       document.body.removeChild(a);
       URL.revokeObjectURL(url);
-      setBackupMessage({ type: 'success', text: 'Backup exported successfully.' });
+      setBackupMessage({ type: 'success', text: t('backup_success') });
     } catch {
-      setBackupMessage({ type: 'error', text: 'Failed to export backup.' });
+      setBackupMessage({ type: 'error', text: t('backup_error') });
     } finally {
       setIsExporting(false);
     }
@@ -121,9 +121,9 @@ export default function SettingsPage() {
             }
           }
         });
-        setBackupMessage({ type: 'success', text: 'Backup restored. Please refresh the page.' });
+        setBackupMessage({ type: 'success', text: t('restore_success') });
       } catch {
-        setBackupMessage({ type: 'error', text: 'Failed to restore. Invalid file format.' });
+        setBackupMessage({ type: 'error', text: t('restore_error') });
       } finally {
         setIsImporting(false);
         e.target.value = '';
@@ -162,9 +162,9 @@ export default function SettingsPage() {
       }
 
       setMenuConfirm('');
-      setDangerMessage({ type: 'success', text: 'All categories and products have been deleted locally and online.' });
+      setDangerMessage({ type: 'success', text: t('clear_menu_success') });
     } catch {
-      setDangerMessage({ type: 'error', text: 'Failed to clear menu data.' });
+      setDangerMessage({ type: 'error', text: t('clear_menu_fail') });
     } finally {
       setIsClearingMenu(false);
     }
@@ -217,9 +217,9 @@ export default function SettingsPage() {
       }
 
       setSalesConfirm('');
-      setDangerMessage({ type: 'success', text: 'All sales, orders, and daily closings have been cleared locally and online.' });
+      setDangerMessage({ type: 'success', text: t('clear_sales_success') });
     } catch {
-      setDangerMessage({ type: 'error', text: 'Failed to clear sales data.' });
+      setDangerMessage({ type: 'error', text: t('clear_sales_fail') });
     } finally {
       setIsClearingSales(false);
     }
@@ -230,7 +230,7 @@ export default function SettingsPage() {
     navigate('/login');
   };
 
-  const activeTabData = tabs.find(tb => tb.id === activeTab)!;
+  const activeTabData = tabs.find(tb => tb.id === activeTab)!
 
   return (
     <div className="flex h-full overflow-hidden bg-background">
@@ -238,7 +238,7 @@ export default function SettingsPage() {
       <aside className="w-60 shrink-0 flex flex-col border-r border-border bg-card">
         <div className="px-5 pt-6 pb-4 border-b border-border">
           <h1 className="text-lg font-display font-bold text-foreground">{t('settings')}</h1>
-          <p className="text-xs text-muted-foreground mt-0.5">Manage your system preferences</p>
+          <p className="text-xs text-muted-foreground mt-0.5">{t('manage_system_preferences')}</p>
         </div>
         <nav className="flex-1 overflow-y-auto p-3 space-y-1">
           {tabs.map(tab => {
@@ -255,7 +255,7 @@ export default function SettingsPage() {
                 }`}
               >
                 <Icon size={16} className={isActive ? 'text-primary-foreground' : tab.color} />
-                <span className="flex-1">{tab.label}</span>
+                <span className="flex-1">{t(tab.labelKey)}</span>
                 {isActive && <ChevronRight size={14} className="opacity-70" />}
               </button>
             );
@@ -267,8 +267,8 @@ export default function SettingsPage() {
             <p>Version 1.0.0</p>
             <div className="flex items-center gap-1.5 mt-2">
               {navigator.onLine
-                ? <><Wifi size={11} className="text-emerald-500" /><span className="text-emerald-600">Online</span></>
-                : <><WifiOff size={11} className="text-amber-500" /><span className="text-amber-600">Offline</span></>}
+                ? <><Wifi size={11} className="text-emerald-500" /><span className="text-emerald-600">{t('online')}</span></>
+                : <><WifiOff size={11} className="text-amber-500" /><span className="text-amber-600">{t('offline')}</span></>}
             </div>
           </div>
         </div>
@@ -282,13 +282,13 @@ export default function SettingsPage() {
             <activeTabData.icon size={16} className={activeTabData.color} />
           </div>
           <div>
-            <h2 className="text-base font-display font-semibold text-foreground">{activeTabData.label}</h2>
+            <h2 className="text-base font-display font-semibold text-foreground">{t(activeTabData.labelKey)}</h2>
             <p className="text-xs text-muted-foreground">
-              {activeTab === 'general'    && 'Configure your cafe profile and system preferences'}
-              {activeTab === 'appearance' && 'Customize the look and feel of the interface'}
-              {activeTab === 'account'    && 'Your account information and session management'}
-              {activeTab === 'backup'     && 'Export and import your local database'}
-              {activeTab === 'danger'     && 'Irreversible actions � proceed with caution'}
+              {activeTab === 'general'    && t('cafe_name_desc')}
+              {activeTab === 'appearance' && t('color_theme_desc')}
+              {activeTab === 'account'    && t('email_desc')}
+              {activeTab === 'backup'     && t('export_backup_desc')}
+              {activeTab === 'danger'     && t('danger_warning')}
             </p>
           </div>
         </div>
@@ -298,25 +298,25 @@ export default function SettingsPage() {
           {/* GENERAL */}
           {activeTab === 'general' && (
             <>
-              <SectionCard title="Cafe Profile" icon={Store}>
-                <SettingRow label="Cafe Name" description="Displayed on receipts and reports across the system.">
+              <SectionCard title={t('cafe_profile')} icon={Store}>
+                <SettingRow label={t('cafe_name_label')} description={t('cafe_name_desc')}>
                   <Input
                     value={cafeName}
                     onChange={(e) => setCafeName(e.target.value)}
                     onBlur={() => { if (cafeId) updateSettings(cafeId, { cafe_name: cafeName }); }}
                     className="w-52"
-                    placeholder="Enter cafe name"
+                    placeholder={t('cafe_name')}
                   />
                 </SettingRow>
-                <SettingRow label="Cafe ID" description="Your unique cafe identifier. Read-only.">
+                <SettingRow label={t('cafe_id_label')} description={t('cafe_id_desc')}>
                   <code className="text-xs bg-muted px-2.5 py-1.5 rounded font-mono text-muted-foreground border border-border">
-                    {cafeId ?? '�'}
+                    {cafeId ?? '…'}
                   </code>
                 </SettingRow>
               </SectionCard>
 
-              <SectionCard title="Localization" icon={Globe}>
-                <SettingRow label="Language" description="Changes the display language for the entire application.">
+              <SectionCard title={t('localization')} icon={Globe}>
+                <SettingRow label={t('language')} description={t('language_desc')}>
                   <Select value={language} onValueChange={(val: 'ar' | 'en') => {
                     setLanguage(val);
                     if (cafeId) updateSettings(cafeId, { language: val });
@@ -327,15 +327,15 @@ export default function SettingsPage() {
                       </SelectValue>
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="ar">Arabic</SelectItem>
-                      <SelectItem value="en">English</SelectItem>
+                      <SelectItem value="ar">{t('arabic')}</SelectItem>
+                      <SelectItem value="en">{t('english')}</SelectItem>
                     </SelectContent>
                   </Select>
                 </SettingRow>
               </SectionCard>
 
-              <SectionCard title="Receipt Printing" icon={Printer}>
-                <SettingRow label="Paper Size" description="Choose the paper format for your receipt printer.">
+              <SectionCard title={t('receipt_printing')} icon={Printer}>
+                <SettingRow label={t('paper_size')} description={t('paper_size_desc')}>
                   <Select value={printPaperSize} onValueChange={(val: 'A4' | '80mm' | '58mm') => {
                     setPrintPaperSize(val);
                     if (cafeId) updateSettings(cafeId, { print_paper_size: val });
@@ -352,7 +352,7 @@ export default function SettingsPage() {
                     </SelectContent>
                   </Select>
                 </SettingRow>
-                <SettingRow label="Print Preview" description="How the receipt will look for the selected paper size.">
+                <SettingRow label={t('print_preview')} description={t('print_preview_desc')}>
                   <div className={`border border-dashed border-border rounded-lg flex items-center justify-center bg-muted/40 text-xs text-muted-foreground font-mono transition-all
                     ${printPaperSize === 'A4' ? 'w-20 h-28' : printPaperSize === '80mm' ? 'w-14 h-24' : 'w-10 h-20'}`}>
                     {printPaperSize}
@@ -364,14 +364,14 @@ export default function SettingsPage() {
 
           {/* APPEARANCE */}
           {activeTab === 'appearance' && (
-            <SectionCard title="Theme" icon={Palette}>
-              <SettingRow label="Color Theme" description="Choose between light, dark, or follow your system preference.">
+            <SectionCard title={t('tab_appearance')} icon={Palette}>
+              <SettingRow label={t('color_theme')} description={t('color_theme_desc')}>
                 <div className="flex gap-2">
                   {([
-                    { value: 'light',  icon: Sun,     label: 'Light'  },
-                    { value: 'dark',   icon: Moon,    label: 'Dark'   },
-                    { value: 'system', icon: Monitor, label: 'System' },
-                  ] as const).map(({ value, icon: Icon, label }) => (
+                    { value: 'light',  icon: Sun,     labelKey: 'theme_light'  },
+                    { value: 'dark',   icon: Moon,    labelKey: 'theme_dark'   },
+                    { value: 'system', icon: Monitor, labelKey: 'theme_system' },
+                  ] as const).map(({ value, icon: Icon, labelKey }) => (
                     <button
                       key={value}
                       onClick={() => applyTheme(value)}
@@ -382,12 +382,12 @@ export default function SettingsPage() {
                       }`}
                     >
                       <Icon size={18} />
-                      {label}
+                      {t(labelKey)}
                     </button>
                   ))}
                 </div>
               </SettingRow>
-              <SettingRow label="Theme Preview" description="A live preview of the selected color scheme.">
+              <SettingRow label={t('theme_preview')} description={t('theme_preview_desc')}>
                 <div className={`w-52 rounded-lg border overflow-hidden text-xs ${theme === 'dark' ? 'bg-gray-900 border-gray-700 text-gray-100' : 'bg-white border-gray-200 text-gray-900'}`}>
                   <div className={`px-3 py-2 border-b flex items-center gap-2 ${theme === 'dark' ? 'border-gray-700 bg-gray-800' : 'border-gray-100 bg-gray-50'}`}>
                     <div className="w-2 h-2 rounded-full bg-red-400" />
@@ -405,39 +405,38 @@ export default function SettingsPage() {
             </SectionCard>
           )}
 
-          {/* ACCOUNT */}
           {activeTab === 'account' && (
             <>
-              <SectionCard title="Profile" icon={User}>
-                <SettingRow label="User ID" description="Your unique user identifier.">
-                  <span className="text-sm font-medium text-foreground">{appUser?.id ?? '�'}</span>
+              <SectionCard title={t('profile')} icon={User}>
+                <SettingRow label={t('user_id')} description={t('user_id_desc')}>
+                  <span className="text-sm font-medium text-foreground">{appUser?.id ?? '…'}</span>
                 </SettingRow>
-                <SettingRow label="Email Address" description="Login email for your account.">
+                <SettingRow label={t('email_address')} description={t('email_desc')}>
                   <span className="text-sm text-muted-foreground">{session?.user?.email ?? 'N/A'}</span>
                 </SettingRow>
-                <SettingRow label="Role" description="Your permission level in the system.">
+                <SettingRow label={t('role_label')} description={t('role_desc')}>
                   <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold ${
                     appUser?.role === 'owner'
                       ? 'bg-violet-100 text-violet-700 dark:bg-violet-900/30 dark:text-violet-300'
                       : 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300'
                   }`}>
                     <Shield size={11} />
-                    {appUser?.role === 'owner' ? 'Owner' : 'Cashier'}
+                    {appUser?.role === 'owner' ? t('role_owner') : t('role_cashier')}
                   </span>
                 </SettingRow>
               </SectionCard>
 
-              <SectionCard title="Session" icon={LogOut}>
+              <SectionCard title={t('session')} icon={LogOut}>
                 <div className="py-5">
                   <div className="flex items-start gap-3 p-4 rounded-lg bg-muted/50 border border-border mb-4">
                     <Info size={15} className="text-muted-foreground mt-0.5 shrink-0" />
                     <p className="text-xs text-muted-foreground leading-relaxed">
-                      Signing out will clear your local session. Any unsynced data will remain in the local database and sync when you log back in.
+                      {t('sign_out_info')}
                     </p>
                   </div>
                   <Button variant="destructive" onClick={handleSignOut} className="flex items-center gap-2">
                     <LogOut size={15} />
-                    Sign Out
+                    {t('sign_out')}
                   </Button>
                 </div>
               </SectionCard>
@@ -457,37 +456,37 @@ export default function SettingsPage() {
                   {backupMessage.text}
                 </div>
               )}
-              <SectionCard title="Export" icon={Download}>
+              <SectionCard title={t('export_section')} icon={Download}>
                 <div className="py-5 flex items-start gap-5">
                   <div className="w-12 h-12 rounded-xl bg-blue-100 dark:bg-blue-900/30 flex items-center justify-center shrink-0">
                     <Download size={22} className="text-blue-600 dark:text-blue-400" />
                   </div>
                   <div className="flex-1">
-                    <h4 className="font-semibold text-sm text-foreground mb-1">Download Backup</h4>
+                    <h4 className="font-semibold text-sm text-foreground mb-1">{t('download_backup_title')}</h4>
                     <p className="text-xs text-muted-foreground leading-relaxed mb-4">
-                      Exports a full snapshot of your local database as a JSON file. Includes all categories, products, orders, suppliers, and settings. Store it in a safe place.
+                      {t('export_desc')}
                     </p>
                     <Button onClick={handleExport} disabled={isExporting} className="flex items-center gap-2">
                       <Download size={14} />
-                      {isExporting ? 'Exporting...' : 'Export Backup File'}
+                      {isExporting ? t('exporting') : t('export_backup_file')}
                     </Button>
                   </div>
                 </div>
               </SectionCard>
 
-              <SectionCard title="Restore" icon={Upload}>
+              <SectionCard title={t('restore_section')} icon={Upload}>
                 <div className="py-5 flex items-start gap-5">
                   <div className="w-12 h-12 rounded-xl bg-amber-100 dark:bg-amber-900/30 flex items-center justify-center shrink-0">
                     <Upload size={22} className="text-amber-600 dark:text-amber-400" />
                   </div>
                   <div className="flex-1">
-                    <h4 className="font-semibold text-sm text-foreground mb-1">Restore from Backup</h4>
+                    <h4 className="font-semibold text-sm text-foreground mb-1">{t('restore_from_backup')}</h4>
                     <p className="text-xs text-muted-foreground leading-relaxed mb-3">
-                      Import a previously exported JSON backup. This will <strong>overwrite all current local data</strong> with the contents of the file.
+                      {t('restore_desc')}
                     </p>
                     <div className="flex items-start gap-2 p-3 rounded-lg border border-amber-200 bg-amber-50 dark:bg-amber-950/20 dark:border-amber-800 mb-4">
                       <AlertCircle size={13} className="text-amber-600 dark:text-amber-400 shrink-0 mt-0.5" />
-                      <p className="text-xs text-amber-700 dark:text-amber-400">This action overwrites your current data. Export a fresh backup first.</p>
+                      <p className="text-xs text-amber-700 dark:text-amber-400">{t('restore_caution')}</p>
                     </div>
                     <div className="relative inline-block">
                       <input
@@ -499,7 +498,7 @@ export default function SettingsPage() {
                       />
                       <Button variant="outline" disabled={isImporting} className="flex items-center gap-2">
                         <Upload size={14} />
-                        {isImporting ? 'Restoring...' : 'Upload Backup File'}
+                        {isImporting ? t('restoring') : t('upload_backup_btn')}
                       </Button>
                     </div>
                   </div>
@@ -514,9 +513,7 @@ export default function SettingsPage() {
               <div className="flex items-start gap-3 p-4 rounded-lg bg-red-50 border border-red-200 dark:bg-red-950/20 dark:border-red-800">
                 <AlertCircle size={16} className="text-red-600 dark:text-red-400 shrink-0 mt-0.5" />
                 <p className="text-sm text-red-700 dark:text-red-400 leading-relaxed">
-                  Actions in this section are <strong>permanent and irreversible</strong>. Type{' '}
-                  <code className="bg-red-100 dark:bg-red-900/40 px-1.5 py-0.5 rounded font-mono text-xs">DELETE</code>{' '}
-                  in the confirmation box before each action can be executed.
+                  {t('danger_warning')}
                 </p>
               </div>
 
@@ -534,16 +531,16 @@ export default function SettingsPage() {
               <div className="bg-card border border-red-200 dark:border-red-900 rounded-xl overflow-hidden shadow-sm">
                 <div className="flex items-center gap-2.5 px-6 py-4 border-b border-red-100 dark:border-red-900 bg-red-50/60 dark:bg-red-950/20">
                   <Trash2 size={15} className="text-red-500" />
-                  <h3 className="text-sm font-semibold text-red-700 dark:text-red-400 tracking-wide uppercase">Clear Menu Data (Local &amp; Online)</h3>
+                  <h3 className="text-sm font-semibold text-red-700 dark:text-red-400 tracking-wide uppercase">{t('clear_menu_title')}</h3>
                 </div>
                 <div className="px-6 py-5">
-                  <h4 className="font-semibold text-sm text-foreground mb-1">Delete All Categories & Products</h4>
+                  <h4 className="font-semibold text-sm text-foreground mb-1">{t('clear_menu_subtitle')}</h4>
                   <p className="text-xs text-muted-foreground leading-relaxed mb-4">
-                    Permanently removes every category and product from both the local database and Supabase. The sync queue will also be cleared. Use this to start fresh after testing.
+                    {t('clear_menu_desc')}
                   </p>
                   <div className="flex gap-2 items-center">
                     <Input
-                      placeholder="Type DELETE to confirm"
+                      placeholder={t('type_delete')}
                       value={menuConfirm}
                       onChange={(e) => setMenuConfirm(e.target.value)}
                       className="w-52 border-red-300 focus-visible:ring-red-400 dark:border-red-700"
@@ -555,7 +552,7 @@ export default function SettingsPage() {
                       className="shrink-0 flex items-center gap-1.5"
                     >
                       <Trash2 size={14} />
-                      {isClearingMenu ? 'Clearing...' : 'Clear Menu'}
+                      {isClearingMenu ? t('clearing') : t('clear_menu_btn')}
                     </Button>
                   </div>
                 </div>
@@ -564,16 +561,16 @@ export default function SettingsPage() {
               <div className="bg-card border border-red-200 dark:border-red-900 rounded-xl overflow-hidden shadow-sm">
                 <div className="flex items-center gap-2.5 px-6 py-4 border-b border-red-100 dark:border-red-900 bg-red-50/60 dark:bg-red-950/20">
                   <ShoppingBag size={15} className="text-red-500" />
-                  <h3 className="text-sm font-semibold text-red-700 dark:text-red-400 tracking-wide uppercase">Clear Sales Data</h3>
+                  <h3 className="text-sm font-semibold text-red-700 dark:text-red-400 tracking-wide uppercase">{t('clear_sales_title')}</h3>
                 </div>
                 <div className="px-6 py-5">
-                  <h4 className="font-semibold text-sm text-foreground mb-1">Delete All Orders & Sales</h4>
+                  <h4 className="font-semibold text-sm text-foreground mb-1">{t('clear_sales_subtitle')}</h4>
                   <p className="text-xs text-muted-foreground leading-relaxed mb-4">
-                    Permanently deletes all orders, order items, and daily closings. All dining tables will be reset to <strong>free</strong>. Use this to wipe test sales before going live.
+                    {t('clear_sales_desc')}
                   </p>
                   <div className="flex gap-2 items-center">
                     <Input
-                      placeholder="Type DELETE to confirm"
+                      placeholder={t('type_delete')}
                       value={salesConfirm}
                       onChange={(e) => setSalesConfirm(e.target.value)}
                       className="w-52 border-red-300 focus-visible:ring-red-400 dark:border-red-700"
@@ -585,7 +582,7 @@ export default function SettingsPage() {
                       className="shrink-0 flex items-center gap-1.5"
                     >
                       <ShoppingBag size={14} />
-                      {isClearingSales ? 'Clearing...' : 'Clear Sales'}
+                      {isClearingSales ? t('clearing') : t('clear_sales_btn')}
                     </Button>
                   </div>
                 </div>

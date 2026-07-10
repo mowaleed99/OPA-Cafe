@@ -64,7 +64,7 @@ function SupplierModal({
     <Dialog open={isOpen} onOpenChange={onClose}>
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>{supplierToEdit ? 'Edit Supplier' : 'Add Supplier'}</DialogTitle>
+          <DialogTitle>{supplierToEdit ? t('edit_supplier') : t('add_supplier')}</DialogTitle>
         </DialogHeader>
         <div className="space-y-4 py-4">
           <div>
@@ -72,13 +72,13 @@ function SupplierModal({
             <Input value={name} onChange={e => setName(e.target.value)} placeholder="e.g. Al Reef Coffee Co." autoFocus />
           </div>
           <div>
-            <label className="text-sm font-medium mb-1 block">Contact Info (Optional)</label>
+            <label className="text-sm font-medium mb-1 block">{t('contact_optional')}</label>
             <Input value={contact} onChange={e => setContact(e.target.value)} placeholder="Phone / Email / Address" />
           </div>
         </div>
         <DialogFooter>
           <Button variant="outline" onClick={onClose} disabled={saving}>{t('cancel')}</Button>
-          <Button onClick={handleSave} disabled={saving || !name.trim()}>Save</Button>
+          <Button onClick={handleSave} disabled={saving || !name.trim()}>{t('save')}</Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>
@@ -112,11 +112,11 @@ export default function SuppliersPage() {
     <div className="p-6 max-w-4xl mx-auto space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-display font-bold text-foreground">Suppliers</h1>
+          <h1 className="text-2xl font-display font-bold text-foreground">{t('suppliers')}</h1>
           <p className="text-muted-foreground mt-1">{t('manage_suppliers_desc')}</p>
         </div>
         <Button onClick={handleAdd}>
-          <PlusCircle className="mr-2 h-4 w-4" /> Add Supplier
+          <PlusCircle className="mr-2 h-4 w-4" /> {t('add_supplier')}
         </Button>
       </div>
 
@@ -134,7 +134,7 @@ export default function SuppliersPage() {
               <TableRow>
                 <TableCell colSpan={3} className="py-10 text-center text-muted-foreground">
                   <Truck className="h-8 w-8 mx-auto mb-2 opacity-40" />
-                  No suppliers yet. Click "Add Supplier" to get started.
+                  {t('no_suppliers_yet')}
                 </TableCell>
               </TableRow>
             ) : (
@@ -176,8 +176,8 @@ export default function SuppliersPage() {
             load();
           }
         }}
-        title="Delete Supplier"
-        description={`Delete supplier "${deletingSupplier?.name}"? This cannot be undone.`}
+        title={t('delete_supplier')}
+        description={`${t('delete_supplier_confirm')} "${deletingSupplier?.name}"?`}
       />
     </div>
   );

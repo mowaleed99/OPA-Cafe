@@ -56,20 +56,20 @@ export function CategoryFormModal({ isOpen, onClose, categoryToEdit, onSaved }: 
     <Dialog open={isOpen} onOpenChange={onClose}>
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>{categoryToEdit ? 'Edit Category' : 'Add Category'}</DialogTitle>
+          <DialogTitle>{categoryToEdit ? t('edit_category') : t('addCategory')}</DialogTitle>
         </DialogHeader>
         <div className="py-4">
-          <label className="text-sm font-medium mb-1 block">Category Name</label>
+          <label className="text-sm font-medium mb-1 block">{t('category_name')}</label>
           <Input 
             value={name} 
             onChange={(e) => setName(e.target.value)} 
-            placeholder="e.g. Hot Drinks" 
+            placeholder={t('category_name_placeholder')} 
             autoFocus
           />
         </div>
         <DialogFooter>
           <Button variant="outline" onClick={onClose} disabled={isSaving}>{t('cancel')}</Button>
-          <Button onClick={handleSave} disabled={isSaving || !name.trim()}>Save</Button>
+          <Button onClick={handleSave} disabled={isSaving || !name.trim()}>{t('save')}</Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>

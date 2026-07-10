@@ -61,12 +61,16 @@ export async function processSyncQueue(): Promise<void> {
       const supabaseTable = toSupabaseName(item.table);
 
       if (item.action === 'insert') {
-        const { error } = await supabase.from(supabaseTable).insert(item.payload);
-        if (error) throw error;
-      } else if (item.action === 'update') {
+        // Use upsert so that retries don't create duplicate rows (conflict on primary key)
         const { error } = await supabase
           .from(supabaseTable)
-          .update(item.payload)
+          .upsert(item.payload, { onConflict: 'id' });
+        if (error) throw error;
+      } else if (item.action === 'update') {
+        const { id, ...updatePayload } = item.payload;
+        const { error } = await supabase
+          .from(supabaseTable)
+          .update(updatePayload)
           .eq('id', item.payload['id'] as string);
         if (error) throw error;
       } else if (item.action === 'delete') {

@@ -9,31 +9,36 @@ import type { Category } from '../../../core/entities/category';
 import { useAuthStore } from '../../../application/store/useAuthStore';
 import { getProducts, deleteProduct } from '../../../application/useCases/products/manageProducts';
 import { getCategories } from '../../../application/useCases/products/manageCategories';
+import { useLiveQuery } from 'dexie-react-hooks';
+import { db } from '../../../infrastructure/database/db';
 import { ProductFormModal } from './ProductFormModal';
 import { ConfirmDialog } from '../../components/ui/confirm-dialog';
 
 export function ProductsTab() {
   const { t } = useTranslation();
-  const [products, setProducts] = useState<Product[]>([]);
-  const [categories, setCategories] = useState<Category[]>([]);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [productToEdit, setProductToEdit] = useState<Product | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const cafeId = useAuthStore(state => state.cafeId());
 
-  const loadData = async () => {
-    if (!cafeId) return;
-    const [prods, cats] = await Promise.all([
-      getProducts(cafeId),
-      getCategories(cafeId)
-    ]);
-    setProducts(prods);
-    setCategories(cats);
-  };
+  const products = useLiveQuery(
+    () => db.products.where('cafe_id').equals(cafeId || '').filter(p => p.status !== 'inactive').toArray(),
+    [cafeId]
+  ) || [];
 
-  useEffect(() => {
-    loadData();
-  }, [cafeId]);
+  const categories = useLiveQuery(
+    async () => {
+      if (!cafeId) return [];
+      const cats = await db.categories.where('cafe_id').equals(cafeId).filter(c => !c.status || c.status !== 'inactive').toArray();
+      const seen = new Set<string>();
+      return cats.filter(c => {
+        if (seen.has(c.id)) return false;
+        seen.add(c.id);
+        return true;
+      });
+    },
+    [cafeId]
+  ) || [];
 
   const handleAdd = () => {
     setProductToEdit(null);
@@ -80,7 +85,7 @@ export function ProductsTab() {
         </div>
         <Button onClick={handleAdd}>
           <PlusCircle className="mr-2 h-4 w-4" />
-          Add Product
+          {t('add_product')}
         </Button>
       </div>
 
@@ -105,8 +110,8 @@ export function ProductsTab() {
                     <TableHeader>
                       <TableRow>
                         <TableHead>{t('name')}</TableHead>
-                        <TableHead>Price</TableHead>
-                        <TableHead>Cost</TableHead>
+                        <TableHead>{t('price')}</TableHead>
+                        <TableHead>{t('cost')}</TableHead>
                         <TableHead className="w-[100px]">{t('actions')}</TableHead>
                       </TableRow>
                     </TableHeader>
@@ -132,7 +137,7 @@ export function ProductsTab() {
                   </Table>
                 </div>
               ) : (
-                <p className="text-sm text-muted-foreground italic pl-2">No products in this category.</p>
+                <p className="text-sm text-muted-foreground italic pl-2">{t('no_products_in_category')}</p>
               )}
             </div>
           );
@@ -143,7 +148,7 @@ export function ProductsTab() {
         {filtered.length === 0 && (
           <div className="text-center py-12 border rounded-lg bg-card border-dashed">
             <p className="text-muted-foreground">
-              {searchQuery ? 'No products match your search.' : 'No products found. Click "Add Product" to create one.'}
+              {searchQuery ? t('no_products_match') : t('no_products_found')}
             </p>
           </div>
         )}
@@ -153,7 +158,7 @@ export function ProductsTab() {
         isOpen={isModalOpen} 
         onClose={() => setIsModalOpen(false)} 
         productToEdit={productToEdit}
-        onSaved={loadData}
+        onSaved={() => setIsModalOpen(false)}
       />
 
       <ConfirmDialog
@@ -163,11 +168,10 @@ export function ProductsTab() {
           if (deletingProduct) {
             await deleteProduct(deletingProduct);
             setDeletingProduct(null);
-            loadData();
           }
         }}
-        title="Delete Product"
-        description={`Are you sure you want to delete ${deletingProduct?.name}?`}
+        title={t('delete_product')}
+        description={`${t('delete_product_confirm')} ${deletingProduct?.name}?`}
       />
     </div>
   );

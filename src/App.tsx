@@ -4,6 +4,7 @@ import { useAuthStore } from './application/store/useAuthStore';
 import { useSettingsStore } from './application/store/useSettingsStore';
 import { processSyncQueue, startRealtimeSync } from './application/sync/syncQueue';
 import { pullInitialData } from './application/sync/pullInitialData';
+import { cleanupLocalDuplicates } from './cleanupLocal';
 import { fetchSettings } from './application/useCases/settings/manageSettings';
 import { useTranslation } from 'react-i18next';
 import { RefreshCw } from 'lucide-react';
@@ -55,8 +56,8 @@ export default function App() {
   useEffect(() => {
     async function initSync() {
       if (!appUser?.cafe_id) return;
-      
       setIsInitializingData(true);
+      await cleanupLocalDuplicates(); // Clean duplicates before pushing
       await processSyncQueue(); // Push local changes first
       await pullInitialData(appUser.cafe_id); // Then pull remote data
       setIsInitializingData(false);

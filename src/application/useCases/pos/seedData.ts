@@ -1,5 +1,6 @@
 import { db } from '../../../infrastructure/database/db';
 import { enqueueSync } from '../../sync/syncQueue';
+import { supabase } from '../../../infrastructure/api/supabase';
 import type { Category } from '../../../core/entities/category';
 import type { Product } from '../../../core/entities/product';
 
@@ -30,7 +31,33 @@ const seedData = {
 export async function seedCategoriesAndProducts(cafeId: string): Promise<void> {
   const now = new Date().toISOString();
   
+  // 1. Check local DB
+  const localCategories = await db.categories
+    .where('cafe_id')
+    .equals(cafeId)
+    .toArray();
+    
+  let existingNames = localCategories.map(c => c.name);
+
+  // 2. Check Supabase to prevent duplicates if local DB was just cleared
+  if (navigator.onLine) {
+    const { data: remoteCategories } = await supabase
+      .from('categories')
+      .select('name')
+      .eq('cafe_id', cafeId);
+      
+    if (remoteCategories) {
+      existingNames = [...existingNames, ...remoteCategories.map(c => c.name)];
+    }
+  }
+
+  const existingCategoryNames = new Set(existingNames);
+  
   for (const [catName, productNames] of Object.entries(seedData)) {
+    if (existingCategoryNames.has(catName)) {
+      continue; // Skip if already exists locally or remotely
+    }
+    
     const catId = crypto.randomUUID();
     const category: Category = {
       id: catId,

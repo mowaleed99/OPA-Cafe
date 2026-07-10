@@ -46,9 +46,37 @@ export async function pullInitialData(cafeId: string): Promise<void> {
       supabase.from('settings').select('*').eq('cafe_id', cafeId),
     ]);
 
-    // 2. Upsert all parent tables (bulkPut = insert or update)
-    if (categories && categories.length > 0) await db.categories.bulkPut(categories as any[]);
-    if (products && products.length > 0) await db.products.bulkPut(products as any[]);
+    // 2. Deduplicate by name before upserting (prevents server-side duplicates from
+    //    polluting local Dexie — keep the first occurrence for each unique name).
+    if (categories && categories.length > 0) {
+      const seenCatNames = new Set<string>();
+      const uniqueCategories = (categories as any[]).filter(c => {
+        const key = c.name.trim().toLowerCase();
+        if (seenCatNames.has(key)) return false;
+        seenCatNames.add(key);
+        return true;
+      });
+      // Wipe local categories for this cafe first, then put clean server data
+      // This prevents old duplicates from surviving across syncs
+      await db.categories.where('cafe_id').equals(cafeId).delete();
+      await db.categories.bulkPut(uniqueCategories);
+    }
+    if (products && products.length > 0) {
+      // Build a category id → name map from already-filtered categories
+      const catIdToName = new Map<string, string>();
+      if (categories) {
+        for (const c of categories as any[]) catIdToName.set(c.id, c.name);
+      }
+      const seenProdKeys = new Set<string>();
+      const uniqueProducts = (products as any[]).filter(p => {
+        const catName = catIdToName.get(p.category_id) ?? p.category_id;
+        const key = `${catName}::${p.name}`;
+        if (seenProdKeys.has(key)) return false;
+        seenProdKeys.add(key);
+        return true;
+      });
+      await db.products.bulkPut(uniqueProducts);
+    }
     if (inventoryItems && inventoryItems.length > 0) await db.inventory_items.bulkPut(inventoryItems as any[]);
     if (tables && tables.length > 0) await db.dining_tables.bulkPut(tables as any[]);
     if (orders && orders.length > 0) await db.orders.bulkPut(orders as any[]);

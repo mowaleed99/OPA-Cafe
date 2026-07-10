@@ -1,6 +1,7 @@
 import { useEffect, useState, useCallback } from 'react';
 import { RefreshCw, WifiOff } from 'lucide-react';
 import { useSearchParams } from 'react-router-dom';
+import { useLiveQuery } from 'dexie-react-hooks';
 import { db } from '../../infrastructure/database/db';
 import { loadTableOrder } from '../../application/useCases/pos/loadTableOrder';
 import { useAuthStore } from '../../application/store/useAuthStore';
@@ -20,21 +21,27 @@ export default function POSPage() {
   const tableId = searchParams.get('table_id');
   const { t } = useTranslation();
 
-  const [posData, setPosData] = useState<POSData>({ categories: [], products: [] });
+  const livePosData = useLiveQuery(
+    async () => {
+      const cafe = cafeId();
+      if (!cafe) return { categories: [], products: [] };
+      return await loadPOSData(cafe);
+    },
+    [cafeId]
+  );
+
+  const posData = livePosData || { categories: [], products: [] };
+
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isOffline, setIsOffline] = useState(!navigator.onLine);
   const [tableName, setTableName] = useState<string | null>(null);
 
-  // Load categories + products from Dexie
   const fetchData = useCallback(async () => {
     const cafe = cafeId();
     if (!cafe) return;
     setIsLoading(true);
     try {
-      const data = await loadPOSData(cafe);
-      setPosData(data);
-      
       // Handle Table Mode
       if (tableId) {
         setTableId(tableId);

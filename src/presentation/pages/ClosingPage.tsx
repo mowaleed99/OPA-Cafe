@@ -129,40 +129,40 @@ export default function ClosingPage() {
         <div className="hidden print:block w-full bg-white text-black p-8 font-sans">
           <div className="text-center mb-8 border-b-2 border-black pb-4">
             <h1 className="text-4xl font-bold mb-2 uppercase tracking-widest">{useSettingsStore.getState().cafeName}</h1>
-            <h2 className="text-2xl font-semibold text-gray-700">DAILY REPORT</h2>
-            <p className="text-lg text-gray-500 mt-2">Date: {report.closing.closing_date}</p>
+            <h2 className="text-2xl font-semibold text-gray-700">{t('daily_report')}</h2>
+            <p className="text-lg text-gray-500 mt-2">{t('date_label')}: {report.closing.closing_date}</p>
           </div>
 
           <div className="grid grid-cols-4 gap-4 mb-8 text-center">
             <div className="border border-gray-300 p-4 rounded-lg bg-gray-50">
-              <p className="text-sm font-bold text-gray-500 uppercase">Total Orders</p>
+              <p className="text-sm font-bold text-gray-500 uppercase">{t('total_orders')}</p>
               <p className="text-3xl font-bold">{report.closing.total_orders}</p>
             </div>
             <div className="border border-gray-300 p-4 rounded-lg bg-gray-50">
-              <p className="text-sm font-bold text-gray-500 uppercase">Total Sales</p>
+              <p className="text-sm font-bold text-gray-500 uppercase">{t('total_sales')}</p>
               <p className="text-3xl font-bold">{report.closing.total_sales.toFixed(2)} EGP</p>
             </div>
             <div className="border border-gray-300 p-4 rounded-lg bg-gray-50">
-              <p className="text-sm font-bold text-gray-500 uppercase">Avg Order</p>
+              <p className="text-sm font-bold text-gray-500 uppercase">{t('avg_order')}</p>
               <p className="text-3xl font-bold">
                 {report.closing.total_orders > 0 ? (report.closing.total_sales / report.closing.total_orders).toFixed(2) : '0.00'} EGP
               </p>
             </div>
             <div className="border border-gray-300 p-4 rounded-lg bg-red-50">
-              <p className="text-sm font-bold text-red-500 uppercase">Total Expenses</p>
+              <p className="text-sm font-bold text-red-500 uppercase">{t('expenses')}</p>
               <p className="text-3xl font-bold text-red-600">{(report.expenses || 0).toFixed(2)} EGP</p>
             </div>
           </div>
 
           <div className="mb-8">
-            <h3 className="text-xl font-bold mb-4 border-b border-gray-300 pb-2">Sales Breakdown by Category</h3>
+            <h3 className="text-xl font-bold mb-4 border-b border-gray-300 pb-2">{t('sales_breakdown')}</h3>
             <table className="w-full text-left border-collapse">
               <thead>
                 <tr className="bg-gray-100 border-b-2 border-gray-300">
-                  <th className="p-3 font-bold">Product</th>
-                  <th className="p-3 font-bold">Category</th>
-                  <th className="p-3 font-bold text-right">Qty</th>
-                  <th className="p-3 font-bold text-right">Revenue</th>
+                  <th className="p-3 font-bold">{t('product')}</th>
+                  <th className="p-3 font-bold">{t('category')}</th>
+                  <th className="p-3 font-bold text-right">{t('qty_sold')}</th>
+                  <th className="p-3 font-bold text-right">{t('revenue')}</th>
                 </tr>
               </thead>
               <tbody>
@@ -204,13 +204,13 @@ export default function ClosingPage() {
 
           {report.payments && report.payments.length > 0 && (
             <div className="mb-8">
-              <h3 className="text-xl font-bold mb-4 border-b border-gray-300 pb-2">Purchase Details</h3>
+              <h3 className="text-xl font-bold mb-4 border-b border-gray-300 pb-2">{t('purchase_details_title')}</h3>
               <table className="w-full text-left border-collapse">
                 <thead>
                   <tr className="bg-gray-100 border-b-2 border-gray-300">
-                    <th className="p-3 font-bold">Supplier</th>
-                    <th className="p-3 font-bold">Notes</th>
-                    <th className="p-3 font-bold text-right">Amount</th>
+                    <th className="p-3 font-bold">{t('supplier')}</th>
+                    <th className="p-3 font-bold">{t('notes_optional')}</th>
+                    <th className="p-3 font-bold text-right">{t('total_amount')}</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -227,8 +227,8 @@ export default function ClosingPage() {
           )}
 
           <div className="mt-16 text-center text-sm text-gray-400">
-            <p>End of Daily Report</p>
-            <p>Generated automatically from database records</p>
+            <p>{t('end_of_daily_report')}</p>
+            <p>{t('generated_auto')}</p>
           </div>
         </div>
       )}
@@ -250,7 +250,7 @@ export default function ClosingPage() {
             <Button onClick={handleCloseDay} disabled={isClosing} size="lg" className="gap-2">
               {isClosing && <Loader2 className="h-4 w-4 animate-spin" />}
               <CalendarDays className="h-4 w-4" />
-              {alreadyClosed ? t('update_closing') || 'Update Closing' : t('close_today')} ({selectedDate})
+              {alreadyClosed ? t('update_closing') : t('close_today')} ({selectedDate})
             </Button>
           </div>
         </div>
@@ -271,7 +271,7 @@ export default function ClosingPage() {
                   <Download className="h-4 w-4" /> {t('export_csv')}
                 </Button>
                 <Button variant="outline" size="sm" onClick={handlePrint} className="gap-2">
-                  <FileText className="h-4 w-4" /> {t('export_pdf')} / Print
+                  <FileText className="h-4 w-4" /> {t('print_btn')}
                 </Button>
                 <Button variant="ghost" size="sm" onClick={() => setReport(null)}>{t('close')}</Button>
               </div>
@@ -301,7 +301,7 @@ export default function ClosingPage() {
                 <div className="rounded-lg bg-red-500/10 p-4 text-center">
                   <TrendingUp className="h-6 w-6 mx-auto mb-1 text-red-500" />
                   <p className="text-2xl font-bold text-red-600">{(report.expenses || 0).toFixed(2)} <span className="text-sm font-normal">EGP</span></p>
-                  <p className="text-xs text-red-500 mt-1">Expenses (Purchases)</p>
+                  <p className="text-xs text-red-500 mt-1">{t('expenses_purchases')}</p>
                 </div>
               </div>
 
@@ -323,7 +323,7 @@ export default function ClosingPage() {
                       <TableHeader>
                         <TableRow>
                           <TableHead>{t('product')}</TableHead>
-                          <TableHead>Category</TableHead>
+                          <TableHead>{t('category')}</TableHead>
                           <TableHead className="text-right">{t('qty_sold')}</TableHead>
                           <TableHead className="text-right">{t('revenue')}</TableHead>
                         </TableRow>
@@ -360,9 +360,9 @@ export default function ClosingPage() {
                   <Table>
                     <TableHeader>
                       <TableRow>
-                        <TableHead>Purchase Supplier</TableHead>
-                        <TableHead>Notes</TableHead>
-                        <TableHead className="text-right">Amount Paid</TableHead>
+                        <TableHead>{t('purchase_supplier')}</TableHead>
+                        <TableHead>{t('notes_optional')}</TableHead>
+                        <TableHead className="text-right">{t('amount_paid_header')}</TableHead>
                       </TableRow>
                     </TableHeader>
                     <TableBody>
@@ -393,7 +393,7 @@ export default function ClosingPage() {
                   <TableHead>{t('date')}</TableHead>
                   <TableHead className="text-right">{t('total_orders')}</TableHead>
                   <TableHead className="text-right">{t('total_sales')}</TableHead>
-                  <TableHead className="text-right text-red-500">Expenses</TableHead>
+                  <TableHead className="text-right text-red-500">{t('expenses')}</TableHead>
                   <TableHead className="w-[100px]"></TableHead>
                 </TableRow>
               </TableHeader>
@@ -401,7 +401,7 @@ export default function ClosingPage() {
                 {closings.length === 0 ? (
                   <TableRow>
                     <TableCell colSpan={4} className="text-center py-8 text-muted-foreground">
-                      No closing records yet.
+                      {t('no_closing_records')}
                     </TableCell>
                   </TableRow>
                 ) : (

@@ -150,5 +150,9 @@
   "available": "Available",
   "no_tables_yet": "No tables configured yet.",
   "add_table_hint": "Click \"Add Table\" to set up your floor plan.",
-  "delete_table_confirm": "Are you sure you want to delete this table?"
+  "delete_table_confirm": "Are you sure you want to delete this table?",
+  "addCategory": "Add Category",
+  "noCategoriesFound": "No categories found. Click \"Add Category\" to create one.",
+  "deleteCategory": "Delete Category",
+  "confirmDeleteCategory": "Are you sure you want to delete"
 }

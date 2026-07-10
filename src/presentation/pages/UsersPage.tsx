@@ -50,10 +50,10 @@ export default function UsersPage() {
         <div>
           <h1 className="text-2xl font-bold tracking-tight text-foreground flex items-center gap-3">
             <Users className="text-primary" size={28} />
-            User Management
+            {t('user_management_title')}
           </h1>
           <p className="text-sm text-muted-foreground mt-1">
-            Manage cashier accounts for OPA CAFE.
+            {t('manage_cashiers_desc2')}
           </p>
         </div>
         
@@ -62,7 +62,7 @@ export default function UsersPage() {
           className="flex items-center gap-2 bg-primary text-primary-foreground px-4 py-2 rounded-xl font-medium shadow-sm hover:opacity-90 transition-opacity"
         >
           <Plus size={18} />
-          Create Cashier
+          {t('create_cashier_btn')}
         </button>
       </div>
 
@@ -70,7 +70,7 @@ export default function UsersPage() {
       <div className="flex-1 p-6 overflow-auto">
         <div className="bg-background rounded-xl border border-border shadow-sm overflow-hidden">
           <div className="p-4 border-b border-border bg-muted/30 font-medium text-foreground">
-            Current Cashiers
+            {t('current_cashiers_title')}
           </div>
           
           {isLoading ? (
@@ -79,11 +79,11 @@ export default function UsersPage() {
             </div>
           ) : error ? (
             <div className="p-6 text-destructive text-center">
-              Failed to load users: {error}
+              {t('failed_load_users')}: {error}
             </div>
           ) : cashiers.length === 0 ? (
             <div className="p-10 text-center text-muted-foreground">
-              No cashiers found. Create one to get started.
+              {t('no_cashiers')}
             </div>
           ) : (
             <div className="divide-y divide-border">
@@ -130,7 +130,7 @@ export default function UsersPage() {
               )}
               
               <div className="space-y-1.5">
-                <label className="text-sm font-medium text-foreground">Name (Username)</label>
+                <label className="text-sm font-medium text-foreground">{t('name_username')}</label>
                 <input
                   required
                   type="text"
@@ -171,7 +171,7 @@ export default function UsersPage() {
                   onClick={() => setIsModalOpen(false)}
                   className="px-4 py-2 rounded-xl text-sm font-medium hover:bg-muted transition-colors"
                 >
-                  Cancel
+                  {t('cancel')}
                 </button>
                 <button
                   type="submit"
@@ -179,7 +179,7 @@ export default function UsersPage() {
                   className="px-4 py-2 rounded-xl text-sm font-medium bg-primary text-primary-foreground hover:opacity-90 transition-opacity flex items-center gap-2"
                 >
                   {isSubmitting ? <Loader2 className="animate-spin" size={16} /> : null}
-                  Create Account
+                  {t('create_account')}
                 </button>
               </div>
             </form>

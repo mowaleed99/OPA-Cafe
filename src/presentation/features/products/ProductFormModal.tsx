@@ -94,19 +94,19 @@ export function ProductFormModal({ isOpen, onClose, productToEdit, onSaved }: Pr
     <Dialog open={isOpen} onOpenChange={onClose}>
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>{productToEdit ? 'Edit Product' : 'Add Product'}</DialogTitle>
+          <DialogTitle>{productToEdit ? t('edit_product') : t('add_product')}</DialogTitle>
         </DialogHeader>
         <div className="py-4 space-y-4">
           <div>
-            <label className="text-sm font-medium mb-1 block">Product Name</label>
+            <label className="text-sm font-medium mb-1 block">{t('product_name')}</label>
             <Input 
               value={name} 
               onChange={(e) => setName(e.target.value)} 
-              placeholder="e.g. Espresso" 
+              placeholder={t('product_name_placeholder')} 
             />
           </div>
           <div>
-            <label className="text-sm font-medium mb-1 block">Category</label>
+            <label className="text-sm font-medium mb-1 block">{t('category_label')}</label>
             <Select value={categoryId} onValueChange={setCategoryId}>
               <SelectTrigger>
                 {/* Compute the name ourselves — never rely on Radix's
@@ -114,7 +114,7 @@ export function ProductFormModal({ isOpen, onClose, productToEdit, onSaved }: Pr
                 <span className={categoryId && categories.find(c => c.id === categoryId) ? '' : 'text-muted-foreground'}>
                   {categoryId
                     ? (categories.find(c => c.id === categoryId)?.name ?? 'Loading...')
-                    : 'Select a category'}
+                    : t('select_category')}
                 </span>
               </SelectTrigger>
               <SelectContent>
@@ -126,7 +126,7 @@ export function ProductFormModal({ isOpen, onClose, productToEdit, onSaved }: Pr
           </div>
           <div className="flex gap-4">
             <div className="flex-1">
-              <label className="text-sm font-medium mb-1 block">Selling Price</label>
+              <label className="text-sm font-medium mb-1 block">{t('selling_price')}</label>
               <Input 
                 type="number" 
                 step="0.01"
@@ -136,7 +136,7 @@ export function ProductFormModal({ isOpen, onClose, productToEdit, onSaved }: Pr
               />
             </div>
             <div className="flex-1">
-              <label className="text-sm font-medium mb-1 block">Cost (Optional)</label>
+              <label className="text-sm font-medium mb-1 block">{t('cost_optional')}</label>
               <Input 
                 type="number" 
                 step="0.01"
@@ -149,7 +149,7 @@ export function ProductFormModal({ isOpen, onClose, productToEdit, onSaved }: Pr
         </div>
         <DialogFooter>
           <Button variant="outline" onClick={onClose} disabled={isSaving}>{t('cancel')}</Button>
-          <Button onClick={handleSave} disabled={isSaving || !name.trim() || !price || !categoryId}>Save</Button>
+          <Button onClick={handleSave} disabled={isSaving || !name.trim() || !price || !categoryId}>{t('save')}</Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>

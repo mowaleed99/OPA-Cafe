@@ -31,7 +31,16 @@ function getCardColor(name: string): string {
 export default React.memo(function ProductCard({ product, cartQuantity, onAdd }: ProductCardProps) {
   const [isAdding, setIsAdding] = useState(false);
   const color = getCardColor(product.name);
-  const initial = product.name.charAt(0).toUpperCase();
+  
+  // Get 1 or 2 initials from the product name
+  const initials = product.name
+    .split(' ')
+    .filter(Boolean)
+    .slice(0, 2)
+    .map((w) => w[0])
+    .join('')
+    .toUpperCase();
+    
   const inCart = cartQuantity > 0;
 
   return (
@@ -45,55 +54,75 @@ export default React.memo(function ProductCard({ product, cartQuantity, onAdd }:
       )}
       aria-label={`Add ${product.name} to cart`}
     >
-      {/* Colored image area */}
-      <div
-        className="relative flex items-center justify-center border-b border-border/50"
-        style={{
-          backgroundColor: color + '15',
-          minHeight: '110px',
-        }}
-      >
-        {product.image_url ? (
-          <img
-            src={product.image_url}
-            alt={product.name}
-            className="w-full h-full object-cover absolute inset-0"
-          />
-        ) : (
-          <span
-            className="text-3xl font-display font-medium select-none"
-            style={{ color }}
+      {product.image_url ? (
+        <>
+          {/* Colored image area */}
+          <div
+            className="relative flex items-center justify-center border-b border-border/50 overflow-hidden"
+            style={{
+              background: `linear-gradient(135deg, ${color}15 0%, ${color}05 100%)`,
+              minHeight: '110px',
+            }}
           >
-            {initial}
-          </span>
-        )}
+            <img
+              src={product.image_url}
+              alt={product.name}
+              className="w-full h-full object-cover absolute inset-0"
+            />
+            {/* Add overlay on hover */}
+            <div className="absolute inset-0 flex items-center justify-center bg-black/5 opacity-0 group-hover:opacity-100 transition-opacity duration-150 z-20">
+              <div className="w-8 h-8 rounded-full flex items-center justify-center bg-card shadow-sm border border-border">
+                <Plus size={16} className="text-foreground" />
+              </div>
+            </div>
+          </div>
+          {/* Info area */}
+          <div className="p-3 flex flex-col gap-1 bg-card">
+            <span className="text-[13px] font-semibold text-foreground leading-tight line-clamp-2">
+              {product.name}
+            </span>
+            <p className="text-[13px] font-medium text-muted-foreground tabular-nums">
+              {product.price.toLocaleString('en-EG', { minimumFractionDigits: 0 })} EGP
+            </p>
+          </div>
+        </>
+      ) : (
+        /* Text-Only Tile Design (No image, no icon, no letter) */
+        <div 
+          className="flex flex-col items-center justify-center flex-1 p-4 text-center overflow-hidden relative"
+          style={{ 
+            background: `linear-gradient(135deg, ${color}20 0%, ${color}05 100%)`, 
+            minHeight: '160px'
+          }}
+        >
+          {/* Subtle decorative corners */}
+          <div className="absolute top-0 right-0 w-24 h-24 rounded-bl-full opacity-10 blur-xl" style={{ backgroundColor: color }} />
+          <div className="absolute bottom-0 left-0 w-20 h-20 rounded-tr-full opacity-10 blur-xl" style={{ backgroundColor: color }} />
 
-        {/* Cart quantity badge */}
-        {inCart && (
-          <span
-            className="absolute top-2 right-2 min-w-[24px] h-[24px] flex items-center justify-center rounded-sm text-xs font-bold text-primary-foreground shadow-sm bg-primary"
-          >
-            {cartQuantity}
+          <span className="text-[15px] font-bold text-foreground leading-snug mb-1 z-10 line-clamp-3">
+            {product.name}
           </span>
-        )}
+          <span className="text-[13px] font-bold z-10 tabular-nums drop-shadow-sm" style={{ color }}>
+            {product.price.toLocaleString('en-EG', { minimumFractionDigits: 0 })} EGP
+          </span>
 
-        {/* Add overlay on hover */}
-        <div className="absolute inset-0 flex items-center justify-center bg-black/5 opacity-0 group-hover:opacity-100 transition-opacity duration-150">
-          <div className="w-8 h-8 rounded-full flex items-center justify-center bg-card shadow-sm border border-border">
-            <Plus size={16} className="text-foreground" />
+          {/* Add overlay on hover */}
+          <div className="absolute inset-0 flex items-center justify-center bg-black/5 opacity-0 group-hover:opacity-100 transition-opacity duration-150 z-20">
+            <div className="w-8 h-8 rounded-full flex items-center justify-center bg-card shadow-sm border border-border">
+              <Plus size={16} className="text-foreground" />
+            </div>
           </div>
         </div>
-      </div>
+      )}
 
-      {/* Info area */}
-      <div className="p-3 flex flex-col gap-1 bg-card">
-        <span className="text-[13px] font-semibold text-foreground leading-tight line-clamp-2">
-          {product.name}
+      {/* Cart quantity badge (absolute on top right of the whole card) */}
+      {inCart && (
+        <span
+          className="absolute top-2 right-2 z-30 min-w-[24px] h-[24px] flex items-center justify-center rounded-sm text-xs font-bold text-primary-foreground shadow-sm bg-primary"
+        >
+          {cartQuantity}
         </span>
-        <p className="text-[13px] font-medium text-muted-foreground tabular-nums">
-          {product.price.toLocaleString('en-EG', { minimumFractionDigits: 0 })} EGP
-        </p>
-      </div>
+      )}
     </button>
   );
 });
