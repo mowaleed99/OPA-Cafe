@@ -5,7 +5,7 @@ import { Button } from '../components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../components/ui/select';
 import { Input } from '../components/ui/input';
 import {
-  Upload, Download, AlertCircle, Trash2, ShoppingBag,
+  Upload, Download, AlertCircle, Trash2, ShoppingBag, Truck,
   Store, Globe, Printer, Palette, User, Shield,
   HardDrive, LogOut, ChevronRight, Sun, Moon, Monitor,
   CheckCircle2, Wifi, WifiOff, Info,
@@ -135,8 +135,10 @@ export default function SettingsPage() {
   // Danger Zone
   const [menuConfirm, setMenuConfirm] = useState('');
   const [salesConfirm, setSalesConfirm] = useState('');
+  const [purchasesConfirm, setPurchasesConfirm] = useState('');
   const [isClearingMenu, setIsClearingMenu] = useState(false);
   const [isClearingSales, setIsClearingSales] = useState(false);
+  const [isClearingPurchases, setIsClearingPurchases] = useState(false);
   const [dangerMessage, setDangerMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
 
   const handleClearMenu = async () => {
@@ -222,6 +224,46 @@ export default function SettingsPage() {
       setDangerMessage({ type: 'error', text: t('clear_sales_fail') });
     } finally {
       setIsClearingSales(false);
+    }
+  };
+
+  const handleClearPurchases = async () => {
+    if (purchasesConfirm !== 'DELETE') return;
+    setIsClearingPurchases(true);
+    setDangerMessage(null);
+    try {
+      // 1. Clear local IndexedDB
+      await db.transaction('rw', [db.purchases, db.purchase_items, db.supplier_payments, db.sync_queue], async () => {
+        await db.purchases.clear();
+        await db.purchase_items.clear();
+        await db.supplier_payments.clear();
+        await db.sync_queue.clear();
+      });
+
+      // 2. Clear online (Supabase) — only if online and cafeId is known
+      if (navigator.onLine && cafeId) {
+        const { data: remotePurchases } = await supabase.from('purchases').select('id').eq('cafe_id', cafeId);
+        const purchaseIds = (remotePurchases ?? []).map(p => p.id);
+
+        if (purchaseIds.length > 0) {
+          const [{ error: piErr }, { error: spErr }] = await Promise.all([
+            supabase.from('purchase_items').delete().in('purchase_id', purchaseIds),
+            supabase.from('supplier_payments').delete().in('purchase_id', purchaseIds)
+          ]);
+          if (piErr) throw piErr;
+          if (spErr) throw spErr;
+        }
+
+        const { error: purErr } = await supabase.from('purchases').delete().eq('cafe_id', cafeId);
+        if (purErr) throw purErr;
+      }
+
+      setPurchasesConfirm('');
+      setDangerMessage({ type: 'success', text: t('clear_purchases_success') });
+    } catch {
+      setDangerMessage({ type: 'error', text: t('clear_purchases_fail') });
+    } finally {
+      setIsClearingPurchases(false);
     }
   };
 
@@ -583,6 +625,36 @@ export default function SettingsPage() {
                     >
                       <ShoppingBag size={14} />
                       {isClearingSales ? t('clearing') : t('clear_sales_btn')}
+                    </Button>
+                  </div>
+                </div>
+              </div>
+
+              <div className="bg-card border border-red-200 dark:border-red-900 rounded-xl overflow-hidden shadow-sm">
+                <div className="flex items-center gap-2.5 px-6 py-4 border-b border-red-100 dark:border-red-900 bg-red-50/60 dark:bg-red-950/20">
+                  <Truck size={15} className="text-red-500" />
+                  <h3 className="text-sm font-semibold text-red-700 dark:text-red-400 tracking-wide uppercase">{t('clear_purchases_title')}</h3>
+                </div>
+                <div className="px-6 py-5">
+                  <h4 className="font-semibold text-sm text-foreground mb-1">{t('clear_purchases_subtitle')}</h4>
+                  <p className="text-xs text-muted-foreground leading-relaxed mb-4">
+                    {t('clear_purchases_desc')}
+                  </p>
+                  <div className="flex gap-2 items-center">
+                    <Input
+                      placeholder={t('type_delete')}
+                      value={purchasesConfirm}
+                      onChange={(e) => setPurchasesConfirm(e.target.value)}
+                      className="w-52 border-red-300 focus-visible:ring-red-400 dark:border-red-700"
+                    />
+                    <Button
+                      variant="destructive"
+                      disabled={purchasesConfirm !== 'DELETE' || isClearingPurchases}
+                      onClick={handleClearPurchases}
+                      className="shrink-0 flex items-center gap-1.5"
+                    >
+                      <Truck size={14} />
+                      {isClearingPurchases ? t('clearing') : t('clear_purchases_btn')}
                     </Button>
                   </div>
                 </div>

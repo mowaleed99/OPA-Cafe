@@ -91,14 +91,15 @@ export default React.memo(function ProductCard({ product, cartQuantity, onAdd }:
         <div 
           className="flex flex-col items-center justify-center flex-1 p-4 text-center overflow-hidden relative"
           style={{ 
-            background: `linear-gradient(135deg, ${color}20 0%, ${color}05 100%)`, 
+            background: `
+              radial-gradient(circle at top right, ${color}25 0%, transparent 70%),
+              radial-gradient(circle at bottom left, ${color}15 0%, transparent 60%),
+              linear-gradient(135deg, ${color}10 0%, transparent 100%)
+            `,
+            backgroundColor: 'hsl(var(--card))',
             minHeight: '160px'
           }}
         >
-          {/* Subtle decorative corners */}
-          <div className="absolute top-0 right-0 w-24 h-24 rounded-bl-full opacity-10 blur-xl" style={{ backgroundColor: color }} />
-          <div className="absolute bottom-0 left-0 w-20 h-20 rounded-tr-full opacity-10 blur-xl" style={{ backgroundColor: color }} />
-
           <span className="text-[15px] font-bold text-foreground leading-snug mb-1 z-10 line-clamp-3">
             {product.name}
           </span>
