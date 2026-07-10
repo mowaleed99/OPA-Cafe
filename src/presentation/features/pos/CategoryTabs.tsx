@@ -19,10 +19,10 @@ export default function CategoryTabs({ categories, selected, onSelect }: Categor
             key={tab.id ?? '__all__'}
             onClick={() => onSelect(tab.id)}
             className={cn(
-              'shrink-0 rounded-full px-4 py-1.5 text-sm font-medium transition-all duration-150 whitespace-nowrap',
+              'shrink-0 rounded-md px-4 py-2 text-sm font-medium transition-colors duration-150 whitespace-nowrap border',
               isActive
-                ? 'bg-[var(--brand-latte)] text-white shadow-sm'
-                : 'bg-muted text-muted-foreground hover:bg-muted/70 hover:text-foreground'
+                ? 'bg-primary border-primary text-primary-foreground shadow-sm'
+                : 'bg-card border-border text-foreground hover:bg-muted/50'
             )}
           >
             {tab.name}

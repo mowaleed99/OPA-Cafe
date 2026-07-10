@@ -147,7 +147,7 @@ export default function CartPanel({ onOrderPlaced }: CartPanelProps) {
             {t('current_order')}
           </span>
           {itemCount > 0 && (
-            <span className="text-xs font-bold bg-[var(--brand-latte)] text-white rounded-full min-w-[20px] h-5 flex items-center justify-center px-1.5">
+            <span className="text-xs font-bold bg-primary text-primary-foreground rounded-sm min-w-[20px] h-5 flex items-center justify-center px-1.5 shadow-sm">
               {itemCount}
             </span>
           )}
@@ -242,9 +242,9 @@ export default function CartPanel({ onOrderPlaced }: CartPanelProps) {
                   key={method.id}
                   onClick={() => setPaymentMethod(method.id)}
                   className={cn(
-                    'flex-1 flex flex-col items-center gap-1 py-2 px-1 rounded-xl border text-xs font-medium transition-all duration-150',
+                    'flex-1 flex flex-col items-center gap-1 py-2 px-1 rounded-md border text-xs font-medium transition-all duration-150',
                     paymentMethod === method.id
-                      ? 'border-[var(--brand-latte)] bg-[var(--brand-latte)]/10 text-[var(--brand-latte)]'
+                      ? 'border-primary bg-primary/10 text-primary shadow-sm'
                       : 'border-border text-muted-foreground hover:border-border/70 hover:bg-muted/50'
                   )}
                 >
@@ -268,7 +268,7 @@ export default function CartPanel({ onOrderPlaced }: CartPanelProps) {
               value={discount === 0 ? '' : discount}
               onChange={(e) => setDiscount(Number(e.target.value))}
               placeholder="0"
-              className="w-full h-8 rounded-lg border border-input bg-background px-3 text-sm text-right tabular-nums focus:outline-none focus:ring-2 focus:ring-[var(--brand-latte)]/40 focus:border-[var(--brand-latte)]"
+              className="w-full h-9 rounded-md border border-input bg-background px-3 text-sm text-right tabular-nums focus:outline-none focus:ring-1 focus:ring-primary focus:border-primary shadow-sm"
             />
           </div>
 
@@ -286,7 +286,7 @@ export default function CartPanel({ onOrderPlaced }: CartPanelProps) {
                   value={cashReceived}
                   onChange={(e) => setCashReceived(e.target.value)}
                   placeholder={total.toFixed(0)}
-                  className="w-full h-8 rounded-lg border border-input bg-background px-3 text-sm text-right tabular-nums focus:outline-none focus:ring-2 focus:ring-[var(--brand-latte)]/40 focus:border-[var(--brand-latte)]"
+                  className="w-full h-9 rounded-md border border-input bg-background px-3 text-sm text-right tabular-nums focus:outline-none focus:ring-1 focus:ring-primary focus:border-primary shadow-sm"
                 />
               </div>
 
@@ -339,9 +339,9 @@ export default function CartPanel({ onOrderPlaced }: CartPanelProps) {
                 <span className="tabular-nums">−{discountAmount.toLocaleString('en-EG')} EGP</span>
               </div>
             )}
-            <div className="flex justify-between text-base font-bold text-foreground pt-1">
+            <div className="flex justify-between text-lg font-bold text-foreground pt-1">
               <span>{t('total')}</span>
-              <span className="tabular-nums" style={{ color: 'var(--brand-latte)' }}>
+              <span className="tabular-nums">
                 {total.toLocaleString('en-EG')} EGP
               </span>
             </div>
@@ -360,10 +360,10 @@ export default function CartPanel({ onOrderPlaced }: CartPanelProps) {
               onClick={handlePlaceOrder}
               disabled={isPlacing || isCheckingOut || success || items.length === 0 || (!tableId && isCash && cashReceived !== '' && !hasEnoughCash)}
               className={cn(
-                'flex-1 h-12 rounded-xl text-sm font-semibold flex items-center justify-center gap-2 transition-all duration-200',
+                'flex-1 h-12 rounded-md text-[15px] font-semibold flex items-center justify-center gap-2 transition-all duration-200 shadow-sm border border-transparent',
                 success && !isCheckingOut
-                  ? 'bg-emerald-500 text-white'
-                  : 'text-[var(--brand-latte)] bg-[var(--brand-latte)]/10 hover:bg-[var(--brand-latte)]/20 active:scale-95 disabled:opacity-60',
+                  ? 'bg-emerald-600 text-white'
+                  : 'bg-primary text-primary-foreground hover:opacity-90 active:scale-95 disabled:opacity-60 disabled:cursor-not-allowed',
               )}
             >
               {isPlacing ? (
@@ -382,10 +382,10 @@ export default function CartPanel({ onOrderPlaced }: CartPanelProps) {
                 onClick={handleCheckout}
                 disabled={isCheckingOut || isPlacing || success || (isCash && cashReceived !== '' && !hasEnoughCash)}
                 className={cn(
-                  'flex-1 h-12 rounded-xl text-sm font-semibold flex items-center justify-center gap-2 transition-all duration-200',
+                  'flex-1 h-12 rounded-md text-[15px] font-semibold flex items-center justify-center gap-2 transition-all duration-200 shadow-sm border border-transparent',
                   success && isCheckingOut
-                    ? 'bg-emerald-500 text-white'
-                    : 'text-white bg-[var(--brand-latte)] hover:opacity-90 active:scale-95 disabled:opacity-60',
+                    ? 'bg-emerald-600 text-white'
+                    : 'bg-card text-foreground border-border hover:bg-muted active:scale-95 disabled:opacity-60 disabled:cursor-not-allowed',
                 )}
               >
                 {isCheckingOut ? (

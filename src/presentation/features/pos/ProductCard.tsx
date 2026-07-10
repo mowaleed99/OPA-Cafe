@@ -38,19 +38,19 @@ export default React.memo(function ProductCard({ product, cartQuantity, onAdd }:
     <button
       onClick={() => onAdd(product)}
       className={cn(
-        'group relative flex flex-col rounded-xl overflow-hidden border border-border bg-card',
+        'group relative flex flex-col rounded-md overflow-hidden border bg-card',
         'transition-all duration-150 active:scale-95 cursor-pointer text-left',
-        'hover:shadow-md hover:-translate-y-0.5',
-        inCart && 'ring-2 ring-[var(--brand-latte)]/60'
+        'hover:border-primary hover:shadow-sm',
+        inCart ? 'border-primary ring-1 ring-primary' : 'border-border'
       )}
       aria-label={`Add ${product.name} to cart`}
     >
       {/* Colored image area */}
       <div
-        className="relative flex items-center justify-center"
+        className="relative flex items-center justify-center border-b border-border/50"
         style={{
-          backgroundColor: color + '22', // 13% opacity tint
-          minHeight: '90px',
+          backgroundColor: color + '15',
+          minHeight: '110px',
         }}
       >
         {product.image_url ? (
@@ -61,7 +61,7 @@ export default React.memo(function ProductCard({ product, cartQuantity, onAdd }:
           />
         ) : (
           <span
-            className="text-3xl font-display font-bold select-none"
+            className="text-3xl font-display font-medium select-none"
             style={{ color }}
           >
             {initial}
@@ -71,30 +71,26 @@ export default React.memo(function ProductCard({ product, cartQuantity, onAdd }:
         {/* Cart quantity badge */}
         {inCart && (
           <span
-            className="absolute top-2 right-2 min-w-[22px] h-[22px] flex items-center justify-center rounded-full text-xs font-bold text-white px-1 shadow-sm"
-            style={{ backgroundColor: color }}
+            className="absolute top-2 right-2 min-w-[24px] h-[24px] flex items-center justify-center rounded-sm text-xs font-bold text-primary-foreground shadow-sm bg-primary"
           >
             {cartQuantity}
           </span>
         )}
 
         {/* Add overlay on hover */}
-        <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity duration-150">
-          <div
-            className="w-9 h-9 rounded-full flex items-center justify-center shadow-md"
-            style={{ backgroundColor: color }}
-          >
-            <Plus size={18} className="text-white" />
+        <div className="absolute inset-0 flex items-center justify-center bg-black/5 opacity-0 group-hover:opacity-100 transition-opacity duration-150">
+          <div className="w-8 h-8 rounded-full flex items-center justify-center bg-card shadow-sm border border-border">
+            <Plus size={16} className="text-foreground" />
           </div>
         </div>
       </div>
 
       {/* Info area */}
-      <div className="p-2.5 flex flex-col gap-0.5">
-        <span className="text-sm font-medium text-foreground leading-tight line-clamp-2">
+      <div className="p-3 flex flex-col gap-1 bg-card">
+        <span className="text-[13px] font-semibold text-foreground leading-tight line-clamp-2">
           {product.name}
         </span>
-        <p className="text-xs font-semibold text-foreground/90 tabular-nums">
+        <p className="text-[13px] font-medium text-muted-foreground tabular-nums">
           {product.price.toLocaleString('en-EG', { minimumFractionDigits: 0 })} EGP
         </p>
       </div>

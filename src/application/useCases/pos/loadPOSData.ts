@@ -13,7 +13,7 @@ export interface POSData {
  */
 export async function loadPOSData(cafeId: string): Promise<POSData> {
   const [categories, products] = await Promise.all([
-    db.categories.where('cafe_id').equals(cafeId).sortBy('name'),
+    db.categories.where('cafe_id').equals(cafeId).filter((c) => !c.status || c.status !== 'inactive').sortBy('name'),
     db.products
       .where('cafe_id')
       .equals(cafeId)

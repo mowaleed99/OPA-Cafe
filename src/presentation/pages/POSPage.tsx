@@ -97,16 +97,16 @@ export default function POSPage() {
   };
 
   return (
-    <div className="flex h-full overflow-hidden">
+    <div className="flex h-full overflow-hidden bg-background">
       {/* ── Left: Products panel ─────────────────────────────────────── */}
-      <div className="flex-1 flex flex-col overflow-hidden">
+      <div className="flex-1 flex flex-col overflow-hidden bg-muted/20">
         {/* Topbar */}
-        <div className="flex items-center justify-between px-5 py-3.5 border-b border-border shrink-0">
+        <div className="flex items-center justify-between px-6 py-4 border-b border-border bg-card shrink-0 shadow-sm z-10">
           <div className="flex items-center gap-3">
-            <h1 className="font-display font-bold text-lg text-foreground tracking-tight flex items-center gap-2">
+            <h1 className="font-display font-semibold text-xl text-foreground tracking-tight flex items-center gap-2">
               {t('pos')}
               {tableName && (
-                <span className="text-sm font-medium text-[var(--brand-latte)] bg-[var(--brand-latte)]/10 px-2 py-0.5 rounded-md">
+                <span className="text-sm font-medium text-primary bg-primary/10 px-2 py-0.5 rounded-md">
                   Dine-in ({tableName})
                 </span>
               )}
@@ -121,15 +121,15 @@ export default function POSPage() {
           <button
             onClick={fetchData}
             disabled={isLoading}
-            className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground transition-colors px-3 py-1.5 rounded-lg hover:bg-muted"
+            className="flex items-center gap-1.5 text-xs font-medium text-muted-foreground hover:text-foreground transition-colors px-3 py-1.5 rounded-md hover:bg-muted"
           >
-            <RefreshCw size={13} className={isLoading ? 'animate-spin' : ''} />
+            <RefreshCw size={14} className={isLoading ? 'animate-spin' : ''} />
             Refresh
           </button>
         </div>
 
         {/* Category tabs */}
-        <div className="px-5 pt-4 pb-2 shrink-0">
+        <div className="px-6 pt-5 pb-3 shrink-0">
           <CategoryTabs
             categories={posData.categories}
             selected={selectedCategory}
@@ -138,17 +138,17 @@ export default function POSPage() {
         </div>
 
         {/* Product grid — scrollable */}
-        <div className="flex-1 overflow-y-auto px-5 pt-3 pb-5">
+        <div className="flex-1 overflow-y-auto px-6 pt-2 pb-6">
           {isLoading ? (
             <div className="flex items-center justify-center h-40">
               <RefreshCw size={20} className="animate-spin text-muted-foreground" />
             </div>
           ) : posData.categories.length === 0 ? (
             <div className="flex flex-col items-center justify-center h-full gap-4 text-center">
-              <p className="text-muted-foreground">Your cafe menu is currently empty.</p>
+              <p className="text-muted-foreground font-medium">Your catalog is empty.</p>
               <button
                 onClick={handleSeedData}
-                className="bg-[var(--brand-latte)] text-white px-5 py-2.5 rounded-xl font-medium shadow-sm hover:opacity-90 transition-opacity active:scale-95"
+                className="bg-primary text-primary-foreground px-5 py-2.5 rounded-md font-medium shadow-sm hover:opacity-90 transition-opacity active:scale-95"
               >
                 Load Initial Menu Data
               </button>
@@ -166,7 +166,7 @@ export default function POSPage() {
       </div>
 
       {/* ── Right: Cart panel (fixed width) ──────────────────────────── */}
-      <div className="w-80 xl:w-96 shrink-0 flex flex-col overflow-hidden">
+      <div className="w-[360px] xl:w-[400px] shrink-0 flex flex-col overflow-hidden bg-card border-l border-border shadow-[-4px_0_24px_rgba(0,0,0,0.02)] z-20">
         <CartPanel onOrderPlaced={() => fetchData()} />
       </div>
     </div>
