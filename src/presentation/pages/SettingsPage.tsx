@@ -8,7 +8,8 @@ import {
   Upload, Download, AlertCircle, Trash2, ShoppingBag, Truck,
   Store, Globe, Printer, Palette, User, Shield,
   HardDrive, LogOut, ChevronRight, Sun, Moon, Monitor,
-  CheckCircle2, Wifi, WifiOff, Info,
+  CheckCircle2, Wifi, WifiOff, Info, Key,
+  LayoutDashboard, Coffee, Package, UtensilsCrossed, ClipboardList, Banknote, BookOpen, LineChart,
 } from 'lucide-react';
 import { db } from '../../infrastructure/database/db';
 import { supabase } from '../../infrastructure/api/supabase';
@@ -16,12 +17,13 @@ import { updateSettings } from '../../application/useCases/settings/manageSettin
 import { useAuthStore } from '../../application/store/useAuthStore';
 import { useNavigate } from 'react-router-dom';
 
-type Tab = 'general' | 'appearance' | 'account' | 'backup' | 'danger';
+type Tab = 'general' | 'appearance' | 'account' | 'roles' | 'backup' | 'danger';
 
 const tabs: { id: Tab; labelKey: string; icon: React.ElementType; color: string }[] = [
   { id: 'general',    labelKey: 'tab_general',    icon: Store,     color: 'text-blue-500' },
   { id: 'appearance', labelKey: 'tab_appearance', icon: Palette,   color: 'text-violet-500' },
   { id: 'account',    labelKey: 'tab_account',    icon: User,      color: 'text-emerald-500' },
+  { id: 'roles',      labelKey: 'tab_roles',      icon: Key,       color: 'text-orange-500' },
   { id: 'backup',     labelKey: 'tab_backup',     icon: HardDrive, color: 'text-amber-500' },
   { id: 'danger',     labelKey: 'tab_danger',     icon: Shield,    color: 'text-red-500' },
 ];
@@ -56,8 +58,8 @@ export default function SettingsPage() {
   const { appUser, signOut, session } = useAuthStore();
   const navigate = useNavigate();
   const {
-    language, cafeName, printPaperSize,
-    setLanguage, setCafeName, setPrintPaperSize,
+    language, cafeName, printPaperSize, cashierPermissions,
+    setLanguage, setCafeName, setPrintPaperSize, setCashierPermissions,
   } = useSettingsStore();
   const { t } = useTranslation();
 
@@ -73,6 +75,11 @@ export default function SettingsPage() {
     const isDark = th === 'dark' || (th === 'system' && window.matchMedia('(prefers-color-scheme: dark)').matches);
     document.documentElement.classList.toggle('dark', isDark);
   };
+
+  const autoBackupEnabled = useSettingsStore(s => s.autoBackupEnabled);
+  const autoBackupFrequency = useSettingsStore(s => s.autoBackupFrequency);
+  const autoBackupTime = useSettingsStore(s => s.autoBackupTime);
+  const lastBackupDate = useSettingsStore(s => s.lastBackupDate);
 
   // Backup & Restore
   const [isExporting, setIsExporting] = useState(false);
@@ -329,6 +336,7 @@ export default function SettingsPage() {
               {activeTab === 'general'    && t('cafe_name_desc')}
               {activeTab === 'appearance' && t('color_theme_desc')}
               {activeTab === 'account'    && t('email_desc')}
+              {activeTab === 'roles'      && t('cashier_permissions_desc')}
               {activeTab === 'backup'     && t('export_backup_desc')}
               {activeTab === 'danger'     && t('danger_warning')}
             </p>
@@ -485,6 +493,63 @@ export default function SettingsPage() {
             </>
           )}
 
+          {/* ROLES & PERMISSIONS */}
+          {activeTab === 'roles' && (
+            <SectionCard title={t('cashier_permissions')} icon={Key}>
+              <div className="py-5">
+                <p className="text-sm text-muted-foreground mb-6">
+                  {t('cashier_permissions_help_text')}
+                </p>
+                <div className="space-y-3">
+                  {[
+                    { key: 'dashboard', icon: LayoutDashboard },
+                    { key: 'products', icon: Coffee },
+                    { key: 'inventory', icon: Package },
+                    { key: 'categories', icon: UtensilsCrossed },
+                    { key: 'suppliers', icon: Truck },
+                    { key: 'purchases', icon: ClipboardList },
+                    { key: 'debts', icon: Banknote },
+                    { key: 'closing', icon: BookOpen },
+                    { key: 'reports', icon: LineChart },
+                  ].map((perm) => {
+                    const isEnabled = cashierPermissions.includes(perm.key);
+                    return (
+                      <div key={perm.key} className="flex items-center justify-between p-3 rounded-lg border border-border hover:bg-muted/30 transition-colors">
+                        <div className="flex items-center gap-3">
+                          <div className={`w-8 h-8 rounded bg-muted flex items-center justify-center ${isEnabled ? 'text-primary' : 'text-muted-foreground'}`}>
+                            <perm.icon size={16} />
+                          </div>
+                          <div>
+                            <p className="text-sm font-medium text-foreground">{t(perm.key)}</p>
+                          </div>
+                        </div>
+                        <label className="relative inline-flex items-center cursor-pointer">
+                          <input
+                            type="checkbox"
+                            className="sr-only peer"
+                            checked={isEnabled}
+                            onChange={(e) => {
+                              const checked = e.target.checked;
+                              const newPerms = checked 
+                                ? [...cashierPermissions, perm.key]
+                                : cashierPermissions.filter(p => p !== perm.key);
+                              
+                              setCashierPermissions(newPerms);
+                              if (cafeId) {
+                                updateSettings(cafeId, { cashier_permissions: newPerms });
+                              }
+                            }}
+                          />
+                          <div className="w-11 h-6 bg-muted peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-primary/20 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-primary"></div>
+                        </label>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            </SectionCard>
+          )}
+
           {/* BACKUP */}
           {activeTab === 'backup' && (
             <>
@@ -544,6 +609,59 @@ export default function SettingsPage() {
                       </Button>
                     </div>
                   </div>
+                </div>
+              </SectionCard>
+
+              {/* AUTO BACKUP CONFIG */}
+              <SectionCard title={t('auto_backup_title', 'Automatic Backups')} icon={HardDrive}>
+                <div className="space-y-4">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <h4 className="font-semibold text-sm text-foreground">{t('enable_auto_backup', 'Enable Automatic Backups')}</h4>
+                      <p className="text-sm text-muted-foreground">{t('auto_backup_desc', 'Automatically download a backup file.')}</p>
+                    </div>
+                    <label className="relative inline-flex items-center cursor-pointer">
+                      <input 
+                        type="checkbox" 
+                        className="sr-only peer"
+                        checked={autoBackupEnabled}
+                        onChange={(e) => useSettingsStore.setState({ autoBackupEnabled: e.target.checked })}
+                      />
+                      <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-emerald-500"></div>
+                    </label>
+                  </div>
+
+                  {autoBackupEnabled && (
+                    <div className="grid grid-cols-2 gap-4 pt-4 border-t">
+                      <div>
+                        <label className="text-sm font-medium mb-1 block">{t('frequency', 'Frequency')}</label>
+                        <select 
+                          className="w-full h-10 rounded-md border border-input bg-background px-3"
+                          value={autoBackupFrequency}
+                          onChange={(e: any) => useSettingsStore.setState({ autoBackupFrequency: e.target.value })}
+                        >
+                          <option value="daily">{t('daily', 'Daily')}</option>
+                          <option value="weekly">{t('weekly', 'Weekly')}</option>
+                          <option value="monthly">{t('monthly', 'Monthly')}</option>
+                        </select>
+                      </div>
+                      <div>
+                        <label className="text-sm font-medium mb-1 block">{t('time', 'Time')}</label>
+                        <input 
+                          type="time" 
+                          className="w-full h-10 rounded-md border border-input bg-background px-3"
+                          value={autoBackupTime}
+                          onChange={(e) => useSettingsStore.setState({ autoBackupTime: e.target.value })}
+                        />
+                      </div>
+                    </div>
+                  )}
+
+                  {lastBackupDate && (
+                    <p className="text-xs text-muted-foreground mt-2">
+                      {t('last_backup', 'Last backup:')} {new Date(lastBackupDate).toLocaleString()}
+                    </p>
+                  )}
                 </div>
               </SectionCard>
             </>

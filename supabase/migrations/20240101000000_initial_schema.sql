@@ -21,8 +21,9 @@ CREATE TABLE IF NOT EXISTS public.app_users (
   created_at  TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
--- Add name column if the table already existed without it
+-- Add name and email columns if the table already existed without it
 ALTER TABLE public.app_users ADD COLUMN IF NOT EXISTS name TEXT;
+ALTER TABLE public.app_users ADD COLUMN IF NOT EXISTS email TEXT;
 
 -- categories
 CREATE TABLE IF NOT EXISTS public.categories (

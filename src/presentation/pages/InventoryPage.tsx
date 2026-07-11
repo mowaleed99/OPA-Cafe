@@ -6,9 +6,11 @@ import { Button } from '../components/ui/button';
 import { Input } from '../components/ui/input';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../components/ui/table';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '../components/ui/dialog';
-import { PlusCircle, Search, Edit2, Trash2, Package } from 'lucide-react';
+import { PlusCircle, Search, Edit2, Trash2, Package, History, ArrowRightLeft } from 'lucide-react';
 import { ConfirmDialog } from '../components/ui/confirm-dialog';
 import { useTranslation } from 'react-i18next';
+import { StockAdjustmentModal } from '../features/inventory/StockAdjustmentModal';
+import { StockHistoryModal } from '../features/inventory/StockHistoryModal';
 
 export default function InventoryPage() {
   const cafeId = useAuthStore(s => s.cafeId());
@@ -18,8 +20,11 @@ export default function InventoryPage() {
   
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingItem, setEditingItem] = useState<InventoryItem | null>(null);
-  const [formData, setFormData] = useState({ name: '', unit: '', cost: '', stock_quantity: '' });
+  const [formData, setFormData] = useState({ name: '', unit: '', cost: '', stock_quantity: '', low_stock_threshold: '' });
   const [saving, setSaving] = useState(false);
+
+  const [adjustingStockItem, setAdjustingStockItem] = useState<InventoryItem | null>(null);
+  const [viewingHistoryItem, setViewingHistoryItem] = useState<InventoryItem | null>(null);
 
   const load = async () => {
     if (cafeId) {
@@ -39,11 +44,12 @@ export default function InventoryPage() {
         name: item.name,
         unit: item.unit,
         cost: item.cost.toString(),
-        stock_quantity: item.stock_quantity.toString()
+        stock_quantity: item.stock_quantity.toString(),
+        low_stock_threshold: item.low_stock_threshold?.toString() || '',
       });
     } else {
       setEditingItem(null);
-      setFormData({ name: '', unit: '', cost: '', stock_quantity: '0' });
+      setFormData({ name: '', unit: '', cost: '', stock_quantity: '0', low_stock_threshold: '' });
     }
     setIsModalOpen(true);
   };
@@ -59,6 +65,7 @@ export default function InventoryPage() {
           unit: formData.unit,
           cost: parseFloat(formData.cost) || 0,
           stock_quantity: parseFloat(formData.stock_quantity) || 0,
+          low_stock_threshold: formData.low_stock_threshold ? parseFloat(formData.low_stock_threshold) : null,
         });
       } else {
         await addInventoryItem({
@@ -67,6 +74,7 @@ export default function InventoryPage() {
           unit: formData.unit,
           cost: parseFloat(formData.cost) || 0,
           stock_quantity: parseFloat(formData.stock_quantity) || 0,
+          low_stock_threshold: formData.low_stock_threshold ? parseFloat(formData.low_stock_threshold) : null,
         });
       }
       await load();
@@ -134,14 +142,25 @@ export default function InventoryPage() {
                     </div>
                   </TableCell>
                   <TableCell>
-                    <span className={`font-semibold ${item.stock_quantity <= 5 ? 'text-red-500' : 'text-emerald-600'}`}>
-                      {item.stock_quantity}
-                    </span>
+                    <div className="flex flex-col">
+                      <span className={`font-semibold ${item.low_stock_threshold && item.stock_quantity <= item.low_stock_threshold ? 'text-red-500' : 'text-emerald-600'}`}>
+                        {item.stock_quantity}
+                      </span>
+                      {item.low_stock_threshold != null && (
+                        <span className="text-xs text-muted-foreground">Min: {item.low_stock_threshold}</span>
+                      )}
+                    </div>
                   </TableCell>
                   <TableCell>{item.unit}</TableCell>
                   <TableCell>{item.cost.toFixed(2)} EGP</TableCell>
                   <TableCell>
                     <div className="flex gap-1">
+                      <Button variant="ghost" size="icon" onClick={() => setAdjustingStockItem(item)} title={t('adjust_stock')}>
+                        <ArrowRightLeft className="h-4 w-4 text-amber-600" />
+                      </Button>
+                      <Button variant="ghost" size="icon" onClick={() => setViewingHistoryItem(item)} title={t('stock_history')}>
+                        <History className="h-4 w-4 text-blue-500" />
+                      </Button>
                       <Button variant="ghost" size="icon" onClick={() => handleOpenModal(item)}>
                         <Edit2 className="h-4 w-4 text-blue-600" />
                       </Button>
@@ -190,15 +209,26 @@ export default function InventoryPage() {
                 />
               </div>
             </div>
-            <div>
-              <label className="text-sm font-medium mb-1 block">{t('unit_cost_egp')}</label>
-              <Input
-                type="number"
-                step="0.01"
-                value={formData.cost}
-                onChange={e => setFormData({ ...formData, cost: e.target.value })}
-                placeholder="0.00"
-              />
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label className="text-sm font-medium mb-1 block">{t('unit_cost_egp')}</label>
+                <Input
+                  type="number"
+                  step="0.01"
+                  value={formData.cost}
+                  onChange={e => setFormData({ ...formData, cost: e.target.value })}
+                  placeholder="0.00"
+                />
+              </div>
+              <div>
+                <label className="text-sm font-medium mb-1 block">{t('low_stock_threshold')}</label>
+                <Input
+                  type="number"
+                  value={formData.low_stock_threshold}
+                  onChange={e => setFormData({ ...formData, low_stock_threshold: e.target.value })}
+                  placeholder={t('optional')}
+                />
+              </div>
             </div>
           </div>
           <DialogFooter>
@@ -222,6 +252,22 @@ export default function InventoryPage() {
         }}
         title={t('delete_item')}
         description={t('delete_item_confirm')}
+      />
+
+      <StockAdjustmentModal
+        item={adjustingStockItem}
+        cafeId={cafeId}
+        onClose={() => setAdjustingStockItem(null)}
+        onAdjusted={() => {
+          setAdjustingStockItem(null);
+          load();
+        }}
+      />
+
+      <StockHistoryModal
+        item={viewingHistoryItem}
+        cafeId={cafeId}
+        onClose={() => setViewingHistoryItem(null)}
       />
     </div>
   );

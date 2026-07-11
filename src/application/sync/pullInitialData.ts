@@ -28,22 +28,26 @@ export async function pullInitialData(cafeId: string): Promise<void> {
       { data: categories },
       { data: products },
       { data: inventoryItems },
+      { data: stockMovements },
       { data: tables },
       { data: orders },
       { data: suppliers },
       { data: purchases },
       { data: dailyClosings },
-      { data: settings }
+      { data: settings },
+      { data: appUsers }
     ] = await Promise.all([
       supabase.from('categories').select('*').eq('cafe_id', cafeId),
       supabase.from('products').select('*').eq('cafe_id', cafeId),
       supabase.from('inventory_items').select('*').eq('cafe_id', cafeId),
+      supabase.from('stock_movements').select('*').eq('cafe_id', cafeId),
       supabase.from('tables').select('*').eq('cafe_id', cafeId),
       supabase.from('orders').select('*').eq('cafe_id', cafeId),
       supabase.from('suppliers').select('*').eq('cafe_id', cafeId),
       supabase.from('purchases').select('*').eq('cafe_id', cafeId),
       supabase.from('daily_closings').select('*').eq('cafe_id', cafeId),
       supabase.from('settings').select('*').eq('cafe_id', cafeId),
+      supabase.from('app_users').select('*').eq('cafe_id', cafeId),
     ]);
 
     // 2. Deduplicate by name before upserting (prevents server-side duplicates from
@@ -78,12 +82,14 @@ export async function pullInitialData(cafeId: string): Promise<void> {
       await db.products.bulkPut(uniqueProducts);
     }
     if (inventoryItems && inventoryItems.length > 0) await db.inventory_items.bulkPut(inventoryItems as any[]);
+    if (stockMovements && stockMovements.length > 0) await db.stock_movements.bulkPut(stockMovements as any[]);
     if (tables && tables.length > 0) await db.dining_tables.bulkPut(tables as any[]);
     if (orders && orders.length > 0) await db.orders.bulkPut(orders as any[]);
     if (suppliers && suppliers.length > 0) await db.suppliers.bulkPut(suppliers as any[]);
     if (purchases && purchases.length > 0) await db.purchases.bulkPut(purchases as any[]);
     if (dailyClosings && dailyClosings.length > 0) await db.daily_closings.bulkPut(dailyClosings as any[]);
     if (settings && settings.length > 0) await db.settings.bulkPut(settings as any[]);
+    if (appUsers && appUsers.length > 0) await db.app_users.bulkPut(appUsers as any[]);
 
     // 3. Fetch child tables in chunks to avoid HTTP 414 URI Too Long
     // Order Items

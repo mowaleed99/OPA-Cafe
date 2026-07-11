@@ -8,6 +8,7 @@ import { cleanupLocalDuplicates } from './cleanupLocal';
 import { fetchSettings } from './application/useCases/settings/manageSettings';
 import { useTranslation } from 'react-i18next';
 import { RefreshCw } from 'lucide-react';
+import { AutoBackupService } from './application/services/AutoBackupService';
 
 // Layouts
 import AuthLayout from './presentation/layouts/AuthLayout';
@@ -43,6 +44,7 @@ export default function App() {
   // Restore session on app start
   useEffect(() => {
     initialize();
+    AutoBackupService.initialize();
   }, [initialize]);
 
   // Sync language with i18n and HTML dir
@@ -93,17 +95,37 @@ export default function App() {
             <Route path="/pos" element={<POSPage />} />
             <Route path="/tables" element={<TablesPage />} />
 
+            {/* Dynamic Permission routes */}
+            <Route element={<ProtectedRoute requiredPermission="dashboard" />}>
+              <Route path="/dashboard" element={<DashboardPage />} />
+            </Route>
+            <Route element={<ProtectedRoute requiredPermission="products" />}>
+              <Route path="/products" element={<ProductsPage />} />
+            </Route>
+            <Route element={<ProtectedRoute requiredPermission="inventory" />}>
+              <Route path="/inventory" element={<InventoryPage />} />
+            </Route>
+            <Route element={<ProtectedRoute requiredPermission="categories" />}>
+              <Route path="/categories" element={<CategoriesPage />} />
+            </Route>
+            <Route element={<ProtectedRoute requiredPermission="suppliers" />}>
+              <Route path="/suppliers" element={<SuppliersPage />} />
+            </Route>
+            <Route element={<ProtectedRoute requiredPermission="purchases" />}>
+              <Route path="/purchases" element={<PurchasesPage />} />
+            </Route>
+            <Route element={<ProtectedRoute requiredPermission="debts" />}>
+              <Route path="/debts" element={<DebtsPage />} />
+            </Route>
+            <Route element={<ProtectedRoute requiredPermission="closing" />}>
+              <Route path="/closing" element={<ClosingPage />} />
+            </Route>
+            <Route element={<ProtectedRoute requiredPermission="reports" />}>
+              <Route path="/reports" element={<ReportsPage />} />
+            </Route>
+
             {/* Owner-only routes */}
             <Route element={<ProtectedRoute requiredRole="owner" />}>
-              <Route path="/dashboard" element={<DashboardPage />} />
-              <Route path="/products" element={<ProductsPage />} />
-              <Route path="/inventory" element={<InventoryPage />} />
-              <Route path="/categories" element={<CategoriesPage />} />
-              <Route path="/suppliers" element={<SuppliersPage />} />
-              <Route path="/purchases" element={<PurchasesPage />} />
-              <Route path="/debts" element={<DebtsPage />} />
-              <Route path="/closing" element={<ClosingPage />} />
-              <Route path="/reports" element={<ReportsPage />} />
               <Route path="/users" element={<UsersPage />} />
               <Route path="/settings" element={<SettingsPage />} />
             </Route>

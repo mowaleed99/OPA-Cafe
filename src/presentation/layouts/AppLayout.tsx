@@ -1,5 +1,6 @@
 import { Outlet, NavLink, useNavigate } from 'react-router-dom';
 import { useAuthStore } from '../../application/store/useAuthStore';
+import { useSettingsStore } from '../../application/store/useSettingsStore';
 import { useTranslation } from 'react-i18next';
 import {
   LayoutDashboard,
@@ -33,18 +34,22 @@ const ownerNav = [
   { to: '/settings', icon: Settings, labelKey: 'settings' },
 ];
 
-
-// Cashiers only see POS and Tables
-const cashierNav = [
-  { to: '/pos', icon: ShoppingCart, labelKey: 'pos' },
-  { to: '/tables', icon: UtensilsCrossed, labelKey: 'tables' },
-];
-
 export default function AppLayout() {
   const { isOwner, signOut } = useAuthStore();
+  const { cashierPermissions } = useSettingsStore();
   const navigate = useNavigate();
   const { t } = useTranslation();
-  const navItems = isOwner() ? ownerNav : cashierNav;
+  
+  const navItems = isOwner() 
+    ? ownerNav 
+    : ownerNav.filter(item => 
+        item.labelKey === 'pos' || 
+        item.labelKey === 'tables' || 
+        cashierPermissions.includes(item.labelKey)
+      ).filter(item => 
+        item.labelKey !== 'users' && 
+        item.labelKey !== 'settings'
+      );
 
   const handleSignOut = async () => {
     await signOut();

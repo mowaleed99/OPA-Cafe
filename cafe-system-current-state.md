@@ -60,7 +60,7 @@ src/
 4. ✅ **Daily Closing** — `closingDay()` aggregates paid orders → snapshot. PDF & CSV export using `html2pdf.js`.
 5. ✅ **Dashboard** — KPI cards + 7-day bar chart.
 6. ✅ **Suppliers & Purchases** — CRUD, multi-line purchase orders, supplier payments. Search + pagination added.
-7. ✅ **Users** — owner creates cashier accounts via Supabase Edge Function (`create-cashier`).
+7. ✅ **Users** — Full CRUD for users (create, edit, delete, assign owner/cashier roles) via Supabase Edge Functions (`create-cashier`, `update-user`, `delete-user`).
 8. ✅ **Settings** — Language (Arabic/English + RTL), Currency (EGP/USD), Cafe Name, Tax Rate, Print Paper Size.
 9. ✅ **Reports (Monthly Closing)** — Month picker, aggregated daily closings, CSV export, browser Print.
 10. ✅ **Backup & Restore** — Full JSON export/import of all local Dexie tables.
@@ -116,6 +116,10 @@ Already applied to the Supabase project.
 ### Known Pre-existing TypeScript Errors (Non-blocking)
 - `setup-admin-service.ts` — one-off admin script
 - `supabase/functions/create-cashier/index.ts` — Deno Edge Function
+
+### Auth & Offline Limitations
+- Auth operations (login, creating/editing users) rely directly on Supabase and Edge Functions. If the app goes offline and the user refreshes, `supabase.auth.getSession()` works via localStorage, but fetching `app_users` will fail, setting the user to null and breaking the session.
+- To fully support offline reloads, `app_users` should eventually be synced to Dexie so `useAuthStore` can read the user's role locally.
 
 ## 5. Electron Desktop App
 

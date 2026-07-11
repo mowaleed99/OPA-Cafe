@@ -2,6 +2,7 @@ import { create } from 'zustand';
 import type { Session } from '@supabase/supabase-js';
 import type { AppUser } from '../../core/entities/user';
 import { supabase } from '../../infrastructure/api/supabase';
+import { db } from '../../infrastructure/database/db';
 
 interface AuthState {
   session: Session | null;
@@ -37,13 +38,23 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     if (!data.user) return { error: 'No user returned' };
 
     // Fetch the app_users record to get role and cafe_id
-    const { data: appUser, error: userError } = await supabase
+    let appUser = null;
+    const { data: remoteUser, error: userError } = await supabase
       .from('app_users')
       .select('*')
       .eq('id', data.user.id)
       .single();
 
-    if (userError || !appUser) return { error: 'User profile not found. Contact your administrator.' };
+    if (remoteUser) {
+      appUser = remoteUser;
+      // Update local db
+      await db.app_users.put(appUser);
+    } else {
+      // Fallback to local DB if offline
+      appUser = await db.app_users.get(data.user.id) ?? null;
+    }
+
+    if (!appUser) return { error: 'User profile not found. Contact your administrator or check connection.' };
 
     set({ session: data.session, appUser });
     return { error: null };
@@ -60,13 +71,27 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     const { data: { session } } = await supabase.auth.getSession();
 
     if (session?.user) {
-      const { data: appUser } = await supabase
-        .from('app_users')
-        .select('*')
-        .eq('id', session.user.id)
-        .single();
+      let appUser = null;
+      try {
+        const { data: remoteUser } = await supabase
+          .from('app_users')
+          .select('*')
+          .eq('id', session.user.id)
+          .single();
+        if (remoteUser) {
+          appUser = remoteUser;
+          await db.app_users.put(appUser);
+        }
+      } catch (err) {
+        // Ignore network errors
+      }
 
-      set({ session, appUser: appUser ?? null });
+      if (!appUser) {
+        // Fallback to local
+        appUser = await db.app_users.get(session.user.id) ?? null;
+      }
+
+      set({ session, appUser });
     }
 
     set({ isLoading: false });
@@ -77,12 +102,23 @@ export const useAuthStore = create<AuthState>((set, get) => ({
         set({ session: null, appUser: null });
         return;
       }
-      const { data: appUser } = await supabase
-        .from('app_users')
-        .select('*')
-        .eq('id', session.user.id)
-        .single();
-      set({ session, appUser: appUser ?? null });
+      let appUser = null;
+      try {
+        const { data: remoteUser } = await supabase
+          .from('app_users')
+          .select('*')
+          .eq('id', session.user.id)
+          .single();
+        if (remoteUser) {
+          appUser = remoteUser;
+          await db.app_users.put(appUser);
+        }
+      } catch (err) {}
+
+      if (!appUser) {
+        appUser = await db.app_users.get(session.user.id) ?? null;
+      }
+      set({ session, appUser });
     });
   },
 }));

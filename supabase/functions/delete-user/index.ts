@@ -12,7 +12,7 @@ serve(async (req) => {
   }
 
   try {
-    const { email, password, name, cafe_id } = await req.json()
+    const { userId, cafe_id } = await req.json()
 
     // Create a Supabase client with the Auth context of the logged in user.
     const supabaseClient = createClient(
@@ -21,7 +21,7 @@ serve(async (req) => {
       { global: { headers: { Authorization: req.headers.get('Authorization')! } } }
     )
 
-    // Verify that the caller is an owner (Optional, but good for security)
+    // Verify that the caller is an owner
     const {
       data: { user },
     } = await supabaseClient.auth.getUser()
@@ -43,34 +43,14 @@ serve(async (req) => {
       .single()
 
     if (!ownerCheck || ownerCheck.role !== 'owner') {
-      throw new Error('Not authorized to create cashiers for this cafe')
+      throw new Error('Not authorized to manage users for this cafe')
     }
 
-    // CREATE THE CASHIER USER with auto-confirm
-    const { data: newAuthUser, error: authError } = await supabaseAdmin.auth.admin.createUser({
-      email,
-      password,
-      email_confirm: true,
-    })
-
+    // DELETE THE USER in auth.users (cascades to app_users)
+    const { error: authError } = await supabaseAdmin.auth.admin.deleteUser(userId)
     if (authError) throw authError
 
-    // INSERT INTO app_users
-    const { error: dbError } = await supabaseAdmin.from('app_users').insert({
-      id: newAuthUser.user.id,
-      cafe_id: cafe_id,
-      role: 'cashier',
-      name: name ?? null,
-      email: email ?? null,
-    })
-
-    if (dbError) {
-      // rollback if possible
-      await supabaseAdmin.auth.admin.deleteUser(newAuthUser.user.id)
-      throw dbError
-    }
-
-    return new Response(JSON.stringify({ success: true, user: newAuthUser.user }), {
+    return new Response(JSON.stringify({ success: true }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       status: 200,
     })

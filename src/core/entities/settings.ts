@@ -5,4 +5,5 @@ export interface Settings {
   logo_url?: string | null;
   language: string;
   print_paper_size: string;
+  cashier_permissions?: string[];
 }

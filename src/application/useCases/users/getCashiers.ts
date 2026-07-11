@@ -5,6 +5,8 @@ export interface CashierUser {
   id: string;
   role: string;
   cafe_id: string;
+  name?: string | null;
+  email?: string | null;
 }
 
 export function useCashiers(cafeId: string | null) {
@@ -20,8 +22,7 @@ export function useCashiers(cafeId: string | null) {
       const { data, error } = await supabase
         .from('app_users')
         .select('*')
-        .eq('cafe_id', cafeId)
-        .eq('role', 'cashier');
+        .eq('cafe_id', cafeId);
 
       if (error) throw error;
       setCashiers(data || []);
