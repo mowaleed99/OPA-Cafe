@@ -33,7 +33,7 @@ export async function recordStockMovement(
   };
 
   await db.stock_movements.add(movement);
-  await enqueueSync('insert', 'stock_movements', movement);
+  await enqueueSync('insert', 'stock_movements', movement as unknown as Record<string, unknown>);
 }
 
 export async function adjustStock(
@@ -67,7 +67,7 @@ export async function adjustStock(
     }
 
     await db.inventory_items.put(item);
-    await enqueueSync('update', 'inventory_items', item);
+    await enqueueSync('update', 'inventory_items', item as unknown as Record<string, unknown>);
 
     // If there is a real movement (delta != 0)
     if (quantity !== 0) {
@@ -84,7 +84,7 @@ export async function adjustStock(
       };
       
       await db.stock_movements.add(movement);
-      await enqueueSync('insert', 'stock_movements', movement);
+      await enqueueSync('insert', 'stock_movements', movement as unknown as Record<string, unknown>);
     }
   });
 }

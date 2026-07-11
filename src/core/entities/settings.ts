@@ -6,4 +6,5 @@ export interface Settings {
   language: string;
   print_paper_size: string;
   cashier_permissions?: string[];
+  currency?: string;
 }

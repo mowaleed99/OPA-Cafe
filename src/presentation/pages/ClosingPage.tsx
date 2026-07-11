@@ -16,10 +16,12 @@ import {
 import type { DailyClosing } from '../../core/entities/daily_closing';
 import type { Product } from '../../core/entities/product';
 import { db } from '../../infrastructure/database/db';
+import { useCurrency } from '../../application/utils/useCurrency';
 
 export default function ClosingPage() {
   const cafeId = useAuthStore(s => s.cafeId());
   const { t } = useTranslation();
+  const { currency, formatCurrency } = useCurrency();
   const todayIso = new Date().toISOString().split('T')[0];
   const [selectedDate, setSelectedDate] = useState(todayIso);
   const [closings, setClosings] = useState<DailyClosing[]>([]);
@@ -89,9 +91,9 @@ export default function ClosingPage() {
     let csvContent = "";
     csvContent += "Daily Closing Report - " + report.closing.closing_date + "\n\n";
     csvContent += `${t('total_orders')},${report.closing.total_orders}\n`;
-    csvContent += `${t('total_sales')},${report.closing.total_sales.toFixed(2)} EGP\n`;
+    csvContent += `${t('total_sales')},${formatCurrency(report.closing.total_sales)}\n`;
     const avgOrder = report.closing.total_orders > 0 ? (report.closing.total_sales / report.closing.total_orders).toFixed(2) : '0.00';
-    csvContent += `${t('avg_order')},${avgOrder} EGP\n\n`;
+    csvContent += `${t('avg_order')},${avgOrder} ${currency}\n\n`;
     
     csvContent += `${t('product')},Category,${t('qty_sold')},${t('revenue')}\n`;
     
@@ -100,10 +102,10 @@ export default function ClosingPage() {
       const productName = p ? p.name : item.product_id;
       const categoryName = p ? p.category : 'Unknown';
       const safeName = `"${productName.replace(/"/g, '""')}"`;
-      csvContent += `${safeName},"${categoryName}",${item.quantity_sold},"${item.total_revenue.toFixed(2)} EGP"\n`;
+      csvContent += `${safeName},"${categoryName}",${item.quantity_sold},"${formatCurrency(item.total_revenue)}"\n`;
     });
     
-    csvContent += `\nTotal Expenses,${(report.expenses || 0).toFixed(2)} EGP\n`;
+    csvContent += `\nTotal Expenses,${formatCurrency(report.expenses || 0)}\n`;
     
     const blob = new Blob(["\uFEFF" + csvContent], { type: 'text/csv;charset=utf-8;' });
     const url = URL.createObjectURL(blob);
@@ -140,17 +142,17 @@ export default function ClosingPage() {
             </div>
             <div className="border border-gray-300 p-4 rounded-lg bg-gray-50">
               <p className="text-sm font-bold text-gray-500 uppercase">{t('total_sales')}</p>
-              <p className="text-3xl font-bold">{report.closing.total_sales.toFixed(2)} EGP</p>
+              <p className="text-3xl font-bold">{formatCurrency(report.closing.total_sales)}</p>
             </div>
             <div className="border border-gray-300 p-4 rounded-lg bg-gray-50">
               <p className="text-sm font-bold text-gray-500 uppercase">{t('avg_order')}</p>
               <p className="text-3xl font-bold">
-                {report.closing.total_orders > 0 ? (report.closing.total_sales / report.closing.total_orders).toFixed(2) : '0.00'} EGP
+                {report.closing.total_orders > 0 ? formatCurrency(report.closing.total_sales / report.closing.total_orders) : formatCurrency(0)}
               </p>
             </div>
             <div className="border border-gray-300 p-4 rounded-lg bg-red-50">
               <p className="text-sm font-bold text-red-500 uppercase">{t('expenses')}</p>
-              <p className="text-3xl font-bold text-red-600">{(report.expenses || 0).toFixed(2)} EGP</p>
+              <p className="text-3xl font-bold text-red-600">{formatCurrency(report.expenses || 0)}</p>
             </div>
           </div>
 
@@ -182,7 +184,7 @@ export default function ClosingPage() {
                       <tr className="bg-gray-50 border-b border-gray-200 font-bold">
                         <td colSpan={2} className="p-3">{catName} (Total)</td>
                         <td className="p-3 text-right">{data.qty}</td>
-                        <td className="p-3 text-right">{data.rev.toFixed(2)} EGP</td>
+                        <td className="p-3 text-right">{formatCurrency(data.rev)}</td>
                       </tr>
                       {data.items.map(item => {
                         const p = products[item.product_id];
@@ -191,7 +193,7 @@ export default function ClosingPage() {
                             <td className="p-3 pl-8">{p ? p.name : item.product_id}</td>
                             <td className="p-3 text-gray-500">{catName}</td>
                             <td className="p-3 text-right">{item.quantity_sold}</td>
-                            <td className="p-3 text-right">{item.total_revenue.toFixed(2)} EGP</td>
+                            <td className="p-3 text-right">{formatCurrency(item.total_revenue)}</td>
                           </tr>
                         );
                       })}
@@ -218,7 +220,7 @@ export default function ClosingPage() {
                     <tr key={`print-pay-${payment.id || i}`} className="border-b border-gray-100">
                       <td className="p-3 font-semibold">{payment.supplierName}</td>
                       <td className="p-3 text-gray-500">{payment.notes || '-'}</td>
-                      <td className="p-3 text-right text-red-600 font-bold">{payment.amount.toFixed(2)} EGP</td>
+                      <td className="p-3 text-right text-red-600 font-bold">{formatCurrency(payment.amount)}</td>
                     </tr>
                   ))}
                 </tbody>
@@ -286,7 +288,7 @@ export default function ClosingPage() {
                 </div>
                 <div className="rounded-lg bg-muted/50 p-4 text-center">
                   <TrendingUp className="h-6 w-6 mx-auto mb-1 text-muted-foreground" />
-                  <p className="text-2xl font-bold">{report.closing.total_sales.toFixed(2)} <span className="text-sm font-normal">EGP</span></p>
+                  <p className="text-2xl font-bold">{report.closing.total_sales.toFixed(2)} <span className="text-sm font-normal">{currency}</span></p>
                   <p className="text-xs text-muted-foreground mt-1">{t('total_sales')}</p>
                 </div>
                 <div className="rounded-lg bg-muted/50 p-4 text-center">
@@ -294,13 +296,13 @@ export default function ClosingPage() {
                   <p className="text-2xl font-bold">
                     {report.closing.total_orders > 0
                       ? (report.closing.total_sales / report.closing.total_orders).toFixed(2)
-                      : '0.00'} <span className="text-sm font-normal">EGP</span>
+                      : '0.00'} <span className="text-sm font-normal">{currency}</span>
                   </p>
                   <p className="text-xs text-muted-foreground mt-1">{t('avg_order')}</p>
                 </div>
                 <div className="rounded-lg bg-red-500/10 p-4 text-center">
                   <TrendingUp className="h-6 w-6 mx-auto mb-1 text-red-500" />
-                  <p className="text-2xl font-bold text-red-600">{(report.expenses || 0).toFixed(2)} <span className="text-sm font-normal">EGP</span></p>
+                  <p className="text-2xl font-bold text-red-600">{(report.expenses || 0).toFixed(2)} <span className="text-sm font-normal">{currency}</span></p>
                   <p className="text-xs text-red-500 mt-1">{t('expenses_purchases')}</p>
                 </div>
               </div>
@@ -334,7 +336,7 @@ export default function ClosingPage() {
                             <TableRow className="bg-muted/30 font-semibold">
                               <TableCell colSpan={2}>{catName} (Total)</TableCell>
                               <TableCell className="text-right">{data.qty}</TableCell>
-                              <TableCell className="text-right">{data.rev.toFixed(2)} EGP</TableCell>
+                              <TableCell className="text-right">{formatCurrency(data.rev)}</TableCell>
                             </TableRow>
                             {data.items.map(item => {
                               const p = products[item.product_id];
@@ -343,7 +345,7 @@ export default function ClosingPage() {
                                   <TableCell className="pl-6">{p ? p.name : item.product_id}</TableCell>
                                   <TableCell className="text-muted-foreground text-sm">{catName}</TableCell>
                                   <TableCell className="text-right">{item.quantity_sold}</TableCell>
-                                  <TableCell className="text-right">{item.total_revenue.toFixed(2)} EGP</TableCell>
+                                  <TableCell className="text-right">{formatCurrency(item.total_revenue)}</TableCell>
                                 </TableRow>
                               );
                             })}
@@ -371,7 +373,7 @@ export default function ClosingPage() {
                           <TableCell className="font-semibold">{payment.supplierName}</TableCell>
                           <TableCell className="text-muted-foreground">{payment.notes || '-'}</TableCell>
                           <TableCell className="text-right text-red-500 font-medium">
-                            {payment.amount.toFixed(2)} EGP
+                            {formatCurrency(payment.amount)}
                           </TableCell>
                         </TableRow>
                       ))}
@@ -409,8 +411,8 @@ export default function ClosingPage() {
                     <TableRow key={c.id}>
                       <TableCell className="font-medium">{c.closing_date}</TableCell>
                       <TableCell className="text-right">{c.total_orders}</TableCell>
-                      <TableCell className="text-right">{c.total_sales.toFixed(2)} EGP</TableCell>
-                      <TableCell className="text-right text-red-500">{(c.total_expenses || 0).toFixed(2)} EGP</TableCell>
+                      <TableCell className="text-right">{formatCurrency(c.total_sales)}</TableCell>
+                      <TableCell className="text-right text-red-500">{formatCurrency(c.total_expenses || 0)}</TableCell>
                       <TableCell>
                         <Button variant="ghost" size="sm" onClick={() => viewReport(c)}>{t('view')}</Button>
                       </TableCell>

@@ -58,8 +58,8 @@ export default function SettingsPage() {
   const { appUser, signOut, session } = useAuthStore();
   const navigate = useNavigate();
   const {
-    language, cafeName, printPaperSize, cashierPermissions,
-    setLanguage, setCafeName, setPrintPaperSize, setCashierPermissions,
+    language, cafeName, currency, printPaperSize, cashierPermissions,
+    setLanguage, setCafeName, setCurrency, setPrintPaperSize, setCashierPermissions,
   } = useSettingsStore();
   const { t } = useTranslation();
 
@@ -94,17 +94,42 @@ export default function SettingsPage() {
       for (const table of db.tables) {
         data[table.name] = await db.table(table.name).toArray();
       }
-      const blob = new Blob([JSON.stringify(data)], { type: 'application/json' });
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = `opa-cafe-backup-${new Date().toISOString().split('T')[0]}.json`;
-      document.body.appendChild(a);
-      a.click();
-      document.body.removeChild(a);
-      URL.revokeObjectURL(url);
-      setBackupMessage({ type: 'success', text: t('backup_success') });
-    } catch {
+      const jsonString = JSON.stringify(data);
+      const defaultFilename = `opa-cafe-backup-${new Date().toISOString().split('T')[0]}.json`;
+
+      // @ts-ignore
+      if (window.electronAPI) {
+        // @ts-ignore
+        const result = await window.electronAPI.showSaveDialog({
+          defaultPath: defaultFilename,
+          filters: [{ name: 'JSON Files', extensions: ['json'] }]
+        });
+        
+        if (result.canceled || !result.filePath) {
+          setIsExporting(false);
+          return;
+        }
+
+        // @ts-ignore
+        const saveResult = await window.electronAPI.saveBackup(result.filePath, jsonString);
+        if (saveResult.success) {
+          setBackupMessage({ type: 'success', text: t('backup_success') });
+        } else {
+          throw new Error(saveResult.error);
+        }
+      } else {
+        const blob = new Blob([jsonString], { type: 'application/json' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = defaultFilename;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+        setBackupMessage({ type: 'success', text: t('backup_success') });
+      }
+    } catch (err) {
       setBackupMessage({ type: 'error', text: t('backup_error') });
     } finally {
       setIsExporting(false);
@@ -379,6 +404,23 @@ export default function SettingsPage() {
                     <SelectContent>
                       <SelectItem value="ar">{t('arabic')}</SelectItem>
                       <SelectItem value="en">{t('english')}</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </SettingRow>
+                <SettingRow label={t('currency')} description={t('currency_desc')}>
+                  <Select value={currency} onValueChange={(val: string) => {
+                    setCurrency(val);
+                    if (cafeId) updateSettings(cafeId, { currency: val });
+                  }}>
+                    <SelectTrigger className="w-44">
+                      <SelectValue placeholder={t('currency')} />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="EGP">EGP - Egyptian Pound</SelectItem>
+                      <SelectItem value="USD">USD - US Dollar</SelectItem>
+                      <SelectItem value="EUR">EUR - Euro</SelectItem>
+                      <SelectItem value="SAR">SAR - Saudi Riyal</SelectItem>
+                      <SelectItem value="AED">AED - UAE Dirham</SelectItem>
                     </SelectContent>
                   </Select>
                 </SettingRow>

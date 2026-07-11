@@ -28,6 +28,7 @@ import {
   type CreatePurchaseParams,
 } from '../../application/useCases/suppliers/managePurchases';
 import { getInventoryItems } from '../../application/useCases/inventory/manageInventory';
+import { useCurrency } from '../../application/utils/useCurrency';
 
 // ── Status Badge ──────────────────────────────────────────────────────────────
 function StatusBadge({ status }: { status: Purchase['payment_status'] }) {
@@ -68,6 +69,7 @@ function CreatePurchaseModal({
   onCreated: () => void;
 }) {
   const { t } = useTranslation();
+  const { currency, formatCurrency } = useCurrency();
   const [supplierId, setSupplierId] = useState('');
   const [lines, setLines] = useState<PurchaseLineItem[]>([
     { inventoryItemId: '', quantity: '', unitCost: '' },
@@ -213,7 +215,7 @@ function CreatePurchaseModal({
             <div className="rounded-xl bg-[var(--brand-latte)]/8 border border-[var(--brand-latte)]/20 px-4 py-3 flex items-center justify-between">
               <span className="text-sm font-medium text-muted-foreground">{t('total')}</span>
               <span className="text-lg font-bold" style={{ color: 'var(--brand-latte)' }}>
-                {total.toFixed(2)} EGP
+                {formatCurrency(total)}
               </span>
             </div>
           )}
@@ -254,6 +256,7 @@ function PurchaseDetailPanel({
   onClose: () => void;
 }) {
   const { t } = useTranslation();
+  const { currency, formatCurrency } = useCurrency();
   const [detail, setDetail] = useState<{
     purchase: Purchase;
     items: PurchaseItem[];
@@ -287,7 +290,7 @@ function PurchaseDetailPanel({
         <div className="grid grid-cols-2 gap-3">
           <div className="rounded-xl border bg-card p-3 space-y-1">
             <p className="text-xs text-muted-foreground">{t('total')}</p>
-            <p className="text-lg font-bold text-foreground">{detail.purchase.total_amount.toFixed(2)} <span className="text-xs font-normal">EGP</span></p>
+            <p className="text-lg font-bold text-foreground">{detail.purchase.total_amount.toFixed(2)} <span className="text-xs font-normal">{currency}</span></p>
           </div>
           <div className="rounded-xl border bg-card p-3 space-y-1">
             <p className="text-xs text-muted-foreground">{t('status')}</p>
@@ -295,11 +298,11 @@ function PurchaseDetailPanel({
           </div>
           <div className="rounded-xl border bg-emerald-50 dark:bg-emerald-500/10 p-3 space-y-1">
             <p className="text-xs text-emerald-600 dark:text-emerald-400">{t('paid')}</p>
-            <p className="text-lg font-bold text-emerald-700 dark:text-emerald-400">{detail.purchase.amount_paid.toFixed(2)} <span className="text-xs font-normal">EGP</span></p>
+            <p className="text-lg font-bold text-emerald-700 dark:text-emerald-400">{detail.purchase.amount_paid.toFixed(2)} <span className="text-xs font-normal">{currency}</span></p>
           </div>
           <div className="rounded-xl border bg-red-50 dark:bg-red-500/10 p-3 space-y-1">
             <p className="text-xs text-red-600 dark:text-red-400">{t('remaining')}</p>
-            <p className="text-lg font-bold text-red-700 dark:text-red-400">{detail.purchase.amount_remaining.toFixed(2)} <span className="text-xs font-normal">EGP</span></p>
+            <p className="text-lg font-bold text-red-700 dark:text-red-400">{detail.purchase.amount_remaining.toFixed(2)} <span className="text-xs font-normal">{currency}</span></p>
           </div>
         </div>
 
@@ -314,8 +317,8 @@ function PurchaseDetailPanel({
                   <span className="font-medium">{item.item_name || inventoryItems[item.inventory_item_id] || 'Unknown'}</span>
                 </div>
                 <div className="text-end">
-                  <p className="text-muted-foreground text-xs">{item.quantity} × {item.unit_cost.toFixed(2)} EGP</p>
-                  <p className="font-semibold">{item.subtotal.toFixed(2)} EGP</p>
+                  <p className="text-muted-foreground text-xs">{item.quantity} × {formatCurrency(item.unit_cost)}</p>
+                  <p className="font-semibold">{formatCurrency(item.subtotal)}</p>
                 </div>
               </div>
             ))}
@@ -335,7 +338,7 @@ function PurchaseDetailPanel({
                     <p className="text-muted-foreground text-xs">{p.payment_date}</p>
                     <p className="text-foreground">{p.notes || '—'}</p>
                   </div>
-                  <span className="font-semibold text-emerald-600 dark:text-emerald-400">+{p.amount.toFixed(2)} EGP</span>
+                  <span className="font-semibold text-emerald-600 dark:text-emerald-400">+{formatCurrency(p.amount)}</span>
                 </div>
               ))}
             </div>
@@ -349,6 +352,7 @@ function PurchaseDetailPanel({
 // ── Main Page ─────────────────────────────────────────────────────────────────
 export default function PurchasesPage() {
   const { t } = useTranslation();
+  const { formatCurrency } = useCurrency();
   const cafeId = useAuthStore(s => s.cafeId());
   const [purchases, setPurchases] = useState<Purchase[]>([]);
   const [suppliers, setSuppliers] = useState<Supplier[]>([]);
@@ -456,8 +460,8 @@ export default function PurchasesPage() {
                 >
                   <TableCell className="text-sm text-muted-foreground">{p.created_at.split('T')[0]}</TableCell>
                   <TableCell className="font-medium">{supplierMap[p.supplier_id] || '—'}</TableCell>
-                  <TableCell className="text-end font-medium">{p.total_amount.toFixed(2)} EGP</TableCell>
-                  <TableCell className="text-end font-semibold text-red-600 dark:text-red-400">{p.amount_remaining.toFixed(2)} EGP</TableCell>
+                  <TableCell className="text-end font-medium">{formatCurrency(p.total_amount)}</TableCell>
+                  <TableCell className="text-end font-semibold text-red-600 dark:text-red-400">{formatCurrency(p.amount_remaining)}</TableCell>
                   <TableCell><StatusBadge status={p.payment_status} /></TableCell>
                   <TableCell>
                     <button

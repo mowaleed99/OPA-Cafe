@@ -21,6 +21,7 @@ import {
   recordPayment,
 } from '../../application/useCases/suppliers/managePurchases';
 import { getInventoryItems } from '../../application/useCases/inventory/manageInventory';
+import { useCurrency } from '../../application/utils/useCurrency';
 
 // ── Status Badge ──────────────────────────────────────────────────────────────
 function StatusBadge({ status }: { status: Purchase['payment_status'] }) {
@@ -55,6 +56,7 @@ function RecordPaymentModal({
   onPaymentRecorded: () => void;
 }) {
   const { t } = useTranslation();
+  const { currency, formatCurrency } = useCurrency();
   const [amount, setAmount] = useState('');
   const [notes, setNotes] = useState('');
   const [saving, setSaving] = useState(false);
@@ -83,9 +85,9 @@ function RecordPaymentModal({
         </DialogHeader>
         <div className="space-y-4 py-4">
           <div className="rounded-md bg-muted/50 px-4 py-3 text-sm space-y-1">
-            <div className="flex justify-between"><span>{t('total_amount')}</span><span>{purchase?.total_amount.toFixed(2)} EGP</span></div>
-            <div className="flex justify-between"><span>{t('already_paid')}</span><span>{purchase?.amount_paid.toFixed(2)} EGP</span></div>
-            <div className="flex justify-between font-semibold"><span>{t('remaining')}</span><span>{maxAmount.toFixed(2)} EGP</span></div>
+            <div className="flex justify-between"><span>{t('total_amount')}</span><span>{formatCurrency(purchase?.total_amount)}</span></div>
+            <div className="flex justify-between"><span>{t('already_paid')}</span><span>{formatCurrency(purchase?.amount_paid)}</span></div>
+            <div className="flex justify-between font-semibold"><span>{t('remaining')}</span><span>{formatCurrency(maxAmount)}</span></div>
           </div>
           <div>
             <label className="text-sm font-medium mb-1 block">{t('payment_amount')}</label>
@@ -95,7 +97,7 @@ function RecordPaymentModal({
               max={maxAmount}
               value={amount}
               onChange={e => setAmount(e.target.value)}
-              placeholder={`Max ${maxAmount.toFixed(2)} EGP`}
+              placeholder={`Max ${formatCurrency(maxAmount)}`}
             />
           </div>
           <div>
@@ -127,6 +129,7 @@ function PurchaseDetailPanel({
   onClose: () => void;
 }) {
   const { t } = useTranslation();
+  const { currency, formatCurrency } = useCurrency();
   const [detail, setDetail] = useState<{
     purchase: Purchase;
     items: PurchaseItem[];
@@ -159,15 +162,15 @@ function PurchaseDetailPanel({
           </div>
           <div className="flex justify-between">
             <span className="text-muted-foreground">{t('total')}</span>
-            <span className="font-medium">{detail.purchase.total_amount.toFixed(2)} EGP</span>
+            <span className="font-medium">{formatCurrency(detail.purchase.total_amount)}</span>
           </div>
           <div className="flex justify-between">
             <span className="text-muted-foreground">{t('paid')}</span>
-            <span className="font-medium text-green-600">{detail.purchase.amount_paid.toFixed(2)} EGP</span>
+            <span className="font-medium text-green-600">{formatCurrency(detail.purchase.amount_paid)}</span>
           </div>
           <div className="flex justify-between">
             <span className="text-muted-foreground">{t('remaining')}</span>
-            <span className="font-medium text-red-600">{detail.purchase.amount_remaining.toFixed(2)} EGP</span>
+            <span className="font-medium text-red-600">{formatCurrency(detail.purchase.amount_remaining)}</span>
           </div>
         </div>
 
@@ -179,9 +182,9 @@ function PurchaseDetailPanel({
               <div key={item.id} className="flex justify-between px-3 py-2 text-sm">
                 <span>{inventoryItems[item.inventory_item_id] || 'Unknown'}</span>
                 <span className="text-muted-foreground">
-                  {item.quantity} × {item.unit_cost.toFixed(2)} EGP
+                  {item.quantity} × {formatCurrency(item.unit_cost)}
                 </span>
-                <span className="font-medium">{item.subtotal.toFixed(2)} EGP</span>
+                <span className="font-medium">{formatCurrency(item.subtotal)}</span>
               </div>
             ))}
           </div>
@@ -198,7 +201,7 @@ function PurchaseDetailPanel({
                 <div key={p.id} className="flex justify-between px-3 py-2 text-sm">
                   <span className="text-muted-foreground">{p.payment_date}</span>
                   <span>{p.notes || '—'}</span>
-                  <span className="font-medium text-green-600">+{p.amount.toFixed(2)} EGP</span>
+                  <span className="font-medium text-green-600">+{formatCurrency(p.amount)}</span>
                 </div>
               ))}
             </div>
@@ -212,6 +215,7 @@ function PurchaseDetailPanel({
 // ── Main Page ─────────────────────────────────────────────────────────────────
 export default function DebtsPage() {
   const { t } = useTranslation();
+  const { currency, formatCurrency } = useCurrency();
   const cafeId = useAuthStore(s => s.cafeId());
   const [purchases, setPurchases] = useState<Purchase[]>([]);
   const [supplierMap, setSupplierMap] = useState<Record<string, string>>({});
@@ -276,7 +280,7 @@ export default function DebtsPage() {
         <div className="rounded-xl border bg-red-50 dark:bg-red-500/10 border-red-200 dark:border-red-500/20 p-4 flex items-center justify-between">
           <div>
             <p className="text-sm font-medium text-red-700 dark:text-red-400">{t('total_outstanding')}</p>
-            <p className="text-2xl font-bold text-red-700 dark:text-red-400">{totalOutstanding.toFixed(2)} EGP</p>
+            <p className="text-2xl font-bold text-red-700 dark:text-red-400">{formatCurrency(totalOutstanding)}</p>
           </div>
           <Banknote className="h-10 w-10 text-red-300" />
         </div>
@@ -312,9 +316,9 @@ export default function DebtsPage() {
                 >
                   <TableCell className="text-sm">{p.created_at.split('T')[0]}</TableCell>
                   <TableCell className="font-medium">{supplierMap[p.supplier_id] || '—'}</TableCell>
-                  <TableCell className="text-right">{p.total_amount.toFixed(2)}</TableCell>
-                  <TableCell className="text-right text-green-600">{p.amount_paid.toFixed(2)}</TableCell>
-                  <TableCell className="text-right text-red-600 font-semibold">{p.amount_remaining.toFixed(2)}</TableCell>
+                  <TableCell className="text-right">{formatCurrency(p.total_amount)}</TableCell>
+                  <TableCell className="text-right text-green-600">{formatCurrency(p.amount_paid)}</TableCell>
+                  <TableCell className="text-right text-red-600 font-semibold">{formatCurrency(p.amount_remaining)}</TableCell>
                   <TableCell><StatusBadge status={p.payment_status} /></TableCell>
                   <TableCell>
                     <div className="flex gap-1">

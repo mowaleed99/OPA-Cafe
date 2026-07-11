@@ -32,7 +32,7 @@ export default function ProtectedRoute({ requiredRole, requiredPermission }: Pro
 
   // Check custom cashier permissions
   if (requiredPermission && appUser.role === 'cashier') {
-    if (!cashierPermissions.includes(requiredPermission)) {
+    if (!(cashierPermissions || []).includes(requiredPermission)) {
       return <Navigate to="/pos" replace />;
     }
   }

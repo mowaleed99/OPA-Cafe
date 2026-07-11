@@ -109,6 +109,7 @@ const SYNCED_TABLES = [
   'daily_closings',
   'daily_closing_items',
   'settings',
+  'stock_movements',
 ] as const;
 
 type SyncedTable = typeof SYNCED_TABLES[number];

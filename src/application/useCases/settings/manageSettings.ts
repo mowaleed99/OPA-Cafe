@@ -10,6 +10,7 @@ export async function fetchSettings(cafeId: string) {
       useSettingsStore.getState().loadSettings({
         language: settings.language as 'ar' | 'en',
         cafeName: settings.cafe_name,
+        currency: settings.currency || 'EGP',
         printPaperSize: (settings.print_paper_size as 'A4' | '80mm' | '58mm') || 'A4',
         cashierPermissions: settings.cashier_permissions || ['pos', 'tables'],
       });
@@ -20,6 +21,7 @@ export async function fetchSettings(cafeId: string) {
         cafe_id: cafeId,
         language: 'ar',
         cafe_name: 'OPA Cafe',
+        currency: 'EGP',
         print_paper_size: 'A4',
         cashier_permissions: ['pos', 'tables'],
       };
@@ -34,6 +36,7 @@ export async function fetchSettings(cafeId: string) {
 export async function updateSettings(cafeId: string, updates: Partial<{
   language: string;
   cafe_name: string;
+  currency: string;
   print_paper_size: string;
   cashier_permissions: string[];
 }>) {

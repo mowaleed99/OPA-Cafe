@@ -9,6 +9,7 @@ import type { Order, OrderItem } from '../../core/entities/order';
 import type { Supplier, Purchase, PurchaseItem, SupplierPayment } from '../../core/entities/supplier';
 import type { DailyClosing, DailyClosingItem } from '../../core/entities/daily_closing';
 import type { Settings } from '../../core/entities/settings';
+import type { Expense } from '../../core/entities/expense';
 
 export interface SyncQueueItem {
   id?: number; // Auto-incremented primary key
@@ -36,6 +37,7 @@ export class CafeDatabase extends Dexie {
   daily_closings!: Table<DailyClosing, string>;
   daily_closing_items!: Table<DailyClosingItem, string>;
   settings!: Table<Settings, string>;
+  expenses!: Table<Expense, string>;
   sync_queue!: Table<SyncQueueItem, number>;
 
   constructor() {
@@ -56,6 +58,7 @@ export class CafeDatabase extends Dexie {
       daily_closings: 'id, cafe_id, closing_date',
       daily_closing_items: 'id, daily_closing_id, product_id',
       settings: 'id, cafe_id',
+      expenses: 'id, cafe_id, expense_date',
       sync_queue: '++id, status, created_at',
     });
   }

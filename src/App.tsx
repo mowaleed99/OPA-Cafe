@@ -32,6 +32,7 @@ import PurchasesPage from './presentation/pages/PurchasesPage';
 import DebtsPage from './presentation/pages/DebtsPage';
 import ClosingPage from './presentation/pages/ClosingPage';
 import ReportsPage from './presentation/pages/ReportsPage';
+import ExpensesPage from './presentation/pages/ExpensesPage';
 import UsersPage from './presentation/pages/UsersPage';
 import SettingsPage from './presentation/pages/SettingsPage';
 
@@ -120,8 +121,10 @@ export default function App() {
             <Route element={<ProtectedRoute requiredPermission="closing" />}>
               <Route path="/closing" element={<ClosingPage />} />
             </Route>
+
             <Route element={<ProtectedRoute requiredPermission="reports" />}>
               <Route path="/reports" element={<ReportsPage />} />
+              <Route path="/expenses" element={<ExpensesPage />} />
             </Route>
 
             {/* Owner-only routes */}

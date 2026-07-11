@@ -7,11 +7,13 @@ import { useSettingsStore } from '../../application/store/useSettingsStore';
 import { useAuthStore } from '../../application/store/useAuthStore';
 import { getMonthlyClosing, type MonthlyClosingReport } from '../../application/useCases/closing/monthlyClosing';
 import { db } from '../../infrastructure/database/db';
+import { useCurrency } from '../../application/utils/useCurrency';
 
 export default function ReportsPage() {
   const cafeId = useAuthStore(s => s.cafeId());
   const { cafeName } = useSettingsStore();
   const { t } = useTranslation();
+  const { currency, formatCurrency } = useCurrency();
   
   const [selectedMonth, setSelectedMonth] = useState<string>(new Date().toISOString().slice(0, 7)); // YYYY-MM
   const [report, setReport] = useState<MonthlyClosingReport | null>(null);
@@ -45,9 +47,9 @@ export default function ReportsPage() {
     let csvContent = "";
     csvContent += `Monthly Closing Report - ${report.month}\n\n`;
     csvContent += `Total Orders,${report.total_orders}\n`;
-    csvContent += `Total Sales,${report.total_sales.toFixed(2)} EGP\n`;
+    csvContent += `Total Sales,${formatCurrency(report.total_sales)}\n`;
     const avgOrder = report.total_orders > 0 ? (report.total_sales / report.total_orders).toFixed(2) : '0.00';
-    csvContent += `Avg Order,${avgOrder} EGP\n\n`;
+    csvContent += `Avg Order,${avgOrder} ${currency}\n\n`;
     
     csvContent += `Product,Category,Qty Sold,Revenue\n`;
     
@@ -56,10 +58,12 @@ export default function ReportsPage() {
       const productName = p ? p.name : productId;
       const categoryName = p ? p.category : 'Unknown';
       const safeName = `"${productName.replace(/"/g, '""')}"`;
-      csvContent += `${safeName},"${categoryName}",${data.quantity},"${data.revenue.toFixed(2)} EGP"\n`;
+      csvContent += `${safeName},"${categoryName}",${data.quantity},"${formatCurrency(data.revenue)}"\n`;
     });
     
-    csvContent += `\nTotal Expenses,${(report.total_expenses || 0).toFixed(2)} EGP\n`;
+    csvContent += `\nTotal Cost of Goods (Purchases),${formatCurrency(report.total_cost_of_goods || 0)}\n`;
+    csvContent += `Total Explicit Expenses,${formatCurrency(report.total_explicit_expenses || 0)}\n`;
+    csvContent += `Total Expenses (Combined),${formatCurrency(report.total_expenses || 0)}\n`;
     
     const blob = new Blob(["\uFEFF" + csvContent], { type: 'text/csv;charset=utf-8;' });
     const url = URL.createObjectURL(blob);
@@ -94,17 +98,21 @@ export default function ReportsPage() {
             </div>
             <div className="border border-gray-300 p-4 rounded-lg bg-gray-50">
               <p className="text-sm font-bold text-gray-500 uppercase">{t('total_sales')}</p>
-              <p className="text-3xl font-bold">{report.total_sales.toFixed(2)} EGP</p>
+              <p className="text-3xl font-bold">{formatCurrency(report.total_sales)}</p>
             </div>
             <div className="border border-gray-300 p-4 rounded-lg bg-gray-50">
               <p className="text-sm font-bold text-gray-500 uppercase">{t('avg_order')}</p>
               <p className="text-3xl font-bold">
-                {report.total_orders > 0 ? (report.total_sales / report.total_orders).toFixed(2) : '0.00'} EGP
+                {report.total_orders > 0 ? formatCurrency(report.total_sales / report.total_orders) : formatCurrency(0)}
               </p>
+            </div>
+            <div className="border border-gray-300 p-4 rounded-lg bg-orange-50">
+              <p className="text-sm font-bold text-orange-600 uppercase">Cost of Goods</p>
+              <p className="text-3xl font-bold text-orange-600">{formatCurrency(report.total_cost_of_goods || 0)}</p>
             </div>
             <div className="border border-gray-300 p-4 rounded-lg bg-red-50">
               <p className="text-sm font-bold text-red-500 uppercase">{t('expenses')}</p>
-              <p className="text-3xl font-bold text-red-600">{(report.total_expenses || 0).toFixed(2)} EGP</p>
+              <p className="text-3xl font-bold text-red-600">{formatCurrency(report.total_explicit_expenses || 0)}</p>
             </div>
           </div>
 
@@ -136,7 +144,7 @@ export default function ReportsPage() {
                       <tr className="bg-gray-50 border-b border-gray-200 font-bold">
                         <td colSpan={2} className="p-3">{catName} (Total)</td>
                         <td className="p-3 text-right">{data.qty}</td>
-                        <td className="p-3 text-right">{data.rev.toFixed(2)} EGP</td>
+                        <td className="p-3 text-right">{formatCurrency(data.rev)}</td>
                       </tr>
                       {data.items.map(item => {
                         const p = products[item.productId];
@@ -145,7 +153,7 @@ export default function ReportsPage() {
                             <td className="p-3 pl-8">{p ? p.name : item.productId}</td>
                             <td className="p-3 text-gray-500">{catName}</td>
                             <td className="p-3 text-right">{item.quantity}</td>
-                            <td className="p-3 text-right">{item.revenue.toFixed(2)} EGP</td>
+                            <td className="p-3 text-right">{formatCurrency(item.revenue)}</td>
                           </tr>
                         );
                       })}
@@ -174,7 +182,33 @@ export default function ReportsPage() {
                       <td className="p-3 text-gray-500">{payment.payment_date}</td>
                       <td className="p-3 font-semibold">{payment.supplierName}</td>
                       <td className="p-3 text-gray-500">{payment.notes || '-'}</td>
-                      <td className="p-3 text-right text-red-600 font-bold">{payment.amount.toFixed(2)} EGP</td>
+                      <td className="p-3 text-right text-red-600 font-bold">{formatCurrency(payment.amount)}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+
+          {report.explicitExpenses && report.explicitExpenses.length > 0 && (
+            <div className="mb-8">
+              <h3 className="text-xl font-bold mb-4 border-b border-gray-300 pb-2">Explicit Expenses</h3>
+              <table className="w-full text-left border-collapse">
+                <thead>
+                  <tr className="bg-gray-100 border-b-2 border-gray-300">
+                    <th className="p-3 font-bold">{t('date')}</th>
+                    <th className="p-3 font-bold">{t('category')}</th>
+                    <th className="p-3 font-bold">{t('notes_optional')}</th>
+                    <th className="p-3 font-bold text-right">{t('total_amount')}</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {report.explicitExpenses.map((expense, i) => (
+                    <tr key={`print-exp-${expense.id || i}`} className="border-b border-gray-100">
+                      <td className="p-3 text-gray-500">{expense.expense_date}</td>
+                      <td className="p-3 font-semibold capitalize">{expense.category.replace('_', ' ')}</td>
+                      <td className="p-3 text-gray-500">{expense.description || '-'}</td>
+                      <td className="p-3 text-right text-red-600 font-bold">{formatCurrency(expense.amount)}</td>
                     </tr>
                   ))}
                 </tbody>
@@ -226,7 +260,7 @@ export default function ReportsPage() {
               </div>
               <div className="rounded-lg bg-muted/50 p-4 text-center">
                 <TrendingUp className="h-6 w-6 mx-auto mb-1 text-muted-foreground" />
-                <p className="text-2xl font-bold">{report.total_sales.toFixed(2)} EGP</p>
+                <p className="text-2xl font-bold">{report.total_sales.toFixed(2)} {currency}</p>
                 <p className="text-xs text-muted-foreground mt-1">{t('total_sales')}</p>
               </div>
               <div className="rounded-lg bg-muted/50 p-4 text-center">
@@ -234,14 +268,19 @@ export default function ReportsPage() {
                 <p className="text-2xl font-bold">
                   {report.total_orders > 0
                     ? (report.total_sales / report.total_orders).toFixed(2)
-                    : '0.00'} EGP
+                    : '0.00'} {currency}
                 </p>
                 <p className="text-xs text-muted-foreground mt-1">{t('avg_order')}</p>
               </div>
+              <div className="rounded-lg bg-orange-500/10 p-4 text-center">
+                <TrendingUp className="h-6 w-6 mx-auto mb-1 text-orange-500" />
+                <p className="text-2xl font-bold text-orange-600">{(report.total_cost_of_goods || 0).toFixed(2)} {currency}</p>
+                <p className="text-xs text-orange-600 mt-1">Cost of Goods</p>
+              </div>
               <div className="rounded-lg bg-red-500/10 p-4 text-center">
                 <TrendingUp className="h-6 w-6 mx-auto mb-1 text-red-500" />
-                <p className="text-2xl font-bold text-red-600">{(report.total_expenses || 0).toFixed(2)} EGP</p>
-                <p className="text-xs text-red-500 mt-1">{t('expenses_purchases')}</p>
+                <p className="text-2xl font-bold text-red-600">{(report.total_explicit_expenses || 0).toFixed(2)} {currency}</p>
+                <p className="text-xs text-red-500 mt-1">Explicit Expenses</p>
               </div>
             </div>
 
@@ -273,7 +312,7 @@ export default function ReportsPage() {
                           <TableRow className="bg-muted/30 font-semibold">
                             <TableCell colSpan={2}>{catName} (Total)</TableCell>
                             <TableCell className="text-right">{data.qty}</TableCell>
-                            <TableCell className="text-right">{data.rev.toFixed(2)} EGP</TableCell>
+                            <TableCell className="text-right">{formatCurrency(data.rev)}</TableCell>
                           </TableRow>
                           {data.items.map(item => {
                             const p = products[item.productId];
@@ -282,7 +321,7 @@ export default function ReportsPage() {
                                 <TableCell className="pl-6">{p ? p.name : item.productId}</TableCell>
                                 <TableCell className="text-muted-foreground text-sm">{catName}</TableCell>
                                 <TableCell className="text-right">{item.quantity}</TableCell>
-                                <TableCell className="text-right font-medium">{item.revenue.toFixed(2)} EGP</TableCell>
+                                <TableCell className="text-right font-medium">{formatCurrency(item.revenue)}</TableCell>
                               </TableRow>
                             );
                           })}
@@ -316,7 +355,33 @@ export default function ReportsPage() {
                         <TableCell className="font-semibold">{payment.supplierName}</TableCell>
                         <TableCell className="text-muted-foreground">{payment.notes || '-'}</TableCell>
                         <TableCell className="text-right text-red-500 font-medium">
-                          {payment.amount.toFixed(2)} EGP
+                          {formatCurrency(payment.amount)}
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </div>
+            )}
+            {report.explicitExpenses && report.explicitExpenses.length > 0 && (
+              <div className="border rounded-md mt-6">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>{t('date')}</TableHead>
+                      <TableHead>{t('category')}</TableHead>
+                      <TableHead>{t('notes_optional')}</TableHead>
+                      <TableHead className="text-right">{t('amount_paid_header')}</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {report.explicitExpenses.map((expense, i) => (
+                      <TableRow key={`exp-${expense.id || i}`}>
+                        <TableCell className="font-medium">{expense.expense_date}</TableCell>
+                        <TableCell className="font-semibold capitalize">{expense.category.replace('_', ' ')}</TableCell>
+                        <TableCell className="text-muted-foreground">{expense.description || '-'}</TableCell>
+                        <TableCell className="text-right text-red-500 font-medium">
+                          {formatCurrency(expense.amount)}
                         </TableCell>
                       </TableRow>
                     ))}

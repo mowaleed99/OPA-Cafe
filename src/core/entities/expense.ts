@@ -1,0 +1,11 @@
+export interface Expense {
+  id: string;
+  cafe_id: string;
+  category: 'rent' | 'utilities' | 'wages' | 'petty_cash' | 'other' | string;
+  amount: number;
+  expense_date: string; // ISO format YYYY-MM-DD
+  description?: string;
+  is_recurring: boolean;
+  created_at: string;
+  updated_at: string;
+}

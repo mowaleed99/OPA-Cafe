@@ -17,6 +17,7 @@ import {
   TerminalSquare,
   Coffee,
   Banknote,
+  Receipt,
 } from 'lucide-react';
 
 const ownerNav = [
@@ -30,6 +31,7 @@ const ownerNav = [
   { to: '/debts', icon: Banknote, labelKey: 'debts' },
   { to: '/closing', icon: BookOpen, labelKey: 'closing' },
   { to: '/reports', icon: LineChart, labelKey: 'reports' },
+  { to: '/expenses', icon: Receipt, labelKey: 'Expenses' },
   { to: '/users', icon: Users, labelKey: 'users' },
   { to: '/settings', icon: Settings, labelKey: 'settings' },
 ];
@@ -45,7 +47,7 @@ export default function AppLayout() {
     : ownerNav.filter(item => 
         item.labelKey === 'pos' || 
         item.labelKey === 'tables' || 
-        cashierPermissions.includes(item.labelKey)
+        (cashierPermissions || []).includes(item.labelKey)
       ).filter(item => 
         item.labelKey !== 'users' && 
         item.labelKey !== 'settings'

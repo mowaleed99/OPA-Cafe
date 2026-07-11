@@ -90,16 +90,28 @@ export class AutoBackupService {
       }
 
       const jsonString = JSON.stringify(backupData, null, 2);
-      const blob = new Blob([jsonString], { type: 'application/json' });
-      const url = URL.createObjectURL(blob);
+      const filename = `opa-cafe-autobackup-${new Date().toISOString().split('T')[0]}.json`;
 
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = `opa-cafe-autobackup-${new Date().toISOString().split('T')[0]}.json`;
-      document.body.appendChild(a);
-      a.click();
-      document.body.removeChild(a);
-      URL.revokeObjectURL(url);
+      // @ts-ignore
+      if (window.electronAPI) {
+        // @ts-ignore
+        const result = await window.electronAPI.saveAutoBackup(filename, jsonString);
+        if (!result.success) {
+          throw new Error(result.error);
+        }
+        console.log(`[AutoBackupService] Auto backup saved to ${result.filePath}`);
+      } else {
+        const blob = new Blob([jsonString], { type: 'application/json' });
+        const url = URL.createObjectURL(blob);
+
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = filename;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+      }
 
       // Update last backup date
       useSettingsStore.setState({ lastBackupDate: new Date().toISOString() });

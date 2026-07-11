@@ -11,12 +11,14 @@ import { ConfirmDialog } from '../components/ui/confirm-dialog';
 import { useTranslation } from 'react-i18next';
 import { StockAdjustmentModal } from '../features/inventory/StockAdjustmentModal';
 import { StockHistoryModal } from '../features/inventory/StockHistoryModal';
+import { useCurrency } from '../../application/utils/useCurrency';
 
 export default function InventoryPage() {
   const cafeId = useAuthStore(s => s.cafeId());
   const { t } = useTranslation();
   const [items, setItems] = useState<InventoryItem[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
+  const { currency, formatCurrency } = useCurrency();
   
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingItem, setEditingItem] = useState<InventoryItem | null>(null);
@@ -152,7 +154,7 @@ export default function InventoryPage() {
                     </div>
                   </TableCell>
                   <TableCell>{item.unit}</TableCell>
-                  <TableCell>{item.cost.toFixed(2)} EGP</TableCell>
+                  <TableCell>{formatCurrency(item.cost)}</TableCell>
                   <TableCell>
                     <div className="flex gap-1">
                       <Button variant="ghost" size="icon" onClick={() => setAdjustingStockItem(item)} title={t('adjust_stock')}>
@@ -211,7 +213,7 @@ export default function InventoryPage() {
             </div>
             <div className="grid grid-cols-2 gap-4">
               <div>
-                <label className="text-sm font-medium mb-1 block">{t('unit_cost_egp')}</label>
+                <label className="text-sm font-medium mb-1 block">{t('unit_cost')} ({currency})</label>
                 <Input
                   type="number"
                   step="0.01"

@@ -3,6 +3,7 @@ import { useState, useEffect } from 'react';
 import { TrendingUp, ShoppingBag, Banknote, BarChart3 } from 'lucide-react';
 import { useAuthStore } from '../../application/store/useAuthStore';
 import { getDashboardStats, type DashboardStats } from '../../application/useCases/dashboard/getDashboardStats';
+import { useCurrency } from '../../application/utils/useCurrency';
 
 function StatCard({
   icon: Icon,
@@ -33,6 +34,7 @@ function StatCard({
 
 function WeeklyChart({ closings }: { closings: DashboardStats['recentClosings'] }) {
   const { t } = useTranslation();
+  const { formatCurrency } = useCurrency();
   if (closings.length === 0) {
     return (
       <div className="flex items-center justify-center h-40 text-muted-foreground text-sm">
@@ -51,7 +53,7 @@ function WeeklyChart({ closings }: { closings: DashboardStats['recentClosings'] 
         return (
           <div key={c.id} className="flex-1 flex flex-col items-center gap-2 group cursor-pointer">
             <div className="opacity-0 group-hover:opacity-100 transition-opacity duration-300 transform -translate-y-2 text-xs font-semibold bg-popover text-popover-foreground px-2 py-1 rounded shadow-md z-10 absolute -mt-10">
-              {c.total_sales.toFixed(0)} EGP
+              {formatCurrency(c.total_sales)}
             </div>
             <div className="w-full relative flex items-end justify-center rounded-t-xl bg-muted/30 overflow-hidden" style={{ height: '140px' }}>
               <div
@@ -71,6 +73,7 @@ export default function DashboardPage() {
   const { t } = useTranslation();
   const cafeId = useAuthStore(s => s.cafeId());
   const [stats, setStats] = useState<DashboardStats | null>(null);
+  const { formatCurrency } = useCurrency();
 
   useEffect(() => {
     if (!cafeId) return;
@@ -100,7 +103,7 @@ export default function DashboardPage() {
         <StatCard
           icon={Banknote}
           label={t('todays_sales')}
-          value={`${stats.todaySales.toFixed(2)} EGP`}
+          value={formatCurrency(stats.todaySales)}
           color="bg-green-500"
         />
         <StatCard
@@ -113,7 +116,7 @@ export default function DashboardPage() {
         <StatCard
           icon={BarChart3}
           label={t('7_day_sales')}
-          value={`${stats.weekSales.toFixed(2)} EGP`}
+          value={formatCurrency(stats.weekSales)}
           sub={t('from_closed_days')}
           color="bg-orange-500"
         />
@@ -134,7 +137,7 @@ export default function DashboardPage() {
               <div key={c.id} className="flex items-center justify-between py-2.5 text-sm">
                 <span className="font-medium">{c.closing_date}</span>
                 <span className="text-muted-foreground">{c.total_orders} {t('orders')}</span>
-                <span className="font-semibold">{c.total_sales.toFixed(2)} EGP</span>
+                <span className="font-semibold">{formatCurrency(c.total_sales)}</span>
               </div>
             ))}
           </div>
