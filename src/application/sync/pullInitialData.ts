@@ -36,7 +36,8 @@ export async function pullInitialData(cafeId: string): Promise<void> {
       { data: dailyClosings },
       { data: settings },
       { data: appUsers },
-      { data: expenses }
+      { data: expenses },
+      { data: auditLog }
     ] = await Promise.all([
       supabase.from('categories').select('*').eq('cafe_id', cafeId),
       supabase.from('products').select('*').eq('cafe_id', cafeId),
@@ -50,6 +51,7 @@ export async function pullInitialData(cafeId: string): Promise<void> {
       supabase.from('settings').select('*').eq('cafe_id', cafeId),
       supabase.from('app_users').select('*').eq('cafe_id', cafeId),
       supabase.from('expenses').select('*').eq('cafe_id', cafeId),
+      supabase.from('order_audit_log').select('*').eq('cafe_id', cafeId),
     ]);
 
     // 2. Deduplicate by name before upserting (prevents server-side duplicates from
@@ -93,6 +95,7 @@ export async function pullInitialData(cafeId: string): Promise<void> {
     if (settings && settings.length > 0) await db.settings.bulkPut(settings as any[]);
     if (appUsers && appUsers.length > 0) await db.app_users.bulkPut(appUsers as any[]);
     if (expenses && expenses.length > 0) await db.expenses.bulkPut(expenses as any[]);
+    if (auditLog && auditLog.length > 0) await db.order_audit_log.bulkPut(auditLog as any[]);
 
     // 3. Fetch child tables in chunks to avoid HTTP 414 URI Too Long
     // Order Items

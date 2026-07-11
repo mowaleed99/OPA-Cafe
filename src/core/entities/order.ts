@@ -1,5 +1,5 @@
 export type OrderType = 'dine_in' | 'takeaway';
-export type OrderStatus = 'open' | 'closed' | 'paid';
+export type OrderStatus = 'open' | 'closed' | 'paid' | 'voided';
 export type PaymentMethod = 'cash' | 'instapay' | 'vodafone_cash';
 
 export interface Order {

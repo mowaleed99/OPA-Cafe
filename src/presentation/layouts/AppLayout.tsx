@@ -18,6 +18,8 @@ import {
   Coffee,
   Banknote,
   Receipt,
+  FileText,
+  ClipboardCheck,
 } from 'lucide-react';
 
 const ownerNav = [
@@ -32,6 +34,8 @@ const ownerNav = [
   { to: '/closing', icon: BookOpen, labelKey: 'closing' },
   { to: '/reports', icon: LineChart, labelKey: 'reports' },
   { to: '/expenses', icon: Receipt, labelKey: 'Expenses' },
+  { to: '/invoices', icon: FileText, labelKey: 'invoices' },
+  { to: '/audit-log', icon: ClipboardCheck, labelKey: 'audit_log' },
   { to: '/users', icon: Users, labelKey: 'users' },
   { to: '/settings', icon: Settings, labelKey: 'settings' },
 ];
@@ -50,7 +54,8 @@ export default function AppLayout() {
         (cashierPermissions || []).includes(item.labelKey)
       ).filter(item => 
         item.labelKey !== 'users' && 
-        item.labelKey !== 'settings'
+        item.labelKey !== 'settings' &&
+        item.labelKey !== 'audit_log'
       );
 
   const handleSignOut = async () => {

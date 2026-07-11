@@ -12,7 +12,8 @@ export async function fetchSettings(cafeId: string) {
         cafeName: settings.cafe_name,
         currency: settings.currency || 'EGP',
         printPaperSize: (settings.print_paper_size as 'A4' | '80mm' | '58mm') || 'A4',
-        cashierPermissions: settings.cashier_permissions || ['pos', 'tables'],
+        cashierPermissions: settings.cashier_permissions || ['pos', 'tables', 'invoices_sales'],
+        ownerPinHash: settings.owner_pin_hash ?? null,
       });
     } else {
       // First time, create default settings record
@@ -23,7 +24,8 @@ export async function fetchSettings(cafeId: string) {
         cafe_name: 'OPA Cafe',
         currency: 'EGP',
         print_paper_size: 'A4',
-        cashier_permissions: ['pos', 'tables'],
+        cashier_permissions: ['pos', 'tables', 'invoices_sales'],
+        owner_pin_hash: null,
       };
       await db.settings.add(defaultSettings);
       await enqueueSync('insert', 'settings', defaultSettings);
@@ -39,6 +41,7 @@ export async function updateSettings(cafeId: string, updates: Partial<{
   currency: string;
   print_paper_size: string;
   cashier_permissions: string[];
+  owner_pin_hash: string | null;
 }>) {
   try {
     const existing = await db.settings.where('cafe_id').equals(cafeId).first();
@@ -51,3 +54,4 @@ export async function updateSettings(cafeId: string, updates: Partial<{
     console.error('Failed to update settings:', error);
   }
 }
+

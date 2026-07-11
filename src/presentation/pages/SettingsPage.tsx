@@ -10,20 +10,24 @@ import {
   HardDrive, LogOut, ChevronRight, Sun, Moon, Monitor,
   CheckCircle2, Wifi, WifiOff, Info, Key,
   LayoutDashboard, Coffee, Package, UtensilsCrossed, ClipboardList, Banknote, BookOpen, LineChart,
+  FileText, Lock,
 } from 'lucide-react';
 import { db } from '../../infrastructure/database/db';
 import { supabase } from '../../infrastructure/api/supabase';
 import { updateSettings } from '../../application/useCases/settings/manageSettings';
+import { setOwnerPin, hasOwnerPin } from '../../application/useCases/settings/manageOwnerPin';
 import { useAuthStore } from '../../application/store/useAuthStore';
 import { useNavigate } from 'react-router-dom';
+import { useEffect } from 'react';
 
-type Tab = 'general' | 'appearance' | 'account' | 'roles' | 'backup' | 'danger';
+type Tab = 'general' | 'appearance' | 'account' | 'roles' | 'security' | 'backup' | 'danger';
 
 const tabs: { id: Tab; labelKey: string; icon: React.ElementType; color: string }[] = [
   { id: 'general',    labelKey: 'tab_general',    icon: Store,     color: 'text-blue-500' },
   { id: 'appearance', labelKey: 'tab_appearance', icon: Palette,   color: 'text-violet-500' },
   { id: 'account',    labelKey: 'tab_account',    icon: User,      color: 'text-emerald-500' },
   { id: 'roles',      labelKey: 'tab_roles',      icon: Key,       color: 'text-orange-500' },
+  { id: 'security',   labelKey: 'tab_security',   icon: Lock,      color: 'text-indigo-500' },
   { id: 'backup',     labelKey: 'tab_backup',     icon: HardDrive, color: 'text-amber-500' },
   { id: 'danger',     labelKey: 'tab_danger',     icon: Shield,    color: 'text-red-500' },
 ];
@@ -62,6 +66,19 @@ export default function SettingsPage() {
     setLanguage, setCafeName, setCurrency, setPrintPaperSize, setCashierPermissions,
   } = useSettingsStore();
   const { t } = useTranslation();
+
+  // Owner PIN state
+  const [pinSet, setPinSet] = useState<boolean | null>(null);
+  const [newPin, setNewPin] = useState('');
+  const [confirmPin, setConfirmPin] = useState('');
+  const [pinSaveMsg, setPinSaveMsg] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
+  const [savingPin, setSavingPin] = useState(false);
+
+  useEffect(() => {
+    if (cafeId) {
+      hasOwnerPin(cafeId).then(setPinSet);
+    }
+  }, [cafeId]);
 
   // Theme
   const [theme, setTheme] = useState<'light' | 'dark' | 'system'>(() => {
@@ -304,6 +321,45 @@ export default function SettingsPage() {
     navigate('/login');
   };
 
+  const handleSavePin = async () => {
+    if (!cafeId) return;
+    if (newPin.length < 4) {
+      setPinSaveMsg({ type: 'error', text: t('pin_too_short') });
+      return;
+    }
+    if (newPin !== confirmPin) {
+      setPinSaveMsg({ type: 'error', text: t('pin_mismatch') });
+      return;
+    }
+    setSavingPin(true);
+    setPinSaveMsg(null);
+    try {
+      await setOwnerPin(cafeId, newPin);
+      setNewPin('');
+      setConfirmPin('');
+      setPinSet(true);
+      setPinSaveMsg({ type: 'success', text: t('pin_set_success') });
+    } catch {
+      setPinSaveMsg({ type: 'error', text: t('pin_save_error') });
+    } finally {
+      setSavingPin(false);
+    }
+  };
+
+  const handleClearPin = async () => {
+    if (!cafeId) return;
+    setSavingPin(true);
+    try {
+      await setOwnerPin(cafeId, null);
+      setPinSet(false);
+      setPinSaveMsg({ type: 'success', text: t('pin_cleared') });
+    } catch {
+      setPinSaveMsg({ type: 'error', text: t('pin_save_error') });
+    } finally {
+      setSavingPin(false);
+    }
+  };
+
   const activeTabData = tabs.find(tb => tb.id === activeTab)!
 
   return (
@@ -544,15 +600,17 @@ export default function SettingsPage() {
                 </p>
                 <div className="space-y-3">
                   {[
-                    { key: 'dashboard', icon: LayoutDashboard },
-                    { key: 'products', icon: Coffee },
-                    { key: 'inventory', icon: Package },
-                    { key: 'categories', icon: UtensilsCrossed },
-                    { key: 'suppliers', icon: Truck },
-                    { key: 'purchases', icon: ClipboardList },
-                    { key: 'debts', icon: Banknote },
-                    { key: 'closing', icon: BookOpen },
-                    { key: 'reports', icon: LineChart },
+                    { key: 'dashboard',         icon: LayoutDashboard },
+                    { key: 'products',           icon: Coffee },
+                    { key: 'inventory',          icon: Package },
+                    { key: 'categories',         icon: UtensilsCrossed },
+                    { key: 'suppliers',          icon: Truck },
+                    { key: 'purchases',          icon: ClipboardList },
+                    { key: 'debts',              icon: Banknote },
+                    { key: 'closing',            icon: BookOpen },
+                    { key: 'reports',            icon: LineChart },
+                    { key: 'invoices_sales',     icon: FileText },
+                    { key: 'invoices_supplier',  icon: Truck },
                   ].map((perm) => {
                     const isEnabled = cashierPermissions.includes(perm.key);
                     return (
@@ -588,6 +646,80 @@ export default function SettingsPage() {
                     );
                   })}
                 </div>
+              </div>
+            </SectionCard>
+          )}
+
+          {/* SECURITY — Owner PIN */}
+          {activeTab === 'security' && (
+            <SectionCard title={t('owner_approval_pin')} icon={Lock}>
+              <div className="py-5 space-y-5">
+                {/* Current status */}
+                <div className={`flex items-center gap-3 p-3 rounded-lg border text-sm ${
+                  pinSet
+                    ? 'bg-emerald-50 border-emerald-200 text-emerald-700 dark:bg-emerald-950/20 dark:border-emerald-800 dark:text-emerald-400'
+                    : 'bg-amber-50 border-amber-200 text-amber-700 dark:bg-amber-950/20 dark:border-amber-800 dark:text-amber-400'
+                }`}>
+                  {pinSet ? <CheckCircle2 size={15} /> : <AlertCircle size={15} />}
+                  <span>{pinSet === null ? t('loading') : pinSet ? t('pin_is_set') : t('no_pin_set_warning')}</span>
+                </div>
+
+                {/* PIN result message */}
+                {pinSaveMsg && (
+                  <div className={`flex items-center gap-2 p-3 rounded-lg text-sm border ${
+                    pinSaveMsg.type === 'success'
+                      ? 'bg-emerald-50 border-emerald-200 text-emerald-700 dark:bg-emerald-950/20 dark:border-emerald-800 dark:text-emerald-400'
+                      : 'bg-red-50 border-red-200 text-red-700 dark:bg-red-950/20 dark:border-red-800 dark:text-red-400'
+                  }`}>
+                    {pinSaveMsg.type === 'success' ? <CheckCircle2 size={14} /> : <AlertCircle size={14} />}
+                    {pinSaveMsg.text}
+                  </div>
+                )}
+
+                {/* Set/Change PIN form */}
+                <div className="space-y-3">
+                  <p className="text-sm font-semibold text-foreground">{pinSet ? t('change_owner_pin') : t('set_owner_pin')}</p>
+                  <p className="text-xs text-muted-foreground leading-relaxed">{t('owner_pin_help')}</p>
+                  <div className="flex flex-col gap-2 max-w-xs">
+                    <Input
+                      type="password"
+                      inputMode="numeric"
+                      pattern="[0-9]*"
+                      maxLength={6}
+                      placeholder={t('new_pin_placeholder')}
+                      value={newPin}
+                      onChange={e => setNewPin(e.target.value.replace(/\D/g, ''))}
+                    />
+                    <Input
+                      type="password"
+                      inputMode="numeric"
+                      pattern="[0-9]*"
+                      maxLength={6}
+                      placeholder={t('confirm_pin_placeholder')}
+                      value={confirmPin}
+                      onChange={e => setConfirmPin(e.target.value.replace(/\D/g, ''))}
+                    />
+                    <Button onClick={handleSavePin} disabled={savingPin || !newPin} className="w-full">
+                      {savingPin ? t('saving') : t('save_pin')}
+                    </Button>
+                  </div>
+                </div>
+
+                {/* Clear PIN */}
+                {pinSet && (
+                  <div className="border-t pt-4">
+                    <p className="text-sm font-semibold text-foreground mb-1">{t('remove_pin')}</p>
+                    <p className="text-xs text-muted-foreground mb-3">{t('remove_pin_desc')}</p>
+                    <Button
+                      variant="outline"
+                      onClick={handleClearPin}
+                      disabled={savingPin}
+                      className="border-red-300 text-red-600 hover:bg-red-50 dark:border-red-700 dark:text-red-400 dark:hover:bg-red-950/30"
+                    >
+                      {t('remove_pin')}
+                    </Button>
+                  </div>
+                )}
               </div>
             </SectionCard>
           )}

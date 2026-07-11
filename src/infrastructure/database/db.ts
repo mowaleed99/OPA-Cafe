@@ -10,6 +10,7 @@ import type { Supplier, Purchase, PurchaseItem, SupplierPayment } from '../../co
 import type { DailyClosing, DailyClosingItem } from '../../core/entities/daily_closing';
 import type { Settings } from '../../core/entities/settings';
 import type { Expense } from '../../core/entities/expense';
+import type { OrderAuditLog } from '../../core/entities/order_audit_log';
 
 export interface SyncQueueItem {
   id?: number; // Auto-incremented primary key
@@ -38,10 +39,12 @@ export class CafeDatabase extends Dexie {
   daily_closing_items!: Table<DailyClosingItem, string>;
   settings!: Table<Settings, string>;
   expenses!: Table<Expense, string>;
+  order_audit_log!: Table<OrderAuditLog, string>;
   sync_queue!: Table<SyncQueueItem, number>;
 
   constructor() {
     super('CafeDatabase');
+    // Version 1 — original schema (kept for upgrade path)
     this.version(1).stores({
       app_users: 'id, cafe_id, role',
       categories: 'id, cafe_id',
@@ -61,7 +64,30 @@ export class CafeDatabase extends Dexie {
       expenses: 'id, cafe_id, expense_date',
       sync_queue: '++id, status, created_at',
     });
+
+    // Version 2 — adds order_audit_log table
+    this.version(2).stores({
+      app_users: 'id, cafe_id, role',
+      categories: 'id, cafe_id',
+      products: 'id, cafe_id, category_id, status',
+      inventory_items: 'id, cafe_id',
+      stock_movements: 'id, cafe_id, inventory_item_id',
+      dining_tables: 'id, cafe_id, status',
+      orders: 'id, cafe_id, table_id, status',
+      order_items: 'id, order_id, product_id',
+      suppliers: 'id, cafe_id',
+      purchases: 'id, cafe_id, supplier_id, payment_status',
+      purchase_items: 'id, purchase_id, product_id',
+      supplier_payments: 'id, purchase_id, supplier_id',
+      daily_closings: 'id, cafe_id, closing_date',
+      daily_closing_items: 'id, daily_closing_id, product_id',
+      settings: 'id, cafe_id',
+      expenses: 'id, cafe_id, expense_date',
+      order_audit_log: 'id, cafe_id, order_id, action_type, created_at',
+      sync_queue: '++id, status, created_at',
+    });
   }
 }
 
 export const db = new CafeDatabase();
+

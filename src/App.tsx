@@ -35,6 +35,8 @@ import ReportsPage from './presentation/pages/ReportsPage';
 import ExpensesPage from './presentation/pages/ExpensesPage';
 import UsersPage from './presentation/pages/UsersPage';
 import SettingsPage from './presentation/pages/SettingsPage';
+import InvoicesPage from './presentation/pages/InvoicesPage';
+import AuditLogPage from './presentation/pages/AuditLogPage';
 
 export default function App() {
   const { initialize, appUser } = useAuthStore();
@@ -131,6 +133,12 @@ export default function App() {
             <Route element={<ProtectedRoute requiredRole="owner" />}>
               <Route path="/users" element={<UsersPage />} />
               <Route path="/settings" element={<SettingsPage />} />
+              <Route path="/audit-log" element={<AuditLogPage />} />
+            </Route>
+
+            {/* Invoices — owner always sees both tabs; cashier sees sales tab if permitted */}
+            <Route element={<ProtectedRoute requiredPermission="invoices_sales" />}>
+              <Route path="/invoices" element={<InvoicesPage />} />
             </Route>
           </Route>
         </Route>
