@@ -8,13 +8,16 @@ interface ProductGridProps {
   categories: Category[];
   products: Product[];
   cartItems: CartItem[];
+  inventoryMap: Record<string, { stock_quantity: number; minimum_stock: number }>;
   selectedCategory: string | null;
   onAddProduct: (product: Product) => void;
 }
 
 export default function ProductGrid({
+  categories,
   products,
   cartItems,
+  inventoryMap,
   selectedCategory,
   onAddProduct,
 }: ProductGridProps) {
@@ -50,11 +53,16 @@ export default function ProductGrid({
     >
       {filtered.map((product) => {
         const cartItem = cartItems.find((i) => i.product.id === product.id);
+        const invStatus = product.track_stock && product.inventory_item_id
+          ? inventoryMap[product.inventory_item_id] || null
+          : null;
+        
         return (
           <ProductCard
             key={product.id}
             product={product}
             cartQuantity={cartItem?.quantity ?? 0}
+            inventoryStatus={invStatus}
             onAdd={onAddProduct}
           />
         );

@@ -8,7 +8,6 @@ import { useAuthStore } from '../../application/store/useAuthStore';
 import { useTranslation } from 'react-i18next';
 import { useCartStore } from '../../application/store/useCartStore';
 import { loadPOSData, type POSData } from '../../application/useCases/pos/loadPOSData';
-import { seedCategoriesAndProducts } from '../../application/useCases/pos/seedData';
 import CategoryTabs from '../features/pos/CategoryTabs';
 import ProductGrid from '../features/pos/ProductGrid';
 import CartPanel from '../features/pos/CartPanel';
@@ -24,13 +23,13 @@ export default function POSPage() {
   const livePosData = useLiveQuery(
     async () => {
       const cafe = cafeId();
-      if (!cafe) return { categories: [], products: [] };
+      if (!cafe) return { categories: [], products: [], inventoryMap: {} };
       return await loadPOSData(cafe);
     },
     [cafeId]
   );
 
-  const posData = livePosData || { categories: [], products: [] };
+  const posData: POSData = livePosData || { categories: [], products: [], inventoryMap: {} };
 
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -89,19 +88,7 @@ export default function POSPage() {
     addItem(product);
   }, [addItem]);
 
-  const handleSeedData = async () => {
-    const cafe = cafeId();
-    if (!cafe) return;
-    setIsLoading(true);
-    try {
-      await seedCategoriesAndProducts(cafe);
-      // Wait a moment for Dexie writes to settle
-      setTimeout(fetchData, 500);
-    } catch (err) {
-      console.error('Failed to seed data:', err);
-      setIsLoading(false);
-    }
-  };
+
 
   return (
     <div className="flex h-full overflow-hidden bg-background">
@@ -152,19 +139,14 @@ export default function POSPage() {
             </div>
           ) : posData.categories.length === 0 ? (
             <div className="flex flex-col items-center justify-center h-full gap-4 text-center">
-              <p className="text-muted-foreground font-medium">Your catalog is empty.</p>
-              <button
-                onClick={handleSeedData}
-                className="bg-primary text-primary-foreground px-5 py-2.5 rounded-md font-medium shadow-sm hover:opacity-90 transition-opacity active:scale-95"
-              >
-                Load Initial Menu Data
-              </button>
+              <p className="text-muted-foreground font-medium">{t('no_products_yet')}</p>
             </div>
           ) : (
             <ProductGrid
               categories={posData.categories}
               products={posData.products}
               cartItems={items}
+              inventoryMap={posData.inventoryMap}
               selectedCategory={selectedCategory}
               onAddProduct={handleAddProduct}
             />

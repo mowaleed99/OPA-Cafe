@@ -20,9 +20,10 @@ interface TablePOSDrawerProps {
 export default function TablePOSDrawer({ tableId, tableName, onClose }: TablePOSDrawerProps) {
   const { t } = useTranslation();
   const { cafeId } = useAuthStore();
-  const { items, addItem, clearCart, setTableId } = useCartStore();
+  const { items: localCart, addItem: handleAddProduct, clearCart, setTableId } = useCartStore();
 
-  const [posData, setPosData] = useState<POSData>({ categories: [], products: [] });
+  const [livePosData, setPosData] = useState<POSData>({ categories: [], products: [], inventoryMap: {} });
+  const posData = livePosData || { categories: [], products: [], inventoryMap: {} };
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isOffline, setIsOffline] = useState(!navigator.onLine);
@@ -169,9 +170,10 @@ export default function TablePOSDrawer({ tableId, tableName, onClose }: TablePOS
                   <ProductGrid
                     categories={posData.categories}
                     products={posData.products}
-                    cartItems={items}
+                    cartItems={localCart}
+                    inventoryMap={posData.inventoryMap}
                     selectedCategory={selectedCategory}
-                    onAddProduct={addItem}
+                    onAddProduct={handleAddProduct}
                   />
                 )}
               </div>

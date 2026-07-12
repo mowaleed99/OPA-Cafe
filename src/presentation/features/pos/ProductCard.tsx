@@ -3,9 +3,12 @@ import { Plus } from 'lucide-react';
 import { cn } from '../../lib/utils';
 import type { Product } from '../../../core/entities/product';
 
+import { useTranslation } from 'react-i18next';
+
 interface ProductCardProps {
   product: Product;
   cartQuantity: number;
+  inventoryStatus?: { stock_quantity: number; minimum_stock: number } | null;
   onAdd: (product: Product) => void;
 }
 
@@ -28,8 +31,9 @@ function getCardColor(name: string): string {
   return colors[Math.abs(hash) % colors.length];
 }
 
-export default React.memo(function ProductCard({ product, cartQuantity, onAdd }: ProductCardProps) {
+export default React.memo(function ProductCard({ product, cartQuantity, inventoryStatus, onAdd }: ProductCardProps) {
   const [isAdding, setIsAdding] = useState(false);
+  const { t } = useTranslation();
   const color = getCardColor(product.name);
   
   // Get 1 or 2 initials from the product name
@@ -42,6 +46,23 @@ export default React.memo(function ProductCard({ product, cartQuantity, onAdd }:
     .toUpperCase();
     
   const inCart = cartQuantity > 0;
+  
+  let warningBadge = null;
+  if (inventoryStatus) {
+    if (inventoryStatus.stock_quantity <= 0) {
+      warningBadge = (
+        <span className="absolute top-2 left-2 z-30 px-1.5 py-0.5 rounded-sm text-[10px] font-bold text-white shadow-sm bg-red-500/90 backdrop-blur-sm">
+          {t('out_of_stock')}
+        </span>
+      );
+    } else if (inventoryStatus.minimum_stock > 0 && inventoryStatus.stock_quantity <= inventoryStatus.minimum_stock) {
+      warningBadge = (
+        <span className="absolute top-2 left-2 z-30 px-1.5 py-0.5 rounded-sm text-[10px] font-bold text-white shadow-sm bg-orange-500/90 backdrop-blur-sm">
+          {t('low_stock')}
+        </span>
+      );
+    }
+  }
 
   return (
     <button
@@ -115,6 +136,9 @@ export default React.memo(function ProductCard({ product, cartQuantity, onAdd }:
           </div>
         </div>
       )}
+
+      {/* Warning badge (absolute on top left) */}
+      {warningBadge}
 
       {/* Cart quantity badge (absolute on top right of the whole card) */}
       {inCart && (

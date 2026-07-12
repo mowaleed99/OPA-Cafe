@@ -448,5 +448,8 @@
   "cartons": "كراتين",
   "pcs_per_carton": "قطعة/كرتونة",
   "loose_pcs": "سايب",
-  "pcs": "قطعة"
+  "pcs": "قطعة",
+  "out_of_stock": "نفد",
+  "low_stock": "قارب على الانتهاء",
+  "no_products_yet": "لا توجد منتجات حتى الآن"
 }

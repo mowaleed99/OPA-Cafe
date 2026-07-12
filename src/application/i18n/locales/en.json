@@ -314,5 +314,8 @@
   "cartons": "Cartons",
   "pcs_per_carton": "Pcs/Carton",
   "loose_pcs": "Loose Pcs",
-  "pcs": "pcs"
+  "pcs": "pcs",
+  "out_of_stock": "Out of Stock",
+  "low_stock": "Low Stock",
+  "no_products_yet": "No products yet"
 }
