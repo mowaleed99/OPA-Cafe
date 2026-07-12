@@ -85,36 +85,42 @@ export default function ReportsPage() {
       {/* Hidden block just for printing the professional report */}
       {report && (
         <div className="hidden print:block w-full bg-white text-black p-8 font-sans">
-          <div className="text-center mb-8 border-b-2 border-black pb-4">
-            <h1 className="text-4xl font-bold mb-2 uppercase tracking-widest">{cafeName}</h1>
-            <h2 className="text-2xl font-semibold text-gray-700">{t('monthly_report')}</h2>
-            <p className="text-lg text-gray-500 mt-2">{t('month_label')}: {report.month}</p>
+          <div className="flex justify-between items-end border-b-2 border-black pb-4 mb-6">
+            <div>
+              <h1 className="text-4xl font-bold uppercase tracking-widest">{cafeName}</h1>
+              <h2 className="text-2xl font-semibold text-gray-700 mt-1">{t('monthly_report')}</h2>
+            </div>
+            <div className="text-right">
+              <p className="text-lg font-medium text-gray-600">{t('month_label')}: {report.month}</p>
+            </div>
           </div>
 
-          <div className="grid grid-cols-4 gap-4 mb-8 text-center">
-            <div className="border border-gray-300 p-4 rounded-lg bg-gray-50">
-              <p className="text-sm font-bold text-gray-500 uppercase">{t('total_orders')}</p>
-              <p className="text-3xl font-bold">{report.total_orders}</p>
-            </div>
-            <div className="border border-gray-300 p-4 rounded-lg bg-gray-50">
-              <p className="text-sm font-bold text-gray-500 uppercase">{t('total_sales')}</p>
-              <p className="text-3xl font-bold">{formatCurrency(report.total_sales)}</p>
-            </div>
-            <div className="border border-gray-300 p-4 rounded-lg bg-gray-50">
-              <p className="text-sm font-bold text-gray-500 uppercase">{t('avg_order')}</p>
-              <p className="text-3xl font-bold">
-                {report.total_orders > 0 ? formatCurrency(report.total_sales / report.total_orders) : formatCurrency(0)}
-              </p>
-            </div>
-            <div className="border border-gray-300 p-4 rounded-lg bg-orange-50">
-              <p className="text-sm font-bold text-orange-600 uppercase">Cost of Goods</p>
-              <p className="text-3xl font-bold text-orange-600">{formatCurrency(report.total_cost_of_goods || 0)}</p>
-            </div>
-            <div className="border border-gray-300 p-4 rounded-lg bg-red-50">
-              <p className="text-sm font-bold text-red-500 uppercase">{t('expenses')}</p>
-              <p className="text-3xl font-bold text-red-600">{formatCurrency(report.total_explicit_expenses || 0)}</p>
-            </div>
-          </div>
+          <table className="w-full mb-8 border-collapse border border-black">
+            <thead>
+              <tr className="bg-gray-100">
+                <th className="border border-black p-2 text-center text-sm font-bold">{t('total_orders')}</th>
+                <th className="border border-black p-2 text-center text-sm font-bold">{t('total_sales')}</th>
+                <th className="border border-black p-2 text-center text-sm font-bold">{t('avg_order')}</th>
+                <th className="border border-black p-2 text-center text-sm font-bold">{t('cost_of_goods')}</th>
+                <th className="border border-black p-2 text-center text-sm font-bold">{t('explicit_expenses')}</th>
+                <th className="border border-black p-2 text-center text-sm font-bold">{t('net_profit')}</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td className="border border-black p-2 text-center font-bold text-lg">{report.total_orders}</td>
+                <td className="border border-black p-2 text-center font-bold text-lg">{formatCurrency(report.total_sales)}</td>
+                <td className="border border-black p-2 text-center font-bold text-lg">
+                  {report.total_orders > 0 ? formatCurrency(report.total_sales / report.total_orders) : formatCurrency(0)}
+                </td>
+                <td className="border border-black p-2 text-center font-bold text-lg text-orange-600">{formatCurrency(report.total_cost_of_goods || 0)}</td>
+                <td className="border border-black p-2 text-center font-bold text-lg text-red-600">{formatCurrency(report.total_explicit_expenses || 0)}</td>
+                <td className="border border-black p-2 text-center font-bold text-lg text-green-600">
+                  {formatCurrency(report.total_sales - (report.total_cost_of_goods || 0) - (report.total_explicit_expenses || 0))}
+                </td>
+              </tr>
+            </tbody>
+          </table>
 
           <div className="mb-8">
             <h3 className="text-xl font-bold mb-4 border-b border-gray-300 pb-2">{t('sales_breakdown')}</h3>
@@ -192,7 +198,7 @@ export default function ReportsPage() {
 
           {report.explicitExpenses && report.explicitExpenses.length > 0 && (
             <div className="mb-8">
-              <h3 className="text-xl font-bold mb-4 border-b border-gray-300 pb-2">Explicit Expenses</h3>
+              <h3 className="text-xl font-bold mb-4 border-b border-gray-300 pb-2">{t('explicit_expenses')}</h3>
               <table className="w-full text-left border-collapse">
                 <thead>
                   <tr className="bg-gray-100 border-b-2 border-gray-300">
@@ -218,7 +224,6 @@ export default function ReportsPage() {
 
           <div className="mt-16 text-center text-sm text-gray-400">
             <p>{t('end_of_monthly_report')}</p>
-            <p>{t('generated_auto')}</p>
           </div>
         </div>
       )}
@@ -275,12 +280,12 @@ export default function ReportsPage() {
               <div className="rounded-lg bg-orange-500/10 p-4 text-center">
                 <TrendingUp className="h-6 w-6 mx-auto mb-1 text-orange-500" />
                 <p className="text-2xl font-bold text-orange-600">{(report.total_cost_of_goods || 0).toFixed(2)} {currency}</p>
-                <p className="text-xs text-orange-600 mt-1">Cost of Goods</p>
+                <p className="text-xs text-orange-600 mt-1">{t('cost_of_goods')}</p>
               </div>
               <div className="rounded-lg bg-red-500/10 p-4 text-center">
                 <TrendingUp className="h-6 w-6 mx-auto mb-1 text-red-500" />
                 <p className="text-2xl font-bold text-red-600">{(report.total_explicit_expenses || 0).toFixed(2)} {currency}</p>
-                <p className="text-xs text-red-500 mt-1">Explicit Expenses</p>
+                <p className="text-xs text-red-500 mt-1">{t('explicit_expenses')}</p>
               </div>
             </div>
 

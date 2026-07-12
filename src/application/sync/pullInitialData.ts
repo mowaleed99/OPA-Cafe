@@ -26,8 +26,8 @@ export async function pullInitialData(cafeId: string): Promise<void> {
     // 1. Fetch all parent tables in parallel
     const [
       { data: categories },
-      { data: products },
-      { data: inventoryItems },
+      { data: products, error: prodErr },
+      { data: inventoryItems, error: invErr },
       { data: stockMovements },
       { data: tables },
       { data: orders },
@@ -53,6 +53,9 @@ export async function pullInitialData(cafeId: string): Promise<void> {
       supabase.from('expenses').select('*').eq('cafe_id', cafeId),
       supabase.from('order_audit_log').select('*').eq('cafe_id', cafeId),
     ]);
+
+    if (prodErr) alert('Sync Error (Products): ' + prodErr.message);
+    if (invErr) alert('Sync Error (Inventory): ' + invErr.message);
 
     // 2. Deduplicate by name before upserting (prevents server-side duplicates from
     //    polluting local Dexie — keep the first occurrence for each unique name).

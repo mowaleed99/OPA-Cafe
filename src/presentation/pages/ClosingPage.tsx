@@ -17,6 +17,14 @@ import type { DailyClosing } from '../../core/entities/daily_closing';
 import type { Product } from '../../core/entities/product';
 import { db } from '../../infrastructure/database/db';
 import { useCurrency } from '../../application/utils/useCurrency';
+const formatDate = (dateStr: string) => {
+  if (!dateStr) return '';
+  const parts = dateStr.split('-');
+  if (parts.length === 3) {
+    return `${parts[2]}/${parts[1]}/${parts[0]}`;
+  }
+  return dateStr;
+};
 
 export default function ClosingPage() {
   const cafeId = useAuthStore(s => s.cafeId());
@@ -129,32 +137,36 @@ export default function ClosingPage() {
       {/* Hidden block just for printing the professional report */}
       {report && (
         <div className="hidden print:block w-full bg-white text-black p-8 font-sans">
-          <div className="text-center mb-8 border-b-2 border-black pb-4">
-            <h1 className="text-4xl font-bold mb-2 uppercase tracking-widest">{useSettingsStore.getState().cafeName}</h1>
-            <h2 className="text-2xl font-semibold text-gray-700">{t('daily_report')}</h2>
-            <p className="text-lg text-gray-500 mt-2">{t('date_label')}: {report.closing.closing_date}</p>
+          <div className="flex justify-between items-end border-b-2 border-black pb-4 mb-6">
+            <div>
+              <h1 className="text-4xl font-bold uppercase tracking-widest">{useSettingsStore.getState().cafeName}</h1>
+              <h2 className="text-2xl font-semibold text-gray-700 mt-1">{t('daily_report')}</h2>
+            </div>
+            <div className="text-right">
+              <p className="text-lg font-medium text-gray-600">{formatDate(report.closing.closing_date)}</p>
+            </div>
           </div>
 
-          <div className="grid grid-cols-4 gap-4 mb-8 text-center">
-            <div className="border border-gray-300 p-4 rounded-lg bg-gray-50">
-              <p className="text-sm font-bold text-gray-500 uppercase">{t('total_orders')}</p>
-              <p className="text-3xl font-bold">{report.closing.total_orders}</p>
-            </div>
-            <div className="border border-gray-300 p-4 rounded-lg bg-gray-50">
-              <p className="text-sm font-bold text-gray-500 uppercase">{t('total_sales')}</p>
-              <p className="text-3xl font-bold">{formatCurrency(report.closing.total_sales)}</p>
-            </div>
-            <div className="border border-gray-300 p-4 rounded-lg bg-gray-50">
-              <p className="text-sm font-bold text-gray-500 uppercase">{t('avg_order')}</p>
-              <p className="text-3xl font-bold">
-                {report.closing.total_orders > 0 ? formatCurrency(report.closing.total_sales / report.closing.total_orders) : formatCurrency(0)}
-              </p>
-            </div>
-            <div className="border border-gray-300 p-4 rounded-lg bg-red-50">
-              <p className="text-sm font-bold text-red-500 uppercase">{t('expenses')}</p>
-              <p className="text-3xl font-bold text-red-600">{formatCurrency(report.expenses || 0)}</p>
-            </div>
-          </div>
+          <table className="w-full mb-8 border-collapse border border-black">
+            <thead>
+              <tr className="bg-gray-100">
+                <th className="border border-black p-2 text-center text-sm font-bold">{t('total_orders')}</th>
+                <th className="border border-black p-2 text-center text-sm font-bold">{t('total_sales')}</th>
+                <th className="border border-black p-2 text-center text-sm font-bold">{t('avg_order')}</th>
+                <th className="border border-black p-2 text-center text-sm font-bold">{t('expenses')}</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td className="border border-black p-2 text-center font-bold text-lg">{report.closing.total_orders}</td>
+                <td className="border border-black p-2 text-center font-bold text-lg">{formatCurrency(report.closing.total_sales)}</td>
+                <td className="border border-black p-2 text-center font-bold text-lg">
+                  {report.closing.total_orders > 0 ? formatCurrency(report.closing.total_sales / report.closing.total_orders) : formatCurrency(0)}
+                </td>
+                <td className="border border-black p-2 text-center font-bold text-lg text-red-600">{formatCurrency(report.expenses || 0)}</td>
+              </tr>
+            </tbody>
+          </table>
 
           <div className="mb-8">
             <h3 className="text-xl font-bold mb-4 border-b border-gray-300 pb-2">{t('sales_breakdown')}</h3>
@@ -230,7 +242,6 @@ export default function ClosingPage() {
 
           <div className="mt-16 text-center text-sm text-gray-400">
             <p>{t('end_of_daily_report')}</p>
-            <p>{t('generated_auto')}</p>
           </div>
         </div>
       )}
@@ -252,7 +263,7 @@ export default function ClosingPage() {
             <Button onClick={handleCloseDay} disabled={isClosing} size="lg" className="gap-2">
               {isClosing && <Loader2 className="h-4 w-4 animate-spin" />}
               <CalendarDays className="h-4 w-4" />
-              {alreadyClosed ? t('update_closing') : t('close_today')} ({selectedDate})
+              {alreadyClosed ? t('update_closing') : t('close_today')} ({formatDate(selectedDate)})
             </Button>
           </div>
         </div>
@@ -267,7 +278,7 @@ export default function ClosingPage() {
         {report && (
           <div className="rounded-xl border bg-card shadow-sm p-6 space-y-4">
             <div className="flex items-center justify-between">
-              <h2 className="text-lg font-semibold">{t('report')} — {report.closing.closing_date}</h2>
+              <h2 className="text-lg font-semibold">{t('report')} — {formatDate(report.closing.closing_date)}</h2>
               <div className="flex gap-2">
                 <Button variant="outline" size="sm" onClick={exportToCSV} className="gap-2">
                   <Download className="h-4 w-4" /> {t('export_csv')}
@@ -409,7 +420,7 @@ export default function ClosingPage() {
                 ) : (
                   closings.map(c => (
                     <TableRow key={c.id}>
-                      <TableCell className="font-medium">{c.closing_date}</TableCell>
+                      <TableCell className="font-medium">{formatDate(c.closing_date)}</TableCell>
                       <TableCell className="text-right">{c.total_orders}</TableCell>
                       <TableCell className="text-right">{formatCurrency(c.total_sales)}</TableCell>
                       <TableCell className="text-right text-red-500">{formatCurrency(c.total_expenses || 0)}</TableCell>

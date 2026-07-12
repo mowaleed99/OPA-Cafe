@@ -82,8 +82,11 @@ export async function processSyncQueue(): Promise<void> {
       }
 
       await db.sync_queue.delete(item.id);
-    } catch (err) {
+    } catch (err: any) {
       console.error('[SyncQueue] Failed to sync item:', item, err);
+      if (item.retry_count === 0) {
+        alert(`Sync Error for ${item.table} (${item.action}): ${err.message || JSON.stringify(err)}`);
+      }
       await db.sync_queue.update(item.id, {
         status: 'failed',
         retry_count: item.retry_count + 1,
