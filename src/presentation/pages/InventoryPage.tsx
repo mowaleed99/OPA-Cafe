@@ -224,6 +224,21 @@ export default function InventoryPage() {
                 placeholder="e.g. Coffee Beans"
               />
             </div>
+            
+            <div className="bg-muted/30 p-3 rounded-md border border-muted">
+              <label className="flex items-center gap-2 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={formData.is_countable}
+                  onChange={e => setFormData({ ...formData, is_countable: e.target.checked })}
+                  className="rounded border-gray-300 text-blue-600 focus:ring-blue-500 w-4 h-4"
+                />
+                <span className="text-sm font-medium">{t('is_countable_label')}</span>
+              </label>
+              {formData.is_countable && (
+                <p className="text-xs text-muted-foreground mt-2 ml-6">{t('auto_filled_purchases_desc')}</p>
+              )}
+            </div>
             <div className="grid grid-cols-2 gap-4">
               <div className="col-span-2 sm:col-span-1">
                 <label className="text-sm font-medium mb-1 block">{t('stock_quantity')}</label>
@@ -287,21 +302,7 @@ export default function InventoryPage() {
               </div>
             </div>
             
-            <div className="pt-2 border-t mt-4">
-              <label className="flex items-center gap-2 cursor-pointer mb-4">
-                <input
-                  type="checkbox"
-                  checked={formData.is_countable}
-                  onChange={e => setFormData({ ...formData, is_countable: e.target.checked })}
-                  className="rounded border-gray-300 text-blue-600 focus:ring-blue-500 w-4 h-4"
-                />
-                <span className="text-sm font-medium">{t('is_countable_label')}</span>
-              </label>
 
-              {formData.is_countable && (
-                <p className="text-xs text-muted-foreground mt-1">{t('auto_filled_purchases_desc')}</p>
-              )}
-            </div>
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setIsModalOpen(false)} disabled={saving}>{t('cancel')}</Button>
