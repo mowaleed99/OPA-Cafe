@@ -24,6 +24,15 @@ function createWindow() {
   } else {
     mainWindow.loadFile(path.join(__dirname, '../dist/index.html'));
   }
+
+  // Prevent exiting when closed if we want it to run in tray for auto-backup
+  mainWindow.on('close', function (event) {
+      if(!app.isQuiting){
+          event.preventDefault();
+          mainWindow.hide();
+      }
+      return false;
+  });
 }
 
 function createTray() {
@@ -109,11 +118,3 @@ app.on('window-all-closed', function () {
   if (process.platform !== 'darwin') app.quit();
 });
 
-// Prevent exiting when closed if we want it to run in tray for auto-backup
-mainWindow.on('close', function (event) {
-    if(!app.isQuiting){
-        event.preventDefault();
-        mainWindow.hide();
-    }
-    return false;
-});

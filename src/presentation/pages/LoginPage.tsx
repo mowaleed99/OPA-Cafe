@@ -17,15 +17,21 @@ export default function LoginPage() {
     setError(null);
     setIsLoading(true);
 
-    const { error } = await signIn(email, password);
+    try {
+      const { error } = await signIn(email, password);
 
-    if (error) {
-      setError(error);
+      if (error) {
+        setError(error);
+        setIsLoading(false);
+        return;
+      }
+
+      navigate('/pos', { replace: true });
+    } catch (err: any) {
+      console.error('Sign in error:', err);
+      setError(err.message || 'An unexpected error occurred during sign in');
       setIsLoading(false);
-      return;
     }
-
-    navigate('/pos', { replace: true });
   };
 
   return (
@@ -34,7 +40,7 @@ export default function LoginPage() {
       <div className="flex flex-col items-center text-center space-y-4">
         <div className="h-24 w-24 rounded-full bg-white shadow-sm border border-[#EAE0D5] flex items-center justify-center overflow-hidden p-2">
           <img 
-            src="/OPA-logo.png" 
+            src="./OPA-logo.png" 
             alt="OPA CAFE Logo" 
             className="w-full h-full object-contain"
           />

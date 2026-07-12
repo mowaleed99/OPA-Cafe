@@ -69,8 +69,8 @@ export default function AppLayout() {
       <aside className="w-16 md:w-56 flex flex-col flex-shrink-0 border-r border-border bg-card">
         {/* Logo */}
         <div className="h-16 flex items-center justify-center md:justify-start px-4 border-b border-border">
-          <img src="/OPA-logo.png" alt="OPA CAFE" className="hidden md:block h-8 w-auto object-contain" />
-          <img src="/OPA-logo.png" alt="OPA CAFE" className="block md:hidden h-8 w-auto object-contain" />
+          <img src="./OPA-logo.png" alt="OPA CAFE" className="hidden md:block h-8 w-auto object-contain" />
+          <img src="./OPA-logo.png" alt="OPA CAFE" className="block md:hidden h-8 w-auto object-contain" />
         </div>
 
         {/* Navigation */}
