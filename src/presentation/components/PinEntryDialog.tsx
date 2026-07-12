@@ -35,6 +35,30 @@ export default function PinEntryDialog({
     if (isOpen) setPin('');
   }, [isOpen]);
 
+  // Handle physical keyboard input
+  useEffect(() => {
+    if (!isOpen) return;
+
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (isLoading) return;
+      
+      if (e.key >= '0' && e.key <= '9') {
+        if (pin.length < MAX_PIN_LENGTH) {
+          setPin(p => p + e.key);
+        }
+      } else if (e.key === 'Backspace') {
+        setPin(p => p.slice(0, -1));
+      } else if (e.key === 'Enter') {
+        if (pin.length > 0) {
+          onSubmit(pin);
+        }
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [isOpen, isLoading, pin, onSubmit]);
+
   const handleKey = (key: string) => {
     if (isLoading) return;
     if (key === 'DEL') {
