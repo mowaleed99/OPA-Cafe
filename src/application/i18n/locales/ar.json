@@ -447,7 +447,7 @@
   "auto_filled_purchases_desc": "سيتم ملء هذا الرقم تلقائياً في المشتريات.",
   "cartons": "كراتين",
   "pcs_per_carton": "قطعة/كرتونة",
-  "loose_pcs": "سايب",
+  "loose_pcs": "قطع خارج الكرتونة",
   "pcs": "قطعة",
   "out_of_stock": "نفد",
   "low_stock": "قارب على الانتهاء",
