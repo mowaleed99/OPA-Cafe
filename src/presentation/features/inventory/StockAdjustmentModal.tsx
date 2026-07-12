@@ -18,12 +18,23 @@ export function StockAdjustmentModal({ item, cafeId, onClose, onAdjusted }: Stoc
   const { t } = useTranslation();
   const [type, setType] = useState<'in' | 'out' | 'adjustment'>('adjustment');
   const [quantity, setQuantity] = useState('');
+  const [cartons, setCartons] = useState('');
+  const [loosePieces, setLoosePieces] = useState('');
   const [reason, setReason] = useState('');
   const [loading, setLoading] = useState(false);
 
   const handleSave = async () => {
     if (!item || !cafeId) return;
-    const qty = parseFloat(quantity);
+
+    let finalQuantity = parseFloat(quantity) || 0;
+    if (item.is_countable) {
+      const c = parseInt(cartons) || 0;
+      const ppc = item.pieces_per_carton || 1;
+      const lp = parseInt(loosePieces) || 0;
+      finalQuantity = (c * ppc) + lp;
+    }
+
+    const qty = finalQuantity;
     if (isNaN(qty) || qty <= 0 && type !== 'adjustment') return;
 
     setLoading(true);
@@ -70,13 +81,28 @@ export function StockAdjustmentModal({ item, cafeId, onClose, onAdjusted }: Stoc
             <label className="text-sm font-medium mb-1 block">
               {type === 'adjustment' ? t('new_total_quantity') : t('quantity_to_adjust')}
             </label>
-            <Input
-              type="number"
-              step="0.01"
-              value={quantity}
-              onChange={(e) => setQuantity(e.target.value)}
-              placeholder="0"
-            />
+            {item.is_countable ? (
+              <div className="flex gap-2 items-center flex-wrap">
+                <Input type="number" className="w-24" placeholder={t('cartons')} value={cartons} onChange={(e) => setCartons(e.target.value)} min="0" title={t('cartons')} />
+                <span className="text-sm text-muted-foreground">×</span>
+                <div className="w-24 h-10 flex items-center justify-center border rounded-md bg-muted text-sm font-medium" title={t('pcs_per_carton')}>
+                  {item.pieces_per_carton || 1}
+                </div>
+                <span className="text-sm text-muted-foreground">+</span>
+                <Input type="number" className="w-24" placeholder={t('loose_pcs')} value={loosePieces} onChange={(e) => setLoosePieces(e.target.value)} min="0" title={t('loose_pcs')} />
+                <span className="text-sm font-medium whitespace-nowrap ml-1">
+                  = {(parseInt(cartons) || 0) * (item.pieces_per_carton || 1) + (parseInt(loosePieces) || 0)}
+                </span>
+              </div>
+            ) : (
+              <Input
+                type="number"
+                step="0.01"
+                value={quantity}
+                onChange={(e) => setQuantity(e.target.value)}
+                placeholder="0"
+              />
+            )}
           </div>
           <div>
             <label className="text-sm font-medium mb-1 block">{t('reason_optional')}</label>
@@ -89,7 +115,7 @@ export function StockAdjustmentModal({ item, cafeId, onClose, onAdjusted }: Stoc
         </div>
         <DialogFooter>
           <Button variant="outline" onClick={onClose} disabled={loading}>{t('cancel')}</Button>
-          <Button onClick={handleSave} disabled={loading || !quantity}>
+          <Button onClick={handleSave} disabled={loading || (!quantity && !cartons && !loosePieces)}>
             {loading ? t('saving') : t('save')}
           </Button>
         </DialogFooter>

@@ -24,6 +24,7 @@ export default function InventoryPage() {
   const [editingItem, setEditingItem] = useState<InventoryItem | null>(null);
   const [formData, setFormData] = useState({ 
     name: '', unit: '', cost: '', stock_quantity: '', 
+    cartons: '', loose_pieces: '',
     low_stock_threshold: '', minimum_stock: '', 
     is_countable: false, pieces_per_carton: '' 
   });
@@ -46,11 +47,19 @@ export default function InventoryPage() {
   const handleOpenModal = (item?: InventoryItem) => {
     if (item) {
       setEditingItem(item);
+      let cartons = '0';
+      let loose_pieces = '0';
+      if (item.is_countable && item.pieces_per_carton) {
+        cartons = Math.floor(item.stock_quantity / item.pieces_per_carton).toString();
+        loose_pieces = (item.stock_quantity % item.pieces_per_carton).toString();
+      }
       setFormData({
         name: item.name,
         unit: item.unit,
         cost: item.cost.toString(),
         stock_quantity: item.stock_quantity.toString(),
+        cartons,
+        loose_pieces,
         low_stock_threshold: item.low_stock_threshold?.toString() || '',
         minimum_stock: item.minimum_stock?.toString() || '',
         is_countable: item.is_countable || false,
@@ -60,6 +69,7 @@ export default function InventoryPage() {
       setEditingItem(null);
       setFormData({ 
         name: '', unit: '', cost: '', stock_quantity: '0', 
+        cartons: '', loose_pieces: '',
         low_stock_threshold: '', minimum_stock: '', 
         is_countable: false, pieces_per_carton: '' 
       });
@@ -71,11 +81,19 @@ export default function InventoryPage() {
     if (!cafeId || !formData.name || !formData.unit) return;
     setSaving(true);
     try {
+      let finalQuantity = parseFloat(formData.stock_quantity) || 0;
+      if (formData.is_countable) {
+        const c = parseInt(formData.cartons) || 0;
+        const ppc = parseInt(formData.pieces_per_carton) || 0;
+        const lp = parseInt(formData.loose_pieces) || 0;
+        finalQuantity = (c * ppc) + lp;
+      }
+
       const payload = {
         name: formData.name,
         unit: formData.unit,
         cost: parseFloat(formData.cost) || 0,
-        stock_quantity: parseFloat(formData.stock_quantity) || 0,
+        stock_quantity: finalQuantity,
         low_stock_threshold: formData.low_stock_threshold ? parseFloat(formData.low_stock_threshold) : null,
         minimum_stock: formData.minimum_stock ? parseInt(formData.minimum_stock, 10) : null,
         is_countable: formData.is_countable,
@@ -207,14 +225,25 @@ export default function InventoryPage() {
               />
             </div>
             <div className="grid grid-cols-2 gap-4">
-              <div>
+              <div className="col-span-2 sm:col-span-1">
                 <label className="text-sm font-medium mb-1 block">{t('stock_quantity')}</label>
-                <Input
-                  type="number"
-                  value={formData.stock_quantity}
-                  onChange={e => setFormData({ ...formData, stock_quantity: e.target.value })}
-                  placeholder="0"
-                />
+                {formData.is_countable ? (
+                  <div className="flex gap-1 items-center flex-wrap">
+                    <Input type="number" className="w-16" placeholder={t('cartons')} value={formData.cartons} onChange={e => setFormData({ ...formData, cartons: e.target.value })} min="0" title={t('cartons')} />
+                    <span className="text-sm text-muted-foreground">×</span>
+                    <Input type="number" className="w-16" placeholder={t('pcs_per_carton')} value={formData.pieces_per_carton} onChange={e => setFormData({ ...formData, pieces_per_carton: e.target.value })} min="1" title={t('pcs_per_carton')} />
+                    <span className="text-sm text-muted-foreground">+</span>
+                    <Input type="number" className="w-16" placeholder={t('loose_pcs')} value={formData.loose_pieces} onChange={e => setFormData({ ...formData, loose_pieces: e.target.value })} min="0" title={t('loose_pcs')} />
+                    <span className="text-sm font-medium whitespace-nowrap ml-1">= {(parseInt(formData.cartons) || 0) * (parseInt(formData.pieces_per_carton) || 0) + (parseInt(formData.loose_pieces) || 0)}</span>
+                  </div>
+                ) : (
+                  <Input
+                    type="number"
+                    value={formData.stock_quantity}
+                    onChange={e => setFormData({ ...formData, stock_quantity: e.target.value })}
+                    placeholder="0"
+                  />
+                )}
               </div>
               <div>
                 <label className="text-sm font-medium mb-1 block">{t('unit')}</label>
@@ -270,16 +299,7 @@ export default function InventoryPage() {
               </label>
 
               {formData.is_countable && (
-                <div>
-                  <label className="text-sm font-medium mb-1 block">{t('pieces_per_carton_default')}</label>
-                  <Input
-                    type="number"
-                    value={formData.pieces_per_carton}
-                    onChange={e => setFormData({ ...formData, pieces_per_carton: e.target.value })}
-                    placeholder="e.g. 12"
-                  />
-                  <p className="text-xs text-muted-foreground mt-1">{t('auto_filled_purchases_desc')}</p>
-                </div>
+                <p className="text-xs text-muted-foreground mt-1">{t('auto_filled_purchases_desc')}</p>
               )}
             </div>
           </div>
