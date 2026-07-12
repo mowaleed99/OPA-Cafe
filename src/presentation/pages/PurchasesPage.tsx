@@ -51,6 +51,10 @@ interface PurchaseLineItem {
   inventoryItemId: string;
   quantity: string;
   unitCost: string;
+  isCountable: boolean;
+  cartons: string;
+  piecesPerCarton: string;
+  loosePieces: string;
 }
 
 function CreatePurchaseModal({
@@ -72,27 +76,56 @@ function CreatePurchaseModal({
   const { currency, formatCurrency } = useCurrency();
   const [supplierId, setSupplierId] = useState('');
   const [lines, setLines] = useState<PurchaseLineItem[]>([
-    { inventoryItemId: '', quantity: '', unitCost: '' },
+    { inventoryItemId: '', quantity: '', unitCost: '', isCountable: false, cartons: '0', piecesPerCarton: '1', loosePieces: '0' },
   ]);
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
     if (isOpen) {
       setSupplierId('');
-      setLines([{ inventoryItemId: '', quantity: '', unitCost: '' }]);
+      setLines([{ inventoryItemId: '', quantity: '', unitCost: '', isCountable: false, cartons: '0', piecesPerCarton: '1', loosePieces: '0' }]);
     }
   }, [isOpen]);
 
-  const addLine = () => setLines(l => [...l, { inventoryItemId: '', quantity: '', unitCost: '' }]);
+  const addLine = () => setLines(l => [...l, { inventoryItemId: '', quantity: '', unitCost: '', isCountable: false, cartons: '0', piecesPerCarton: '1', loosePieces: '0' }]);
   const removeLine = (i: number) => setLines(l => l.filter((_, idx) => idx !== i));
-  const updateLine = (i: number, field: keyof PurchaseLineItem, value: string) =>
-    setLines(l => l.map((line, idx) => idx === i ? { ...line, [field]: value } : line));
+  const updateLine = (i: number, field: keyof PurchaseLineItem, value: string | boolean) => {
+    setLines(l => l.map((line, idx) => {
+      if (idx !== i) return line;
+      const newLine = { ...line, [field]: value };
+      
+      if (field === 'inventoryItemId') {
+        const item = inventoryItems.find(it => it.id === value);
+        if (item) {
+          newLine.isCountable = item.is_countable;
+          if (item.is_countable) {
+            newLine.piecesPerCarton = (item.pieces_per_carton || 1).toString();
+            newLine.cartons = '0';
+            newLine.loosePieces = '0';
+          } else {
+             newLine.quantity = '';
+          }
+        }
+      }
+      return newLine;
+    }));
+  };
+
+  const getFinalQuantity = (l: PurchaseLineItem) => {
+    if (l.isCountable) {
+      const c = parseInt(l.cartons) || 0;
+      const ppc = parseInt(l.piecesPerCarton) || 0;
+      const lp = parseInt(l.loosePieces) || 0;
+      return (c * ppc) + lp;
+    }
+    return parseFloat(l.quantity) || 0;
+  };
 
   const total = lines.reduce((sum, l) => {
-    return sum + (parseFloat(l.quantity) || 0) * (parseFloat(l.unitCost) || 0);
+    return sum + getFinalQuantity(l) * (parseFloat(l.unitCost) || 0);
   }, 0);
 
-  const canSave = supplierId && lines.every(l => l.inventoryItemId && l.quantity && l.unitCost);
+  const canSave = supplierId && lines.every(l => l.inventoryItemId && getFinalQuantity(l) > 0 && l.unitCost);
 
   const handleSave = async () => {
     if (!canSave) return;
@@ -104,7 +137,7 @@ function CreatePurchaseModal({
         items: lines.map(l => ({
           inventoryItemId: l.inventoryItemId,
           itemName: inventoryItems.find(p => p.id === l.inventoryItemId)?.name || '',
-          quantity: parseFloat(l.quantity),
+          quantity: getFinalQuantity(l),
           unitCost: parseFloat(l.unitCost),
         })),
       };
@@ -157,46 +190,62 @@ function CreatePurchaseModal({
               <span className="text-xs text-muted-foreground">{lines.length} {lines.length === 1 ? 'item' : 'items'}</span>
             </div>
 
-            <div className="space-y-2">
+            <div className="space-y-4">
               {lines.map((line, i) => (
-                <div key={i} className="flex gap-2 items-center p-3 rounded-xl border bg-muted/20 hover:bg-muted/30 transition-colors">
-                  <div className="flex-1 min-w-0">
-                    <Select value={line.inventoryItemId} onValueChange={v => updateLine(i, 'inventoryItemId', v)}>
-                      <SelectTrigger className="h-9 text-sm">
-                        <SelectValue placeholder={t('item_name')}>
-                          {inventoryItems.find(p => p.id === line.inventoryItemId)?.name || t('item_name')}
-                        </SelectValue>
-                      </SelectTrigger>
-                      <SelectContent>
-                        {inventoryItems.map(p => (
-                          <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
+                <div key={i} className="flex flex-col gap-3 p-3 rounded-xl border bg-muted/20 hover:bg-muted/30 transition-colors">
+                  <div className="flex gap-2 items-start">
+                    <div className="flex-1 min-w-0">
+                      <Select value={line.inventoryItemId} onValueChange={v => updateLine(i, 'inventoryItemId', v)}>
+                        <SelectTrigger className="h-9 text-sm">
+                          <SelectValue placeholder={t('item_name')}>
+                            {inventoryItems.find(p => p.id === line.inventoryItemId)?.name || t('item_name')}
+                          </SelectValue>
+                        </SelectTrigger>
+                        <SelectContent>
+                          {inventoryItems.map(p => (
+                            <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <Input
+                      type="number"
+                      className="w-24 h-9 text-sm text-center"
+                      placeholder={t('unit_cost')}
+                      value={line.unitCost}
+                      onChange={e => updateLine(i, 'unitCost', e.target.value)}
+                      min="0"
+                    />
+                    <button
+                      onClick={() => removeLine(i)}
+                      disabled={lines.length === 1}
+                      className="w-8 h-8 rounded-lg flex items-center justify-center text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors disabled:opacity-30 disabled:cursor-not-allowed shrink-0"
+                    >
+                      <Trash2 size={14} />
+                    </button>
                   </div>
-                  <Input
-                    type="number"
-                    className="w-20 h-9 text-sm text-center"
-                    placeholder={t('qty')}
-                    value={line.quantity}
-                    onChange={e => updateLine(i, 'quantity', e.target.value)}
-                    min="0"
-                  />
-                  <Input
-                    type="number"
-                    className="w-24 h-9 text-sm text-center"
-                    placeholder={t('unit_cost')}
-                    value={line.unitCost}
-                    onChange={e => updateLine(i, 'unitCost', e.target.value)}
-                    min="0"
-                  />
-                  <button
-                    onClick={() => removeLine(i)}
-                    disabled={lines.length === 1}
-                    className="w-8 h-8 rounded-lg flex items-center justify-center text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors disabled:opacity-30 disabled:cursor-not-allowed shrink-0"
-                  >
-                    <Trash2 size={14} />
-                  </button>
+                  
+                  {line.inventoryItemId && line.isCountable ? (
+                    <div className="flex gap-2 items-center pl-2 flex-wrap">
+                       <Input type="number" className="w-24 h-9" placeholder={t('cartons')} value={line.cartons} onChange={e => updateLine(i, 'cartons', e.target.value)} min="0" title={t('cartons')} />
+                       <span className="text-muted-foreground text-sm">×</span>
+                       <Input type="number" className="w-28 h-9" placeholder={t('pcs_per_carton')} value={line.piecesPerCarton} onChange={e => updateLine(i, 'piecesPerCarton', e.target.value)} min="1" title={t('pcs_per_carton')} />
+                       <span className="text-muted-foreground text-sm">+</span>
+                       <Input type="number" className="w-24 h-9" placeholder={t('loose_pcs')} value={line.loosePieces} onChange={e => updateLine(i, 'loosePieces', e.target.value)} min="0" title={t('loose_pcs')} />
+                       <span className="text-sm font-medium ml-2">= {getFinalQuantity(line)} {t('pcs')}</span>
+                    </div>
+                  ) : line.inventoryItemId ? (
+                    <div className="flex gap-2 items-center pl-2">
+                      <Input
+                        type="number"
+                        className="w-32 h-9 text-sm"
+                        placeholder={t('qty')}
+                        value={line.quantity}
+                        onChange={e => updateLine(i, 'quantity', e.target.value)}
+                        min="0"
+                      />
+                    </div>
+                  ) : null}
                 </div>
               ))}
             </div>

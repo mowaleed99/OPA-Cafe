@@ -79,6 +79,7 @@ export async function seedCategoriesAndProducts(cafeId: string): Promise<void> {
       price: 20, // Default temporary price
       cost: 10,  // Default temporary cost
       status: 'active',
+      track_stock: false,
       created_at: now
     }));
     

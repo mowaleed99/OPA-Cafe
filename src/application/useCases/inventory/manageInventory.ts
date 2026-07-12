@@ -22,6 +22,11 @@ export async function updateInventoryItem(item: InventoryItem): Promise<void> {
 }
 
 export async function deleteInventoryItem(id: string): Promise<void> {
+  const linkedProductsCount = await db.products.filter(p => p.inventory_item_id === id).count();
+  if (linkedProductsCount > 0) {
+    throw new Error('Cannot delete this item because it is linked to one or more products. Please unlink them first.');
+  }
+
   await db.inventory_items.delete(id);
   await enqueueSync('delete', 'inventory_items', { id });
 }

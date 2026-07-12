@@ -21,6 +21,9 @@ import type { Category } from '../../../core/entities/category';
 import { useAuthStore } from '../../../application/store/useAuthStore';
 import { createProduct, updateProduct } from '../../../application/useCases/products/manageProducts';
 import { getCategories } from '../../../application/useCases/products/manageCategories';
+import { getInventoryItems } from '../../../application/useCases/inventory/manageInventory';
+import type { InventoryItem } from '../../../core/entities/inventory';
+import { Search } from 'lucide-react';
 
 interface ProductFormModalProps {
   isOpen: boolean;
@@ -36,6 +39,11 @@ export function ProductFormModal({ isOpen, onClose, productToEdit, onSaved }: Pr
   const [cost, setCost] = useState('');
   const [categoryId, setCategoryId] = useState('');
   const [categories, setCategories] = useState<Category[]>([]);
+  const [trackStock, setTrackStock] = useState(false);
+  const [inventoryItemId, setInventoryItemId] = useState('');
+  const [inventoryItems, setInventoryItems] = useState<InventoryItem[]>([]);
+  const [inventorySearch, setInventorySearch] = useState('');
+  const [isInventoryDropdownOpen, setIsInventoryDropdownOpen] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const cafeId = useAuthStore(state => state.cafeId());
 
@@ -46,8 +54,12 @@ export function ProductFormModal({ isOpen, onClose, productToEdit, onSaved }: Pr
     // always has its options ready when the current value is applied.
     const init = async () => {
       if (cafeId) {
-        const cats = await getCategories(cafeId);
+        const [cats, items] = await Promise.all([
+          getCategories(cafeId),
+          getInventoryItems(cafeId)
+        ]);
         setCategories(cats);
+        setInventoryItems(items);
       }
 
       if (productToEdit) {
@@ -55,11 +67,16 @@ export function ProductFormModal({ isOpen, onClose, productToEdit, onSaved }: Pr
         setPrice(productToEdit.price.toString());
         setCost(productToEdit.cost.toString());
         setCategoryId(productToEdit.category_id);
+        setTrackStock(productToEdit.track_stock || false);
+        setInventoryItemId(productToEdit.inventory_item_id || '');
       } else {
         setName('');
         setPrice('');
         setCost('');
         setCategoryId('');
+        setTrackStock(false);
+        setInventoryItemId('');
+        setInventorySearch('');
       }
     };
 
@@ -68,6 +85,8 @@ export function ProductFormModal({ isOpen, onClose, productToEdit, onSaved }: Pr
 
   const handleSave = async () => {
     if (!name.trim() || !price || !categoryId || !cafeId) return;
+    if (trackStock && !inventoryItemId) return; // Validation: must select an item
+
     setIsSaving(true);
     try {
       if (productToEdit) {
@@ -76,10 +95,20 @@ export function ProductFormModal({ isOpen, onClose, productToEdit, onSaved }: Pr
           name, 
           price: parseFloat(price), 
           cost: parseFloat(cost) || 0,
-          category_id: categoryId 
+          category_id: categoryId,
+          track_stock: trackStock,
+          inventory_item_id: trackStock ? inventoryItemId : null
         });
       } else {
-        await createProduct(cafeId, categoryId, name, parseFloat(price), parseFloat(cost) || 0);
+        await createProduct(
+          cafeId, 
+          categoryId, 
+          name, 
+          parseFloat(price), 
+          parseFloat(cost) || 0,
+          trackStock,
+          trackStock ? inventoryItemId : null
+        );
       }
       onSaved();
       onClose();
@@ -146,10 +175,85 @@ export function ProductFormModal({ isOpen, onClose, productToEdit, onSaved }: Pr
               />
             </div>
           </div>
+
+          <div className="pt-4 border-t mt-4">
+            <label className="flex items-center gap-2 cursor-pointer mb-4">
+              <input
+                type="checkbox"
+                checked={trackStock}
+                onChange={e => setTrackStock(e.target.checked)}
+                className="rounded border-gray-300 text-blue-600 focus:ring-blue-500 w-4 h-4"
+              />
+              <span className="text-sm font-medium">{t('track_stock_automatically')}</span>
+            </label>
+
+            {trackStock && (
+              <div className="relative">
+                <label className="text-sm font-medium mb-1 block">
+                  {t('select_inventory_item')} <span className="text-red-500">*</span>
+                </label>
+                
+                {!isInventoryDropdownOpen ? (
+                  <div 
+                    className="flex items-center justify-between h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm cursor-pointer hover:bg-muted/50"
+                    onClick={() => setIsInventoryDropdownOpen(true)}
+                  >
+                    <span>
+                      {inventoryItemId 
+                        ? inventoryItems.find(i => i.id === inventoryItemId)?.name || t('unknown_item')
+                        : t('select_inventory_item_placeholder')}
+                    </span>
+                  </div>
+                ) : (
+                  <div className="border rounded-md shadow-sm bg-card overflow-hidden">
+                    <div className="flex items-center px-3 border-b">
+                      <Search className="h-4 w-4 text-muted-foreground mr-2" />
+                      <input
+                        autoFocus
+                        className="flex h-10 w-full bg-transparent py-3 text-sm outline-none placeholder:text-muted-foreground"
+                        placeholder={t('search_inventory_items')}
+                        value={inventorySearch}
+                        onChange={(e) => setInventorySearch(e.target.value)}
+                        onBlur={(e) => {
+                          // Close dropdown if clicking outside
+                          if (!e.currentTarget.contains(e.relatedTarget as Node)) {
+                            // slight delay to allow click on item
+                            setTimeout(() => setIsInventoryDropdownOpen(false), 200);
+                          }
+                        }}
+                      />
+                    </div>
+                    <div className="max-h-[200px] overflow-y-auto p-1">
+                      {inventoryItems
+                        .filter(item => item.name.toLowerCase().includes(inventorySearch.toLowerCase()))
+                        .map(item => (
+                          <div
+                            key={item.id}
+                            className="flex cursor-pointer select-none items-center rounded-sm px-2 py-1.5 text-sm outline-none hover:bg-accent hover:text-accent-foreground"
+                            onClick={() => {
+                              setInventoryItemId(item.id);
+                              setInventorySearch('');
+                              setIsInventoryDropdownOpen(false);
+                            }}
+                          >
+                            {item.name}
+                          </div>
+                      ))}
+                      {inventoryItems.filter(item => item.name.toLowerCase().includes(inventorySearch.toLowerCase())).length === 0 && (
+                        <p className="py-6 text-center text-sm text-muted-foreground">{t('no_items_found')}</p>
+                      )}
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
         </div>
         <DialogFooter>
           <Button variant="outline" onClick={onClose} disabled={isSaving}>{t('cancel')}</Button>
-          <Button onClick={handleSave} disabled={isSaving || !name.trim() || !price || !categoryId}>{t('save')}</Button>
+          <Button onClick={handleSave} disabled={isSaving || !name.trim() || !price || !categoryId || (trackStock && !inventoryItemId)}>
+            {t('save')}
+          </Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>

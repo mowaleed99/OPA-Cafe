@@ -22,7 +22,11 @@ export default function InventoryPage() {
   
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingItem, setEditingItem] = useState<InventoryItem | null>(null);
-  const [formData, setFormData] = useState({ name: '', unit: '', cost: '', stock_quantity: '', low_stock_threshold: '' });
+  const [formData, setFormData] = useState({ 
+    name: '', unit: '', cost: '', stock_quantity: '', 
+    low_stock_threshold: '', minimum_stock: '', 
+    is_countable: false, pieces_per_carton: '' 
+  });
   const [saving, setSaving] = useState(false);
 
   const [adjustingStockItem, setAdjustingStockItem] = useState<InventoryItem | null>(null);
@@ -48,10 +52,17 @@ export default function InventoryPage() {
         cost: item.cost.toString(),
         stock_quantity: item.stock_quantity.toString(),
         low_stock_threshold: item.low_stock_threshold?.toString() || '',
+        minimum_stock: item.minimum_stock?.toString() || '',
+        is_countable: item.is_countable || false,
+        pieces_per_carton: item.pieces_per_carton?.toString() || '',
       });
     } else {
       setEditingItem(null);
-      setFormData({ name: '', unit: '', cost: '', stock_quantity: '0', low_stock_threshold: '' });
+      setFormData({ 
+        name: '', unit: '', cost: '', stock_quantity: '0', 
+        low_stock_threshold: '', minimum_stock: '', 
+        is_countable: false, pieces_per_carton: '' 
+      });
     }
     setIsModalOpen(true);
   };
@@ -60,23 +71,26 @@ export default function InventoryPage() {
     if (!cafeId || !formData.name || !formData.unit) return;
     setSaving(true);
     try {
+      const payload = {
+        name: formData.name,
+        unit: formData.unit,
+        cost: parseFloat(formData.cost) || 0,
+        stock_quantity: parseFloat(formData.stock_quantity) || 0,
+        low_stock_threshold: formData.low_stock_threshold ? parseFloat(formData.low_stock_threshold) : null,
+        minimum_stock: formData.minimum_stock ? parseInt(formData.minimum_stock, 10) : null,
+        is_countable: formData.is_countable,
+        pieces_per_carton: formData.is_countable && formData.pieces_per_carton ? parseInt(formData.pieces_per_carton, 10) : null,
+      };
+
       if (editingItem) {
         await updateInventoryItem({
           ...editingItem,
-          name: formData.name,
-          unit: formData.unit,
-          cost: parseFloat(formData.cost) || 0,
-          stock_quantity: parseFloat(formData.stock_quantity) || 0,
-          low_stock_threshold: formData.low_stock_threshold ? parseFloat(formData.low_stock_threshold) : null,
+          ...payload
         });
       } else {
         await addInventoryItem({
           cafe_id: cafeId,
-          name: formData.name,
-          unit: formData.unit,
-          cost: parseFloat(formData.cost) || 0,
-          stock_quantity: parseFloat(formData.stock_quantity) || 0,
-          low_stock_threshold: formData.low_stock_threshold ? parseFloat(formData.low_stock_threshold) : null,
+          ...payload
         });
       }
       await load();
@@ -231,6 +245,42 @@ export default function InventoryPage() {
                   placeholder={t('optional')}
                 />
               </div>
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label className="text-sm font-medium mb-1 block">{t('min_stock')}</label>
+                <Input
+                  type="number"
+                  value={formData.minimum_stock}
+                  onChange={e => setFormData({ ...formData, minimum_stock: e.target.value })}
+                  placeholder={t('optional')}
+                />
+              </div>
+            </div>
+            
+            <div className="pt-2 border-t mt-4">
+              <label className="flex items-center gap-2 cursor-pointer mb-4">
+                <input
+                  type="checkbox"
+                  checked={formData.is_countable}
+                  onChange={e => setFormData({ ...formData, is_countable: e.target.checked })}
+                  className="rounded border-gray-300 text-blue-600 focus:ring-blue-500 w-4 h-4"
+                />
+                <span className="text-sm font-medium">{t('is_countable_label')}</span>
+              </label>
+
+              {formData.is_countable && (
+                <div>
+                  <label className="text-sm font-medium mb-1 block">{t('pieces_per_carton_default')}</label>
+                  <Input
+                    type="number"
+                    value={formData.pieces_per_carton}
+                    onChange={e => setFormData({ ...formData, pieces_per_carton: e.target.value })}
+                    placeholder="e.g. 12"
+                  />
+                  <p className="text-xs text-muted-foreground mt-1">{t('auto_filled_purchases_desc')}</p>
+                </div>
+              )}
             </div>
           </div>
           <DialogFooter>
