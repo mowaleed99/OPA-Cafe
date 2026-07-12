@@ -3,6 +3,8 @@ import { useTranslation } from 'react-i18next';
 import { useAuthStore } from '../../application/store/useAuthStore';
 import { useCurrency } from '../../application/utils/useCurrency';
 import { getAuditLog } from '../../application/useCases/orders/getAuditLog';
+import { clearAuditLog } from '../../application/useCases/orders/clearAuditLog';
+import { verifyOwnerPin } from '../../application/useCases/settings/manageOwnerPin';
 import { db } from '../../infrastructure/database/db';
 import type { OrderAuditLog } from '../../core/entities/order_audit_log';
 import type { AppUser } from '../../core/entities/user';
@@ -30,7 +32,9 @@ import {
   ShieldAlert,
   Ban,
   RefreshCw,
+  Trash2,
 } from 'lucide-react';
+import PinEntryDialog from '../components/PinEntryDialog';
 
 function ActionBadge({ type }: { type: 'void' | 'refund' }) {
   const { t } = useTranslation();
@@ -64,6 +68,10 @@ export default function AuditLogPage() {
   const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
   const [from, setFrom] = useState(thirtyDaysAgo);
   const [to, setTo] = useState(today);
+
+  const [isPinDialogOpen, setIsPinDialogOpen] = useState(false);
+  const [isClearing, setIsClearing] = useState(false);
+  const [pinError, setPinError] = useState<string | null>(null);
   const [selectedUser, setSelectedUser] = useState<string>('all');
 
   const loadData = async () => {
@@ -100,6 +108,28 @@ export default function AuditLogPage() {
     setTimeout(() => loadData(), 0);
   };
 
+  const handleClearLog = async (pin: string) => {
+    setIsClearing(true);
+    setPinError(null);
+    try {
+      const isValid = await verifyOwnerPin(cafeId, pin);
+      if (!isValid) {
+        setPinError(t('pin_incorrect'));
+        setIsClearing(false);
+        return;
+      }
+      
+      await clearAuditLog(cafeId);
+      await loadData();
+      setIsPinDialogOpen(false);
+    } catch (err) {
+      console.error('Failed to clear audit log:', err);
+      alert(t('void_error')); // Reuse generic error msg
+    } finally {
+      setIsClearing(false);
+    }
+  };
+
   const voidCount = entries.filter(e => e.action_type === 'void').length;
   const refundCount = entries.filter(e => e.action_type === 'refund').length;
   const totalAmount = entries.reduce((sum, e) => sum + e.order_total, 0);
@@ -115,6 +145,14 @@ export default function AuditLogPage() {
           </h1>
           <p className="text-sm text-muted-foreground mt-1">{t('audit_log_desc')}</p>
         </div>
+        <Button 
+          variant="destructive" 
+          onClick={() => setIsPinDialogOpen(true)}
+          disabled={entries.length === 0}
+        >
+          <Trash2 size={16} className="mr-2 rtl:ml-2 rtl:mr-0" />
+          {t('clear_audit_log')}
+        </Button>
       </div>
 
       {/* Summary Cards */}
@@ -256,6 +294,19 @@ export default function AuditLogPage() {
           </Table>
         )}
       </div>
+
+      <PinEntryDialog
+        isOpen={isPinDialogOpen}
+        onClose={() => {
+          setIsPinDialogOpen(false);
+          setPinError(null);
+        }}
+        onSubmit={handleClearLog}
+        title={t('clear_audit_log')}
+        description={t('clear_audit_log_confirm')}
+        isLoading={isClearing}
+        error={pinError}
+      />
     </div>
   );
 }

@@ -412,6 +412,8 @@
   "to_date": "إلى تاريخ",
   "filter_by_date": "الفلاتر",
   "filter_by_cashier": "الكاشير",
+  "clear_audit_log": "مسح سجل العمليات",
+  "clear_audit_log_confirm": "أدخل رقم PIN المالك لتأكيد مسح السجل بالكامل. لا يمكن التراجع عن هذا الإجراء.",
 
   "void_order": "إلغاء الطلب",
   "refund_order": "استرداد الطلب",

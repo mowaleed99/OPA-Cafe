@@ -275,6 +275,8 @@
   "to_date": "To",
   "filter_by_date": "Filters",
   "filter_by_cashier": "Cashier",
+  "clear_audit_log": "Clear Audit Log",
+  "clear_audit_log_confirm": "Enter the owner PIN to confirm clearing the entire audit log. This action cannot be undone.",
 
   "void_order": "Void Order",
   "refund_order": "Refund Order",

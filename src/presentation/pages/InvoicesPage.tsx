@@ -7,7 +7,7 @@ import { db } from '../../infrastructure/database/db';
 import { voidOrder } from '../../application/useCases/orders/voidOrder';
 import type { Order, OrderItem } from '../../core/entities/order';
 import type { Purchase, PurchaseItem, Supplier } from '../../core/entities/supplier';
-import { PinEntryDialog } from '../components/PinEntryDialog';
+import PinEntryDialog from '../components/PinEntryDialog';
 import {
   Dialog,
   DialogContent,

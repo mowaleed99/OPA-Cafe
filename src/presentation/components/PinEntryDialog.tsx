@@ -18,7 +18,7 @@ interface PinEntryDialogProps {
 const PAD_KEYS = ['1', '2', '3', '4', '5', '6', '7', '8', '9', '', '0', 'DEL'];
 const MAX_PIN_LENGTH = 6;
 
-export function PinEntryDialog({
+export default function PinEntryDialog({
   isOpen,
   onClose,
   onSubmit,
