@@ -90,21 +90,23 @@ export const useAuthStore = create<AuthState>((set, get) => ({
 
         // 2. Fetch remote asynchronously without blocking
         if (navigator.onLine) {
-          supabase
-            .from('app_users')
-            .select('*')
-            .eq('id', session.user.id)
-            .single()
-            .then(async ({ data }) => {
+          (async () => {
+            try {
+              const { data, error } = await supabase
+                .from('app_users')
+                .select('*')
+                .eq('id', session.user.id)
+                .single();
+
+              if (error) throw error;
               if (data) {
                 await db.app_users.put(data);
-                // Only update state if we actually changed something to avoid re-renders
                 set((state) => ({ ...state, appUser: data }));
               }
-            })
-            .catch(err => {
+            } catch (err) {
               console.warn('Failed to fetch remote user in background:', err);
-            });
+            }
+          })();
         }
       } else {
         set({ session: null, appUser: null, isLoading: false });
@@ -126,20 +128,23 @@ export const useAuthStore = create<AuthState>((set, get) => ({
 
       // Remote async
       if (navigator.onLine) {
-        supabase
-          .from('app_users')
-          .select('*')
-          .eq('id', session.user.id)
-          .single()
-          .then(async ({ data }) => {
+        (async () => {
+          try {
+            const { data, error } = await supabase
+              .from('app_users')
+              .select('*')
+              .eq('id', session.user.id)
+              .single();
+
+            if (error) throw error;
             if (data) {
               await db.app_users.put(data);
               set((state) => ({ ...state, appUser: data }));
             }
-          })
-          .catch(err => {
+          } catch (err) {
             console.warn('Failed to fetch remote user on auth change in background:', err);
-          });
+          }
+        })();
       }
     });
   },
