@@ -65,17 +65,32 @@ export default function CartPanel({ onOrderPlaced }: CartPanelProps) {
   const discountAmount = getDiscountAmount();
   const total = getTotal();
 
+  const parseAmount = (val: string): number => {
+    if (!val) return total; // Default to exact amount if empty
+    // Convert Arabic numerals to English
+    const englishStr = val.replace(/[٠-٩]/g, d => '٠١٢٣٤٥٦٧٨٩'.indexOf(d).toString());
+    return parseFloat(englishStr) || 0;
+  };
+
   // Cash change calculation
-  const cashReceivedNum = parseFloat(cashReceived) || 0;
+  const cashReceivedNum = parseAmount(cashReceived);
   const changeAmount = cashReceivedNum - total;
   const hasEnoughCash = cashReceivedNum >= total;
   const isCash = paymentMethod === 'cash';
 
   const handlePlaceOrder = async () => {
     const cafe = cafeId();
-    if (!cafe || items.length === 0) return;
-    // only check cash guard if we are actually checking out now (takeaway)
-    if (!tableId && isCash && cashReceivedNum < total) return; 
+    if (!cafe) {
+      setError('User profile not loaded. Please restart the app.');
+      return;
+    }
+    if (items.length === 0) return;
+    
+    // Check cash guard
+    if (!tableId && isCash && cashReceivedNum < total) {
+      setError(t('not_enough_cash'));
+      return;
+    }
 
     setIsPlacing(true);
     setError(null);
@@ -105,9 +120,9 @@ export default function CartPanel({ onOrderPlaced }: CartPanelProps) {
         onOrderPlaced?.(result.orderId);
         setTimeout(() => setSuccess(false), 2500);
       }
-    } catch (err) {
+    } catch (err: any) {
       console.error('[CartPanel] Failed to place order:', err);
-      setError(t('failed_place_order'));
+      setError(err.message || t('failed_place_order'));
     } finally {
       setIsPlacing(false);
     }
@@ -115,7 +130,10 @@ export default function CartPanel({ onOrderPlaced }: CartPanelProps) {
 
   const handleCheckout = async () => {
     if (!activeOrderId) return;
-    if (isCash && cashReceivedNum < total) return; // guard: not enough cash
+    if (isCash && cashReceivedNum < total) {
+      setError(t('not_enough_cash'));
+      return;
+    }
     
     setIsCheckingOut(true);
     setError(null);
@@ -129,9 +147,9 @@ export default function CartPanel({ onOrderPlaced }: CartPanelProps) {
         clearCart();
         navigate('/tables');
       }, 1500);
-    } catch (err) {
+    } catch (err: any) {
       console.error('[CartPanel] Failed to checkout:', err);
-      setError(t('failed_checkout'));
+      setError(err.message || t('failed_checkout'));
     } finally {
       setIsCheckingOut(false);
     }
@@ -262,11 +280,20 @@ export default function CartPanel({ onOrderPlaced }: CartPanelProps) {
             </label>
             <input
               id="pos-discount"
-              type="number"
-              min={0}
-              max={100}
+              type="text"
+              inputMode="decimal"
               value={discount === 0 ? '' : discount}
-              onChange={(e) => setDiscount(Number(e.target.value))}
+              onChange={(e) => {
+                const val = e.target.value;
+                const digitsOnly = val.replace(/[^0-9٠-٩]/g, '');
+                if (digitsOnly === '') {
+                  setDiscount(0);
+                  return;
+                }
+                const englishStr = digitsOnly.replace(/[٠-٩]/g, d => '٠١٢٣٤٥٦٧٨٩'.indexOf(d).toString());
+                const num = parseInt(englishStr, 10) || 0;
+                setDiscount(Math.min(100, Math.max(0, num)));
+              }}
               placeholder="0"
               className="w-full h-9 rounded-md border border-input bg-background px-3 text-sm text-right tabular-nums focus:outline-none focus:ring-1 focus:ring-primary focus:border-primary shadow-sm"
             />
@@ -281,10 +308,15 @@ export default function CartPanel({ onOrderPlaced }: CartPanelProps) {
                 </label>
                 <input
                   id="pos-cash-received"
-                  type="number"
-                  min={0}
+                  type="text"
+                  inputMode="decimal"
                   value={cashReceived}
-                  onChange={(e) => setCashReceived(e.target.value)}
+                  onChange={(e) => {
+                    const val = e.target.value;
+                    // Strip anything that is not a digit or decimal point
+                    const digitsOnly = val.replace(/[^0-9٠-٩.,]/g, '');
+                    setCashReceived(digitsOnly.replace(',', '.'));
+                  }}
                   placeholder={total.toFixed(0)}
                   className="w-full h-9 rounded-md border border-input bg-background px-3 text-sm text-right tabular-nums focus:outline-none focus:ring-1 focus:ring-primary focus:border-primary shadow-sm"
                 />

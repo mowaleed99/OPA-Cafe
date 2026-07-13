@@ -42,7 +42,6 @@ export default function App() {
   const { initialize, appUser } = useAuthStore();
   const { language } = useSettingsStore();
   const { i18n, t } = useTranslation();
-  const [isInitializingData, setIsInitializingData] = useState(false);
 
   // Restore session on app start
   useEffect(() => {
@@ -61,11 +60,15 @@ export default function App() {
   useEffect(() => {
     async function initSync() {
       if (!appUser?.cafe_id) return;
-      setIsInitializingData(true);
-      await cleanupLocalDuplicates(); // Clean duplicates before pushing
-      await processSyncQueue(); // Push local changes first
-      await pullInitialData(appUser.cafe_id); // Then pull remote data
-      setIsInitializingData(false);
+      
+      try {
+        // Run sync in background without blocking the UI
+        await cleanupLocalDuplicates();
+        await processSyncQueue();
+        await pullInitialData(appUser.cafe_id);
+      } catch (err) {
+        console.warn('Background sync failed:', err);
+      }
 
       startRealtimeSync(appUser.cafe_id);
       fetchSettings(appUser.cafe_id);
@@ -73,16 +76,6 @@ export default function App() {
     
     initSync();
   }, [appUser?.cafe_id]);
-
-  if (isInitializingData) {
-    return (
-      <div className="flex flex-col items-center justify-center min-h-screen bg-background">
-        <RefreshCw size={48} className="animate-spin text-[var(--brand-latte)] mb-4" />
-        <h2 className="text-xl font-medium text-foreground">Synchronizing Cafe Data...</h2>
-        <p className="text-muted-foreground mt-2">Please wait while we initialize your local database.</p>
-      </div>
-    );
-  }
 
   return (
     <HashRouter>
