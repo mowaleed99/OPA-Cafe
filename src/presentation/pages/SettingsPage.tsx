@@ -10,7 +10,7 @@ import {
   HardDrive, LogOut, ChevronRight, Sun, Moon, Monitor,
   CheckCircle2, Wifi, WifiOff, Info, Key,
   LayoutDashboard, Coffee, Package, UtensilsCrossed, ClipboardList, Banknote, BookOpen, LineChart,
-  FileText, Lock,
+  FileText, Lock, Cloud, RefreshCw
 } from 'lucide-react';
 import { updateSettings } from '../../application/useCases/settings/manageSettings';
 import { setOwnerPin, hasOwnerPin } from '../../application/useCases/settings/manageOwnerPin';
@@ -18,7 +18,7 @@ import { useAuthStore } from '../../application/store/useAuthStore';
 import { useNavigate } from 'react-router-dom';
 import { useEffect } from 'react';
 
-type Tab = 'general' | 'appearance' | 'account' | 'roles' | 'security' | 'backup' | 'danger';
+type Tab = 'general' | 'appearance' | 'account' | 'roles' | 'security' | 'backup' | 'printing' | 'danger';
 
 const tabs: { id: Tab; labelKey: string; icon: React.ElementType; color: string }[] = [
   { id: 'general',    labelKey: 'tab_general',    icon: Store,     color: 'text-blue-500' },
@@ -27,6 +27,7 @@ const tabs: { id: Tab; labelKey: string; icon: React.ElementType; color: string 
   { id: 'roles',      labelKey: 'tab_roles',      icon: Key,       color: 'text-orange-500' },
   { id: 'security',   labelKey: 'tab_security',   icon: Lock,      color: 'text-indigo-500' },
   { id: 'backup',     labelKey: 'tab_backup',     icon: HardDrive, color: 'text-amber-500' },
+  { id: 'printing',   labelKey: 'tab_printing',   icon: Printer,   color: 'text-teal-500' },
   { id: 'danger',     labelKey: 'tab_danger',     icon: Shield,    color: 'text-red-500' },
 ];
 
@@ -60,10 +61,18 @@ export default function SettingsPage() {
   const { appUser, signOut, session } = useAuthStore();
   const navigate = useNavigate();
   const {
-    language, cafeName, currency, printPaperSize, cashierPermissions,
-    setLanguage, setCafeName, setCurrency, setPrintPaperSize, setCashierPermissions,
+    language, cafeName, currency, cashierPermissions,
+    defaultPrinter, paperSize, autoPrintReceipts, receiptCopies, reportDefaultOutput, receiptTemplateConfig,
+    setLanguage, setCafeName, setCurrency, setCashierPermissions, setPrintSettings
   } = useSettingsStore();
   const { t } = useTranslation();
+
+  const [availablePrinters, setAvailablePrinters] = useState<{name: string, displayName: string, isDefault?: boolean}[]>([]);
+  useEffect(() => {
+    if (window.electronAPI?.getPrinters) {
+      window.electronAPI.getPrinters().then(setAvailablePrinters).catch(console.error);
+    }
+  }, []);
 
   // Owner PIN state
   const [pinSet, setPinSet] = useState<boolean | null>(null);
@@ -157,6 +166,20 @@ export default function SettingsPage() {
       setBackupMessage({ type: 'error', text: t('restore_error') });
     } finally {
       setIsImporting(false);
+    }
+  };
+
+  const [isSyncingNow, setIsSyncingNow] = useState(false);
+  const handleSyncNow = async () => {
+    setIsSyncingNow(true);
+    try {
+      if (window.electronAPI) {
+        await window.electronAPI.triggerSync();
+      }
+    } catch (e) {
+      console.error(e);
+    } finally {
+      setTimeout(() => setIsSyncingNow(false), 2000);
     }
   };
 
@@ -392,31 +415,6 @@ export default function SettingsPage() {
                 </SettingRow>
               </SectionCard>
 
-              <SectionCard title={t('receipt_printing')} icon={Printer}>
-                <SettingRow label={t('paper_size')} description={t('paper_size_desc')}>
-                  <Select value={printPaperSize} onValueChange={(val: 'A4' | '80mm' | '58mm') => {
-                    setPrintPaperSize(val);
-                    if (cafeId) updateSettings(cafeId, { print_paper_size: val });
-                  }}>
-                    <SelectTrigger className="w-44">
-                      <SelectValue placeholder={t('print_paper_size')}>
-                        {printPaperSize === 'A4' ? 'A4 (Standard)' : printPaperSize === '80mm' ? 'Thermal 80mm' : 'Thermal 58mm'}
-                      </SelectValue>
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="A4">A4 (Standard)</SelectItem>
-                      <SelectItem value="80mm">Thermal 80mm</SelectItem>
-                      <SelectItem value="58mm">Thermal 58mm</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </SettingRow>
-                <SettingRow label={t('print_preview')} description={t('print_preview_desc')}>
-                  <div className={`border border-dashed border-border rounded-lg flex items-center justify-center bg-muted/40 text-xs text-muted-foreground font-mono transition-all
-                    ${printPaperSize === 'A4' ? 'w-20 h-28' : printPaperSize === '80mm' ? 'w-14 h-24' : 'w-10 h-20'}`}>
-                    {printPaperSize}
-                  </div>
-                </SettingRow>
-              </SectionCard>
             </>
           )}
 
@@ -647,6 +645,24 @@ export default function SettingsPage() {
                   {backupMessage.text}
                 </div>
               )}
+              <SectionCard title={t('cloud_sync', 'Cloud Synchronization')} icon={Cloud}>
+                <div className="py-5 flex items-start gap-5">
+                  <div className="w-12 h-12 rounded-xl bg-indigo-100 dark:bg-indigo-900/30 flex items-center justify-center shrink-0">
+                    <Cloud size={22} className="text-indigo-600 dark:text-indigo-400" />
+                  </div>
+                  <div className="flex-1">
+                    <h4 className="font-semibold text-sm text-foreground mb-1">{t('sync_now', 'Sync Now')}</h4>
+                    <p className="text-xs text-muted-foreground leading-relaxed mb-4">
+                      {t('sync_now_desc', 'Manually trigger background synchronization with the cloud server.')}
+                    </p>
+                    <Button onClick={handleSyncNow} disabled={isSyncingNow} className="flex items-center gap-2" variant="outline">
+                      <RefreshCw size={14} className={isSyncingNow ? "animate-spin" : ""} />
+                      {isSyncingNow ? t('syncing', 'Syncing...') : t('sync_now_btn', 'Sync Now')}
+                    </Button>
+                  </div>
+                </div>
+              </SectionCard>
+
               <SectionCard title={t('export_section')} icon={Download}>
                 <div className="py-5 flex items-start gap-5">
                   <div className="w-12 h-12 rounded-xl bg-blue-100 dark:bg-blue-900/30 flex items-center justify-center shrink-0">
@@ -747,6 +763,113 @@ export default function SettingsPage() {
                     </p>
                   )}
                 </div>
+              </SectionCard>
+            </>
+          )}
+
+          {/* PRINTING */}
+          {activeTab === 'printing' && (
+            <>
+              <SectionCard title={t('tab_printing')} icon={Printer}>
+                <SettingRow 
+                  label={t('default_printer', 'Default Printer')} 
+                  description={t('default_printer_desc', 'Select the primary printer for receipts and reports.')}
+                >
+                  <Select 
+                    value={defaultPrinter || ''} 
+                    onValueChange={(val) => setPrintSettings({ defaultPrinter: val })}
+                  >
+                    <SelectTrigger className="w-56 bg-background">
+                      <SelectValue placeholder={t('select_printer', 'Select a printer')} />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="none">{t('none', 'None (Prompt)')}</SelectItem>
+                      {availablePrinters.map(p => (
+                        <SelectItem key={p.name} value={p.name}>
+                          {p.displayName} {p.isDefault ? '(Default)' : ''}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </SettingRow>
+
+                <SettingRow 
+                  label={t('paper_size', 'Paper Size')} 
+                  description={t('paper_size_desc', 'Select the paper width for your thermal printer.')}
+                >
+                  <Select 
+                    value={paperSize || '80mm'} 
+                    onValueChange={(val: any) => setPrintSettings({ paperSize: val })}
+                  >
+                    <SelectTrigger className="w-48 bg-background">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="80mm">80mm</SelectItem>
+                      <SelectItem value="58mm">58mm</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </SettingRow>
+
+                <SettingRow 
+                  label={t('auto_print_receipts', 'Auto-Print Receipts')} 
+                  description={t('auto_print_receipts_desc', 'Automatically print a receipt when an order is paid.')}
+                >
+                  <label className="relative inline-flex items-center cursor-pointer">
+                    <input 
+                      type="checkbox" 
+                      className="sr-only peer"
+                      checked={autoPrintReceipts}
+                      onChange={(e) => setPrintSettings({ autoPrintReceipts: e.target.checked })}
+                    />
+                    <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-emerald-500"></div>
+                  </label>
+                </SettingRow>
+
+                <SettingRow 
+                  label={t('receipt_copies', 'Receipt Copies')} 
+                  description={t('receipt_copies_desc', 'Number of copies to print per receipt.')}
+                >
+                  <Input 
+                    type="number" 
+                    min={1} max={5}
+                    className="w-24 bg-background"
+                    value={receiptCopies || 1}
+                    onChange={(e) => setPrintSettings({ receiptCopies: parseInt(e.target.value) || 1 })}
+                  />
+                </SettingRow>
+
+                <SettingRow 
+                  label={t('receipt_footer_msg', 'Receipt Footer Message')} 
+                  description={t('receipt_footer_msg_desc', 'Message to display at the bottom of the receipt.')}
+                >
+                  <Input 
+                    type="text" 
+                    className="w-64 bg-background"
+                    value={receiptTemplateConfig?.footerMessage || 'Thank you for your visit!'}
+                    onChange={(e) => setPrintSettings({ 
+                      receiptTemplateConfig: { ...receiptTemplateConfig, footerMessage: e.target.value } 
+                    })}
+                  />
+                </SettingRow>
+
+                <SettingRow 
+                  label={t('report_default_output', 'Report Default Output')} 
+                  description={t('report_default_output_desc', 'Default format when printing reports.')}
+                >
+                  <Select 
+                    value={reportDefaultOutput || 'thermal'} 
+                    onValueChange={(val: any) => setPrintSettings({ reportDefaultOutput: val })}
+                  >
+                    <SelectTrigger className="w-48 bg-background">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="thermal">Thermal Printer</SelectItem>
+                      <SelectItem value="pdf">PDF File</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </SettingRow>
               </SectionCard>
             </>
           )}

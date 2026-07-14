@@ -3,10 +3,12 @@ const { createClient } = require('@supabase/supabase-js');
 const { getDb } = require('./database/db.cjs');
 const schema = require('./database/schema.cjs');
 const { eq, inArray } = require('drizzle-orm');
+const fs = require('fs');
+const path = require('path');
+const { app, BrowserWindow } = require('electron');
 
 const supabaseUrl = process.env.VITE_SUPABASE_URL || '';
 const supabaseAnonKey = process.env.VITE_SUPABASE_ANON_KEY || '';
-
 const supabase = createClient(supabaseUrl, supabaseAnonKey);
 
 const LOCAL_TO_SUPABASE = {
@@ -17,34 +19,100 @@ function toSupabaseName(localName) {
   return LOCAL_TO_SUPABASE[localName] ?? localName;
 }
 
+// ----------------------------------------------------
+// Persistent Sync Logger
+// ----------------------------------------------------
+function logSync(message) {
+  try {
+    const logDir = path.join(app.getPath('documents'), 'OPA Cafe', 'Logs');
+    if (!fs.existsSync(logDir)) {
+      fs.mkdirSync(logDir, { recursive: true });
+    }
+    const logFile = path.join(logDir, 'sync.log');
+    const timestamp = new Date().toISOString();
+    const formattedMessage = `[${timestamp}] ${message}\n`;
+    fs.appendFileSync(logFile, formattedMessage);
+    console.log(`[SyncWorker] ${message}`);
+  } catch (err) {
+    console.error('Failed to write to sync log:', err);
+  }
+}
+
+// ----------------------------------------------------
+// Sync State
+// ----------------------------------------------------
 let isSyncing = false;
+let syncStatusState = {
+  pending: 0,
+  synced: 0,
+  failed: 0,
+  lastSync: null,
+  isSyncing: false
+};
+const lastAttemptMap = new Map();
+
+function broadcastStatus() {
+  try {
+    const windows = BrowserWindow.getAllWindows();
+    windows.forEach(win => {
+      win.webContents.send('sync:status', syncStatusState);
+    });
+  } catch (e) {
+    // Ignore errors
+  }
+}
+
+async function updateCounts(db) {
+   const pendingItems = await db.select().from(schema.syncQueue).where(eq(schema.syncQueue.status, 'pending')).execute();
+   const failedItems = await db.select().from(schema.syncQueue).where(eq(schema.syncQueue.status, 'failed')).execute();
+   syncStatusState.pending = pendingItems.length;
+   syncStatusState.failed = failedItems.length;
+   broadcastStatus();
+}
 
 async function processSyncQueue() {
   if (isSyncing) return;
   if (!supabaseUrl || !supabaseAnonKey) {
-    console.warn('[SyncWorker] Supabase credentials not found. Skipping sync.');
+    logSync('Supabase credentials not found. Skipping sync.');
     return;
   }
   
   isSyncing = true;
+  syncStatusState.isSyncing = true;
+  broadcastStatus();
+
   const db = getDb();
   
   try {
     const pendingItems = await db.select()
       .from(schema.syncQueue)
-      .where(inArray(schema.syncQueue.status, ['pending', 'failed', 'syncing']))
+      .where(inArray(schema.syncQueue.status, ['pending', 'failed']))
       .execute();
       
-    // Sort by created_at ascending
     pendingItems.sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime());
     
     if (pendingItems.length === 0) {
       isSyncing = false;
+      syncStatusState.isSyncing = false;
+      await updateCounts(db);
       return;
     }
     
     for (const item of pendingItems) {
       if (!item.id) continue;
+      
+      // Retry Backoff Logic:
+      // Attempt 1: 5s, Attempt 2: 30s, Attempt 3: 5m (300000ms), Attempt 4: 30m (1800000ms)
+      if (item.status === 'failed') {
+        const delays = [0, 5000, 30000, 300000, 1800000];
+        const delay = item.retry_count < delays.length ? delays[item.retry_count] : 1800000;
+        const lastAttempt = lastAttemptMap.get(item.id) || 0;
+        if (Date.now() - lastAttempt < delay) {
+          continue; // Skip this iteration until delay passes
+        }
+      }
+      
+      lastAttemptMap.set(item.id, Date.now());
       
       try {
         await db.update(schema.syncQueue).set({ status: 'syncing' }).where(eq(schema.syncQueue.id, item.id)).execute();
@@ -64,26 +132,24 @@ async function processSyncQueue() {
             const remoteDate = new Date(remoteData.updated_at || remoteData.created_at || 0).getTime();
             const localDate = new Date(payload.updated_at || payload.created_at || 0).getTime();
             
-            // If remote was updated more recently AND from a different device
             if (remoteDate > localDate && remoteData.device_id !== payload.device_id) {
               conflictDetected = true;
-              resolution = 'local_wins'; // As a desktop POS, local SQLite is the primary source of truth
+              resolution = 'local_wins';
             }
           }
         }
 
         if (conflictDetected && remoteData) {
-          // Log conflict
           await db.insert(schema.syncConflicts).values({
             id: require('crypto').randomUUID(),
-            table_name: supabaseTable,
-            record_id: payload.id,
-            local_data: JSON.stringify(payload),
-            remote_data: JSON.stringify(remoteData),
-            resolved: true,
+            entity_name: supabaseTable,
+            entity_id: payload.id,
+            local_version: payload.version || 1,
+            remote_version: remoteData.version || 1,
             resolution: resolution,
             created_at: new Date().toISOString()
           }).execute();
+          logSync(`Conflict detected and resolved for ${supabaseTable} ID ${payload.id}. Resolution: ${resolution}`);
         }
         
         if (item.action === 'insert') {
@@ -103,25 +169,30 @@ async function processSyncQueue() {
         }
         
         await db.delete(schema.syncQueue).where(eq(schema.syncQueue.id, item.id)).execute();
+        lastAttemptMap.delete(item.id);
+        syncStatusState.synced += 1;
+        logSync(`Successfully synced item: ${item.action} on ${supabaseTable} (ID: ${payload.id || 'unknown'})`);
       } catch (err) {
-        console.error(`[SyncWorker] Failed to sync item ${item.id}:`, err);
+        logSync(`Failed syncing ${item.action} on ${item.table_name} # ${item.record_id || 'unknown'}: ${err.message}`);
         const nextRetry = item.retry_count + 1;
-        // Exponential backoff or max retries could be handled here
-        if (nextRetry > 5) {
-           await db.delete(schema.syncQueue).where(eq(schema.syncQueue.id, item.id)).execute();
-           console.error(`[SyncWorker] Max retries reached for item ${item.id}. Dropping from queue.`);
-        } else {
-           await db.update(schema.syncQueue).set({ 
+        await db.update(schema.syncQueue).set({ 
              status: 'failed',
-             retry_count: nextRetry
-           }).where(eq(schema.syncQueue.id, item.id)).execute();
+             retry_count: nextRetry,
+             last_error: err.message
+        }).where(eq(schema.syncQueue.id, item.id)).execute();
+        
+        if (nextRetry > 4) {
+           logSync(`Max retries reached for item ${item.id}. Keeping in queue as failed.`);
         }
       }
     }
+    syncStatusState.lastSync = new Date().toISOString();
   } catch (err) {
-    console.error('[SyncWorker] Error processing queue:', err);
+    logSync(`Error processing queue: ${err.message}`);
   } finally {
     isSyncing = false;
+    syncStatusState.isSyncing = false;
+    await updateCounts(getDb());
   }
 }
 
@@ -130,4 +201,8 @@ function startSyncWorker() {
   setInterval(processSyncQueue, 10000);
 }
 
-module.exports = { startSyncWorker, processSyncQueue };
+function getSyncStatus() {
+  return syncStatusState;
+}
+
+module.exports = { startSyncWorker, processSyncQueue, getSyncStatus };

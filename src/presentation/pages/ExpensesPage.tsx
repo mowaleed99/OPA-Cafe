@@ -23,6 +23,7 @@ import {
   updateExpense,
   deleteExpense,
 } from '../../application/useCases/expenses/manageExpenses';
+import { useToast } from '../hooks/useToast';
 
 // ── Expense Form Modal ────────────────────────────────────────────────────────
 function ExpenseModal({
@@ -41,11 +42,11 @@ function ExpenseModal({
   
   const [category, setCategory] = useState('rent');
   const [amount, setAmount] = useState('');
-  const [date, setDate] = useState(new Date().toISOString().slice(0, 10));
+  const [date, setDate] = useState<string>('');
   const [description, setDescription] = useState('');
   const [isRecurring, setIsRecurring] = useState(false);
-  
   const [saving, setSaving] = useState(false);
+  const { addToast } = useToast();
 
   useEffect(() => {
     if (expenseToEdit) {
@@ -81,6 +82,8 @@ function ExpenseModal({
       }
       onSaved();
       onClose();
+    } catch (error: any) {
+      addToast(error.message || 'Failed to save expense', 'error');
     } finally {
       setSaving(false);
     }

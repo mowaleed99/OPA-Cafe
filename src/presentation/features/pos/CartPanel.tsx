@@ -16,10 +16,13 @@ import { useCartStore } from '../../../application/store/useCartStore';
 import { placeOrder } from '../../../application/useCases/pos/placeOrder';
 import { updateOpenOrder } from '../../../application/useCases/pos/updateOpenOrder';
 import { checkoutOpenOrder } from '../../../application/useCases/pos/checkoutOpenOrder';
-import { useAuthStore } from '../../../application/store/useAuthStore';
+import { printReceipt } from '../../../application/useCases/printing/printReceipt';
 import { useSettingsStore } from '../../../application/store/useSettingsStore';
+import { useAuthStore } from '../../../application/store/useAuthStore';
 import { useNavigate } from 'react-router-dom';
 import type { PaymentMethod } from '../../../domain/entities/order';
+import { Input } from '../../components/ui/input';
+import { useToast } from '../../hooks/useToast';
 
 const PAYMENT_METHOD_KEYS: { id: PaymentMethod; labelKey: string; icon: React.ReactNode }[] = [
   { id: 'cash', labelKey: 'cash', icon: <Banknote size={15} /> },
@@ -51,13 +54,14 @@ export default function CartPanel({ onOrderPlaced }: CartPanelProps) {
     activeOrderId,
   } = useCartStore();
 
-  const { cafeId } = useAuthStore();
+  const cafeId = useAuthStore(s => s.cafeId());
+  const appUser = useAuthStore(s => s.appUser);
   const { language } = useSettingsStore();
   const navigate = useNavigate();
+  const { addToast } = useToast();
   const [isPlacing, setIsPlacing] = useState(false);
   const [isCheckingOut, setIsCheckingOut] = useState(false);
   const [success, setSuccess] = useState(false);
-  const [error, setError] = useState<string | null>(null);
   const [cashReceived, setCashReceived] = useState<string>('');
 
   const itemCount = getItemCount();
@@ -79,21 +83,26 @@ export default function CartPanel({ onOrderPlaced }: CartPanelProps) {
   const isCash = paymentMethod === 'cash';
 
   const handlePlaceOrder = async () => {
-    const cafe = cafeId();
+    const cafe = cafeId;
+    const currentUser = appUser;
     if (!cafe) {
-      setError('User profile not loaded. Please restart the app.');
+      addToast('User profile not loaded. Please restart the app.', 'error');
       return;
     }
     if (items.length === 0) return;
     
     // Check cash guard
     if (!tableId && isCash && cashReceivedNum < total) {
-      setError(t('not_enough_cash'));
+      addToast(t('not_enough_cash'), 'error');
+      return;
+    }
+
+    if (total < 0) {
+      addToast('Discount cannot exceed subtotal', 'error');
       return;
     }
 
     setIsPlacing(true);
-    setError(null);
     try {
       if (tableId && activeOrderId) {
         // Update existing open order (Dine-in)
@@ -105,7 +114,7 @@ export default function CartPanel({ onOrderPlaced }: CartPanelProps) {
         }, 1000);
       } else if (tableId && !activeOrderId) {
         // Create new open order (Dine-in)
-        await placeOrder({ cafeId: cafe, items, paymentMethod: null, total, tableId, status: 'open' });
+        await placeOrder({ cafeId: cafeId as string, items, paymentMethod: null, total, tableId, status: 'open', userId: currentUser?.id, userName: currentUser?.name });
         setSuccess(true);
         setTimeout(() => {
           clearCart();
@@ -113,7 +122,19 @@ export default function CartPanel({ onOrderPlaced }: CartPanelProps) {
         }, 1000);
       } else {
         // Create paid order (Takeaway)
-        const result = await placeOrder({ cafeId: cafe, items, paymentMethod, total });
+        const result = await placeOrder({ cafeId: cafeId as string, items, paymentMethod, total, userId: currentUser?.id, userName: currentUser?.name });
+        
+        // Auto-print receipt if enabled
+        const settings = useSettingsStore.getState();
+        if (settings.autoPrintReceipts) {
+          try {
+            await printReceipt(result.orderId, cafeId as string);
+          } catch (printErr) {
+            console.error('Auto-print failed:', printErr);
+            addToast('Order completed, but failed to print receipt.', 'error');
+          }
+        }
+
         setSuccess(true);
         clearCart();
         setCashReceived('');
@@ -122,7 +143,7 @@ export default function CartPanel({ onOrderPlaced }: CartPanelProps) {
       }
     } catch (err: any) {
       console.error('[CartPanel] Failed to place order:', err);
-      setError(err.message || t('failed_place_order'));
+      addToast(err.message || t('failed_place_order'), 'error');
     } finally {
       setIsPlacing(false);
     }
@@ -131,17 +152,29 @@ export default function CartPanel({ onOrderPlaced }: CartPanelProps) {
   const handleCheckout = async () => {
     if (!activeOrderId) return;
     if (isCash && cashReceivedNum < total) {
-      setError(t('not_enough_cash'));
+      addToast(t('not_enough_cash'), 'error');
       return;
     }
     
     setIsCheckingOut(true);
-    setError(null);
+    const currentUser = useAuthStore.getState().appUser;
     try {
       // First update the order with any new items just in case
       await updateOpenOrder(activeOrderId, items, total);
       // Then checkout (mark as paid)
-      await checkoutOpenOrder(activeOrderId, paymentMethod);
+      await checkoutOpenOrder(activeOrderId, paymentMethod, currentUser?.id, currentUser?.name);
+      
+      // Auto-print receipt if enabled
+      const settings = useSettingsStore.getState();
+      if (settings.autoPrintReceipts) {
+        try {
+          await printReceipt(activeOrderId, useAuthStore.getState().cafeId() || '');
+        } catch (printErr) {
+          console.error('Auto-print failed:', printErr);
+          addToast('Checkout completed, but failed to print receipt.', 'error');
+        }
+      }
+
       setSuccess(true);
       setTimeout(() => {
         clearCart();
@@ -149,14 +182,25 @@ export default function CartPanel({ onOrderPlaced }: CartPanelProps) {
       }, 1500);
     } catch (err: any) {
       console.error('[CartPanel] Failed to checkout:', err);
-      setError(err.message || t('failed_checkout'));
+      addToast(err.message || t('failed_checkout'), 'error');
     } finally {
       setIsCheckingOut(false);
     }
   };
 
   return (
-    <div className="flex flex-col h-full bg-card border-l border-border">
+    <div className="relative flex flex-col h-full bg-card border-l border-border">
+      {/* Success Overlay */}
+      {success && (
+        <div className="absolute inset-0 z-50 bg-background/80 backdrop-blur-sm flex flex-col items-center justify-center animate-in fade-in duration-300">
+          <div className="bg-emerald-100 text-emerald-600 p-5 rounded-full mb-4 shadow-sm">
+            <CheckCircle2 size={48} />
+          </div>
+          <h2 className="text-xl font-bold text-foreground mb-1">{t('order_successful', 'Order Successful')}</h2>
+          <p className="text-muted-foreground text-sm">{t('preparing_next_order', 'Preparing next order...')}</p>
+        </div>
+      )}
+
       {/* Header */}
       <div className="flex items-center justify-between px-4 py-3.5 border-b border-border shrink-0">
         <div className="flex items-center gap-2">
@@ -200,44 +244,44 @@ export default function CartPanel({ onOrderPlaced }: CartPanelProps) {
             {items.map((item) => (
               <li key={item.product.id} className="flex items-center gap-3 px-4 py-3">
                 {/* Quantity controls */}
-                <div className="flex items-center gap-1 shrink-0">
+                <div className="flex items-center gap-1 shrink-0 bg-muted/50 rounded-lg p-0.5 border border-border/50">
                   <button
                     onClick={() => decrementItem(item.product.id)}
-                    className="w-7 h-7 rounded-lg bg-muted hover:bg-muted/70 flex items-center justify-center text-foreground transition-colors active:scale-90"
+                    className="w-8 h-8 rounded-md bg-background shadow-sm hover:bg-muted flex items-center justify-center text-foreground transition-colors active:scale-95"
                   >
-                    <Minus size={13} />
+                    <Minus size={14} />
                   </button>
-                  <span className="w-5 text-center text-sm font-semibold tabular-nums">
+                  <span className="w-6 text-center text-[15px] font-bold tabular-nums">
                     {item.quantity}
                   </span>
                   <button
                     onClick={() => incrementItem(item.product.id)}
-                    className="w-7 h-7 rounded-lg bg-muted hover:bg-muted/70 flex items-center justify-center text-foreground transition-colors active:scale-90"
+                    className="w-8 h-8 rounded-md bg-background shadow-sm hover:bg-muted flex items-center justify-center text-foreground transition-colors active:scale-95"
                   >
-                    <Plus size={13} />
+                    <Plus size={14} />
                   </button>
                 </div>
 
                 {/* Name */}
-                <div className="flex-1 min-w-0">
-                  <p className="text-sm font-medium text-foreground truncate">
+                <div className="flex-1 min-w-0 ml-1">
+                  <p className="text-[15px] font-semibold text-foreground truncate">
                     {item.product.name}
                   </p>
-                  <p className="text-xs text-muted-foreground">
-                    {item.unit_price.toLocaleString('en-EG')} EGP {t('each')}
+                  <p className="text-[13px] text-muted-foreground">
+                    {item.unit_price.toLocaleString('en-EG')} EGP
                   </p>
                 </div>
 
                 {/* Subtotal + remove */}
-                <div className="flex items-center gap-2 shrink-0">
-                  <span className="text-sm font-semibold text-foreground tabular-nums">
+                <div className="flex items-center gap-3 shrink-0">
+                  <span className="text-[15px] font-bold text-foreground tabular-nums">
                     {item.subtotal.toLocaleString('en-EG')} EGP
                   </span>
                   <button
                     onClick={() => removeItem(item.product.id)}
-                    className="w-6 h-6 rounded-md flex items-center justify-center text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors"
+                    className="w-8 h-8 rounded-md flex items-center justify-center text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors"
                   >
-                    <Trash2 size={13} />
+                    <Trash2 size={16} />
                   </button>
                 </div>
               </li>
@@ -274,11 +318,11 @@ export default function CartPanel({ onOrderPlaced }: CartPanelProps) {
           </div>
 
           {/* Discount */}
-          <div className="flex items-center gap-3">
-            <label htmlFor="pos-discount" className="text-xs font-medium text-muted-foreground whitespace-nowrap">
-              {t('discount_percentage')}
+          <div className="flex items-center gap-3 bg-muted/30 p-2.5 rounded-lg border border-border/50">
+            <label htmlFor="pos-discount" className="text-[13px] font-semibold text-foreground whitespace-nowrap flex-1">
+              {t('discount_percentage')} (%)
             </label>
-            <input
+            <Input
               id="pos-discount"
               type="text"
               inputMode="decimal"
@@ -295,18 +339,18 @@ export default function CartPanel({ onOrderPlaced }: CartPanelProps) {
                 setDiscount(Math.min(100, Math.max(0, num)));
               }}
               placeholder="0"
-              className="w-full h-9 rounded-md border border-input bg-background px-3 text-sm text-right tabular-nums focus:outline-none focus:ring-1 focus:ring-primary focus:border-primary shadow-sm"
+              className="w-20 h-9 text-right tabular-nums font-bold"
             />
           </div>
 
           {/* Cash received — only shown for Cash payment */}
           {isCash && (
-            <div className="space-y-2 rounded-xl border border-border bg-muted/40 p-3">
+            <div className="space-y-3 rounded-xl border border-border bg-muted/40 p-3.5 shadow-sm">
               <div className="flex items-center gap-3">
-                <label htmlFor="pos-cash-received" className="text-xs font-medium text-muted-foreground whitespace-nowrap">
+                <label htmlFor="pos-cash-received" className="text-[13px] font-semibold text-foreground whitespace-nowrap flex-1">
                   {t('cash_received')}
                 </label>
-                <input
+                <Input
                   id="pos-cash-received"
                   type="text"
                   inputMode="decimal"
@@ -318,7 +362,7 @@ export default function CartPanel({ onOrderPlaced }: CartPanelProps) {
                     setCashReceived(digitsOnly.replace(',', '.'));
                   }}
                   placeholder={total.toFixed(0)}
-                  className="w-full h-9 rounded-md border border-input bg-background px-3 text-sm text-right tabular-nums focus:outline-none focus:ring-1 focus:ring-primary focus:border-primary shadow-sm"
+                  className="w-32 h-10 text-right tabular-nums font-bold text-base"
                 />
               </div>
 
@@ -379,12 +423,7 @@ export default function CartPanel({ onOrderPlaced }: CartPanelProps) {
             </div>
           </div>
 
-          {/* Error */}
-          {error && (
-            <p className="text-xs text-destructive bg-destructive/10 rounded-lg px-3 py-2">
-              {error}
-            </p>
-          )}
+
 
           {/* Action Buttons */}
           <div className="flex gap-2">

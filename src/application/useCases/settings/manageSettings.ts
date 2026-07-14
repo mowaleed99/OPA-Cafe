@@ -17,6 +17,14 @@ export async function fetchSettings(cafeId: string) {
           ? JSON.parse(settings.cashier_permissions) 
           : (settings.cashier_permissions || ['pos', 'tables', 'invoices_sales']),
         ownerPinHash: settings.owner_pin_hash ?? null,
+        defaultPrinter: settings.default_printer ?? null,
+        paperSize: (settings.paper_size as '58mm' | '80mm' | 'custom') || '80mm',
+        autoPrintReceipts: Boolean(settings.auto_print_receipts),
+        receiptCopies: settings.receipt_copies || 1,
+        reportDefaultOutput: (settings.report_default_output as 'thermal' | 'pdf') || 'thermal',
+        receiptTemplateConfig: settings.receipt_template_config 
+          ? JSON.parse(settings.receipt_template_config)
+          : { showLogo: true, showCashier: true, showDiscount: true, footerMessage: 'Thank you for your visit!' },
       });
     } else {
       const defaultSettings: AppSettings = {
@@ -28,6 +36,12 @@ export async function fetchSettings(cafeId: string) {
         print_paper_size: 'A4',
         cashier_permissions: JSON.stringify(['pos', 'tables', 'invoices_sales']),
         owner_pin_hash: null,
+        default_printer: null,
+        paper_size: '80mm',
+        auto_print_receipts: false,
+        receipt_copies: 1,
+        report_default_output: 'thermal',
+        receipt_template_config: JSON.stringify({ showLogo: true, showCashier: true, showDiscount: true, footerMessage: 'Thank you for your visit!' }),
       };
       await settingsRepository.createSettings(defaultSettings);
       await enqueueSync('insert', 'settings', defaultSettings as unknown as Record<string, unknown>);
@@ -39,6 +53,12 @@ export async function fetchSettings(cafeId: string) {
         printPaperSize: 'A4',
         cashierPermissions: ['pos', 'tables', 'invoices_sales'],
         ownerPinHash: null,
+        defaultPrinter: null,
+        paperSize: '80mm',
+        autoPrintReceipts: false,
+        receiptCopies: 1,
+        reportDefaultOutput: 'thermal',
+        receiptTemplateConfig: { showLogo: true, showCashier: true, showDiscount: true, footerMessage: 'Thank you for your visit!' },
       });
     }
   } catch (error) {
@@ -49,10 +69,16 @@ export async function fetchSettings(cafeId: string) {
 export async function updateSettings(cafeId: string, updates: Partial<{
   language: string;
   cafe_name: string;
-  currency: string;
-  print_paper_size: string;
-  cashier_permissions: string[];
-  owner_pin_hash: string | null;
+  currency?: string;
+  print_paper_size?: string;
+  cashier_permissions?: string[];
+  owner_pin_hash?: string | null;
+  default_printer?: string | null;
+  paper_size?: string;
+  auto_print_receipts?: boolean;
+  receipt_copies?: number;
+  report_default_output?: string;
+  receipt_template_config?: any; // object that we stringify
 }>) {
   try {
     const existing = await settingsRepository.getSettings(cafeId);
@@ -61,6 +87,9 @@ export async function updateSettings(cafeId: string, updates: Partial<{
       const parsedUpdates: any = { ...updates };
       if (updates.cashier_permissions) {
         parsedUpdates.cashier_permissions = JSON.stringify(updates.cashier_permissions);
+      }
+      if (updates.receipt_template_config) {
+        parsedUpdates.receipt_template_config = JSON.stringify(updates.receipt_template_config);
       }
       const updated = { ...existing, ...parsedUpdates };
       await settingsRepository.updateSettings(existing.id, parsedUpdates);

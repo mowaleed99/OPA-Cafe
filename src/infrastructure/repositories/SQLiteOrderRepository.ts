@@ -22,6 +22,11 @@ export class SQLiteOrderRepository implements IOrderRepository {
     return list.filter((i: any) => !i.deleted_at) as OrderItem[];
   }
 
+  async getAllOrderItems(): Promise<OrderItem[]> {
+    const list = await window.electronAPI.db.findMany('order_items');
+    return list.filter((i: any) => !i.deleted_at) as OrderItem[];
+  }
+
   async getTables(cafeId: string): Promise<DiningTable[]> {
     const list = await window.electronAPI.db.findMany('tables', { cafe_id: cafeId });
     return list

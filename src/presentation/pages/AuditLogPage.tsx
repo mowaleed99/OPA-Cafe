@@ -5,7 +5,7 @@ import { useCurrency } from '../../application/utils/useCurrency';
 import { getAuditLog } from '../../application/useCases/orders/getAuditLog';
 import { clearAuditLog } from '../../application/useCases/orders/clearAuditLog';
 import { verifyOwnerPin } from '../../application/useCases/settings/manageOwnerPin';
-import { db } from '../../infrastructure/database/db';
+import { authRepository } from '../../infrastructure/repositories/index';
 import type { OrderAuditLog } from '../../domain/entities/order_audit_log';
 import type { AppUser } from '../../domain/entities/user';
 import {
@@ -79,7 +79,7 @@ export default function AuditLogPage() {
     setIsLoading(true);
     try {
       // Load cashier list for filter dropdown
-      const users = await db.app_users.where('cafe_id').equals(cafeId).toArray();
+      const users = await authRepository.getUsers(cafeId);
       setCashiers(users);
 
       // Load filtered audit entries

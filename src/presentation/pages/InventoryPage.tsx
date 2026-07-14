@@ -12,6 +12,7 @@ import { useTranslation } from 'react-i18next';
 import { StockAdjustmentModal } from '../features/inventory/StockAdjustmentModal';
 import { StockHistoryModal } from '../features/inventory/StockHistoryModal';
 import { useCurrency } from '../../application/utils/useCurrency';
+import { PageLayout, PageHeader, PageContent } from '../components/ui/page-layout';
 
 export default function InventoryPage() {
   const cafeId = useAuthStore(s => s.cafeId());
@@ -124,29 +125,32 @@ export default function InventoryPage() {
     setDeletingItemId(id);
   };
 
-  return (
-    <div className="p-6 max-w-5xl mx-auto space-y-6">
-      <div className="flex items-center justify-between gap-3">
-        <div>
-          <h1 className="text-2xl font-display font-bold text-foreground">{t('inventory')}</h1>
-          <p className="text-muted-foreground mt-1">{t('manage_inventory_desc')}</p>
-        </div>
-        <div className="flex items-center gap-3">
-          <div className="relative">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-            <input
-              type="text"
-              placeholder={t('search_items')}
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="h-10 rounded-md border border-input bg-background px-3 py-2 pl-9 text-sm w-60 focus:outline-none focus:ring-2 focus:ring-ring"
-            />
-          </div>
-          <Button onClick={() => handleOpenModal()}>
-            <PlusCircle className="mr-2 h-4 w-4" /> {t('add_item_btn')}
-          </Button>
-        </div>
+  const headerActions = (
+    <>
+      <div className="relative">
+        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+        <Input
+          type="text"
+          placeholder={t('search_items')}
+          value={searchQuery}
+          onChange={(e) => setSearchQuery(e.target.value)}
+          className="pl-9 w-60"
+        />
       </div>
+      <Button onClick={() => handleOpenModal()}>
+        <PlusCircle className="mr-2 h-4 w-4" /> {t('add_item_btn')}
+      </Button>
+    </>
+  );
+
+  return (
+    <PageLayout>
+      <PageHeader 
+        title={t('inventory')} 
+        description={t('manage_inventory_desc')} 
+        actions={headerActions}
+      />
+      <PageContent className="max-w-7xl mx-auto w-full">
 
       <div className="border rounded-md">
         <Table>
@@ -342,6 +346,7 @@ export default function InventoryPage() {
         cafeId={cafeId}
         onClose={() => setViewingHistoryItem(null)}
       />
-    </div>
+      </PageContent>
+    </PageLayout>
   );
 }

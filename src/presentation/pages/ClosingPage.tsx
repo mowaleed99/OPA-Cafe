@@ -15,8 +15,10 @@ import {
 } from '../../application/useCases/closing/dailyClosing';
 import type { DailyClosing } from '../../domain/entities/daily_closing';
 import type { Product } from '../../domain/entities/product';
-import { db } from '../../infrastructure/database/db';
+import { productRepository, categoryRepository } from '../../infrastructure/repositories/index';
 import { useCurrency } from '../../application/utils/useCurrency';
+import { exportPdfReport } from '../../application/useCases/printing/exportPdf';
+import { printReport as thermalPrintReport } from '../../application/useCases/printing/printReport';
 const formatDate = (dateStr: string) => {
   if (!dateStr) return '';
   const parts = dateStr.split('-');
@@ -46,8 +48,8 @@ export default function ClosingPage() {
     const [allClosings, targetClosing, prods, cats] = await Promise.all([
       getDailyClosings(cafeId),
       getClosingByDate(cafeId, selectedDate),
-      db.products.where('cafe_id').equals(cafeId).toArray(),
-      db.categories.where('cafe_id').equals(cafeId).toArray(),
+      productRepository.getProducts(cafeId || ''),
+      categoryRepository.getCategories(cafeId || ''),
     ]);
     
     // We can't reliably count today's unclosed orders easily for "needsUpdate" without running the full logic,
@@ -126,8 +128,19 @@ export default function ClosingPage() {
     URL.revokeObjectURL(url);
   };
 
-  const handlePrint = () => {
-    window.print();
+  const handlePrint = async () => {
+    if (!report) return;
+    const settings = useSettingsStore.getState();
+    try {
+      if (settings.reportDefaultOutput === 'pdf') {
+        await exportPdfReport('daily', report, `DailyClosing_${report.closing.closing_date}.pdf`);
+      } else {
+        await thermalPrintReport('daily', report);
+      }
+    } catch (e) {
+      console.error('Failed to print', e);
+      window.print(); // fallback
+    }
   };
 
   const today = new Date().toISOString().split('T')[0];

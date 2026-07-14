@@ -15,6 +15,8 @@ export async function createExpense(
   description: string,
   is_recurring: boolean
 ): Promise<Expense> {
+  if (Number(amount) <= 0) throw new Error('Expense amount must be greater than zero');
+
   const now = new Date().toISOString();
   const expense: Expense = {
     id: crypto.randomUUID(),
@@ -43,6 +45,8 @@ export async function createExpense(
 }
 
 export async function updateExpense(expense: Expense): Promise<void> {
+  if (Number(expense.amount) <= 0) throw new Error('Expense amount must be greater than zero');
+
   expense.updated_at = new Date().toISOString();
   expense.amount = Number(expense.amount);
   
@@ -59,9 +63,10 @@ export async function updateExpense(expense: Expense): Promise<void> {
 }
 
 export async function deleteExpense(expenseId: string): Promise<void> {
+  const now = new Date().toISOString();
   const ops: TransactionOperation[] = [
-    { type: 'delete', table: 'expenses', id: expenseId },
-    buildSyncOperation('delete', 'expenses', { id: expenseId })
+    { type: 'update', table: 'expenses', id: expenseId, data: { deleted_at: now } },
+    buildSyncOperation('update', 'expenses', { id: expenseId, deleted_at: now })
   ];
 
   await executeTransaction(ops);

@@ -1,5 +1,6 @@
 import { buildSyncOperation } from '../../sync/syncQueue';
 import { orderRepository, productRepository, inventoryRepository } from '../../../infrastructure/repositories/index';
+import type { OrderAuditLog } from '../../../domain/entities/order_audit_log';
 import { executeTransaction, TransactionOperation } from '../../../infrastructure/database/transaction';
 import type { CartItem } from '../../store/useCartStore';
 import type { Order, OrderItem, PaymentMethod, OrderStatus, OrderType } from '../../../domain/entities/order';
@@ -13,6 +14,8 @@ export interface PlaceOrderParams {
   tableId?: string | null;
   status?: OrderStatus;
   orderType?: OrderType;
+  userId?: string;
+  userName?: string;
 }
 
 export interface PlaceOrderResult {
@@ -20,6 +23,18 @@ export interface PlaceOrderResult {
 }
 
 export async function placeOrder(params: PlaceOrderParams): Promise<PlaceOrderResult> {
+  if (!params.items || params.items.length === 0) {
+    throw new Error('Cannot place an empty order');
+  }
+
+  const subtotal = params.items.reduce((sum, item) => sum + item.subtotal, 0);
+  if (params.total < 0) {
+    throw new Error('Discount cannot exceed subtotal');
+  }
+  if (params.total > subtotal) {
+    throw new Error('Total cannot exceed subtotal (invalid discount)');
+  }
+
   const orderId = crypto.randomUUID();
   const now = new Date().toISOString();
   
@@ -63,6 +78,25 @@ export async function placeOrder(params: PlaceOrderParams): Promise<PlaceOrderRe
     for (const item of orderItems) {
       ops.push(buildSyncOperation('insert', 'order_items', item as unknown as Record<string, unknown>));
     }
+  }
+
+  // Discount Audit Log
+  const discountAmount = subtotal - params.total;
+  if (discountAmount > 0) {
+    const auditEntry: OrderAuditLog = {
+      id: crypto.randomUUID(),
+      cafe_id: params.cafeId,
+      order_id: orderId,
+      action_type: 'discount' as any, // SQLite allows any string
+      initiated_by_user_id: params.userId || 'unknown',
+      initiated_by_name: params.userName || 'Unknown Cashier',
+      approved_by_owner_pin: false, // Discount might not require PIN based on current requirements
+      reason: `Discount applied: ${discountAmount}`,
+      order_total: params.total,
+      created_at: now,
+    };
+    ops.push({ type: 'insert', table: 'order_audit_log', data: auditEntry });
+    ops.push(buildSyncOperation('insert', 'order_audit_log', auditEntry as unknown as Record<string, unknown>));
   }
 
   // Table

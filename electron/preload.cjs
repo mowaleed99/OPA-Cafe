@@ -15,5 +15,14 @@ contextBridge.exposeInMainWorld('electronAPI', {
     delete: (table, id) => ipcRenderer.invoke('db:delete', { table, id }),
     transaction: (operations) => ipcRenderer.invoke('db:transaction', operations)
   },
-  triggerSync: () => ipcRenderer.invoke('sync:trigger')
+  triggerSync: () => ipcRenderer.invoke('sync:trigger'),
+  getSyncStatus: () => ipcRenderer.invoke('sync:getStatus'),
+  onSyncStatus: (callback) => {
+    const handler = (event, status) => callback(status);
+    ipcRenderer.on('sync:status', handler);
+    return () => ipcRenderer.removeListener('sync:status', handler);
+  },
+  getPrinters: () => ipcRenderer.invoke('printer:getPrinters'),
+  printHtml: (html, options) => ipcRenderer.invoke('printer:printHtml', html, options),
+  exportPdf: (html, options) => ipcRenderer.invoke('printer:exportPdf', html, options)
 });

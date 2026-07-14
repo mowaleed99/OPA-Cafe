@@ -12,6 +12,10 @@ export interface Order {
   total_amount: number;
   created_at: string;
   deleted_at?: string;
+  user_id?: string;
+  user_name?: string;
+  discount?: number;
+  subtotal?: number;
 }
 
 export interface OrderItem {

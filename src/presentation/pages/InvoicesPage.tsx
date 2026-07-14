@@ -3,8 +3,9 @@ import { useTranslation } from 'react-i18next';
 import { useAuthStore } from '../../application/store/useAuthStore';
 import { useSettingsStore } from '../../application/store/useSettingsStore';
 import { useCurrency } from '../../application/utils/useCurrency';
-import { db } from '../../infrastructure/database/db';
+import { productRepository, supplierRepository, orderRepository, purchaseRepository } from '../../infrastructure/repositories/index';
 import { voidOrder } from '../../application/useCases/orders/voidOrder';
+import { printReceipt } from '../../application/useCases/printing/printReceipt';
 import type { Order, OrderItem } from '../../domain/entities/order';
 import type { Purchase, PurchaseItem, Supplier } from '../../domain/entities/supplier';
 import PinEntryDialog from '../components/PinEntryDialog';
@@ -74,15 +75,16 @@ function SalesInvoiceModal({
   const { formatCurrency } = useCurrency();
   const { cafeName } = useSettingsStore();
   const isOwner = useAuthStore(s => s.isOwner());
+  const cafeId = useAuthStore(s => s.cafeId());
   const [items, setItems] = useState<OrderItem[]>([]);
   const [products, setProducts] = useState<Record<string, string>>({});
 
   useEffect(() => {
     if (!order) return;
     (async () => {
-      const orderItems = await db.order_items.where('order_id').equals(order.id).toArray();
+      const orderItems = await orderRepository.getOrderItems(order.id);
       setItems(orderItems);
-      const prods = await db.products.where('cafe_id').equals(order.cafe_id).toArray();
+      const prods = await productRepository.getProducts(cafeId || '');
       const map: Record<string, string> = {};
       prods.forEach(p => { map[p.id] = p.name; });
       setProducts(map);
@@ -93,8 +95,15 @@ function SalesInvoiceModal({
 
   const isVoided = order.status === 'voided';
 
-  const handlePrint = () => {
-    window.print();
+  const handlePrint = async () => {
+    try {
+      // @ts-ignore
+      await printReceipt(order.id, useAuthStore.getState().cafeId());
+    } catch (e) {
+      console.error('Print failed', e);
+      // fallback
+      window.print();
+    }
   };
 
   return (
@@ -355,12 +364,10 @@ function SalesInvoicesTab() {
     if (!cafeId) return;
     setIsLoading(true);
     try {
-      const allOrders = await db.orders
-        .where('cafe_id')
-        .equals(cafeId)
+      const allRawOrders = await orderRepository.getOrders(cafeId);
+      const allOrders = allRawOrders
         .filter(o => o.status === 'paid' || o.status === 'voided')
-        .reverse()
-        .sortBy('created_at');
+        .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
       setOrders(allOrders);
     } finally {
       setIsLoading(false);
@@ -554,15 +561,12 @@ function SupplierInvoicesTab() {
     (async () => {
       setIsLoading(true);
       try {
-        const suppliers = await db.suppliers.where('cafe_id').equals(cafeId).toArray();
+        const suppliers = await supplierRepository.getSuppliers(cafeId || '');
         const supplierMap: Record<string, Supplier> = {};
         suppliers.forEach(s => { supplierMap[s.id] = s; });
 
-        const allPurchases = await db.purchases
-          .where('cafe_id')
-          .equals(cafeId)
-          .reverse()
-          .sortBy('created_at');
+        const rawPurchases = await purchaseRepository.getPurchases(cafeId);
+        const allPurchases = rawPurchases.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
 
         const enriched: EnrichedPurchase[] = allPurchases.map(p => ({
           ...p,
@@ -577,7 +581,7 @@ function SupplierInvoicesTab() {
 
   const handleViewPurchase = async (purchase: EnrichedPurchase) => {
     setSelectedPurchase(purchase);
-    const items = await db.purchase_items.where('purchase_id').equals(purchase.id).toArray();
+    const items = await purchaseRepository.getPurchaseItems(purchase.id);
     setPurchaseItems(items);
     setShowDetail(true);
   };

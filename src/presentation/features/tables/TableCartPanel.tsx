@@ -16,8 +16,9 @@ import { useCartStore } from '../../../application/store/useCartStore';
 import { placeOrder } from '../../../application/useCases/pos/placeOrder';
 import { updateOpenOrder } from '../../../application/useCases/pos/updateOpenOrder';
 import { checkoutOpenOrder } from '../../../application/useCases/pos/checkoutOpenOrder';
-import { useAuthStore } from '../../../application/store/useAuthStore';
+import { printReceipt } from '../../../application/useCases/printing/printReceipt';
 import { useSettingsStore } from '../../../application/store/useSettingsStore';
+import { useAuthStore } from '../../../application/store/useAuthStore';
 import type { PaymentMethod } from '../../../domain/entities/order';
 
 const PAYMENT_METHOD_KEYS: { id: PaymentMethod; labelKey: string; icon: React.ReactNode }[] = [
@@ -121,6 +122,18 @@ export default function TableCartPanel({ onOrderPlaced, onDone }: TableCartPanel
     try {
       await updateOpenOrder(activeOrderId, items, total);
       await checkoutOpenOrder(activeOrderId, paymentMethod);
+
+      // Auto-print receipt if enabled
+      const settings = useSettingsStore.getState();
+      if (settings.autoPrintReceipts) {
+        try {
+          await printReceipt(activeOrderId, useAuthStore.getState().cafeId() || '');
+        } catch (printErr) {
+          console.error('Auto-print failed:', printErr);
+          // could show toast but setError overrides success message, so just log it.
+        }
+      }
+
       setCheckoutSuccess(true);
       onOrderPlaced?.();
       setTimeout(() => {

@@ -1,8 +1,8 @@
-import { useEffect, useState, useCallback } from 'react';
-import { RefreshCw, WifiOff } from 'lucide-react';
+import { useEffect, useState, useCallback, useRef } from 'react';
+import { RefreshCw, WifiOff, Search, X } from 'lucide-react';
 import { useSearchParams } from 'react-router-dom';
-import { useLiveQuery } from 'dexie-react-hooks';
-import { db } from '../../infrastructure/database/db';
+import { createRepository } from '../../infrastructure/repositories/RepositoryFactory';
+const tableRepository = createRepository<DiningTable>('dining_tables');
 import { loadTableOrder } from '../../application/useCases/pos/loadTableOrder';
 import { useAuthStore } from '../../application/store/useAuthStore';
 import { useTranslation } from 'react-i18next';
@@ -12,6 +12,8 @@ import CategoryTabs from '../features/pos/CategoryTabs';
 import ProductGrid from '../features/pos/ProductGrid';
 import CartPanel from '../features/pos/CartPanel';
 import type { Product } from '../../domain/entities/product';
+import type { DiningTable } from '../../domain/entities/table';
+import { Input } from '../components/ui/input';
 
 export default function POSPage() {
   const { cafeId } = useAuthStore();
@@ -20,18 +22,10 @@ export default function POSPage() {
   const tableId = searchParams.get('table_id');
   const { t } = useTranslation();
 
-  const livePosData = useLiveQuery(
-    async () => {
-      const cafe = cafeId();
-      if (!cafe) return { categories: [], products: [], inventoryMap: {} };
-      return await loadPOSData(cafe);
-    },
-    [cafeId]
-  );
-
-  const posData: POSData = livePosData || { categories: [], products: [], inventoryMap: {} };
+  const [posData, setPosData] = useState<POSData>({ categories: [], products: [], inventoryMap: {} });
 
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
+  const [searchQuery, setSearchQuery] = useState('');
   const [isLoading, setIsLoading] = useState(true);
   const [isOffline, setIsOffline] = useState(!navigator.onLine);
   const [tableName, setTableName] = useState<string | null>(null);
@@ -41,10 +35,13 @@ export default function POSPage() {
     if (!cafe) return;
     setIsLoading(true);
     try {
+      const data = await loadPOSData(cafe);
+      setPosData(data);
+
       // Handle Table Mode
       if (tableId) {
         setTableId(tableId);
-        const table = await db.dining_tables.get(tableId);
+        const table = await tableRepository.findOne(tableId);
         if (table) {
           setTableName(table.name_or_number);
           if (table.status === 'occupied' && table.current_order_id) {
@@ -88,6 +85,31 @@ export default function POSPage() {
     addItem(product);
   }, [addItem]);
 
+  const searchInputRef = useRef<HTMLInputElement>(null);
+
+  // Keyboard Shortcuts
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      // Cmd+F or Ctrl+F to focus search
+      if ((e.metaKey || e.ctrlKey) && e.key === 'f') {
+        e.preventDefault();
+        searchInputRef.current?.focus();
+      }
+      
+      // Escape to clear search or unfocus
+      if (e.key === 'Escape') {
+        if (document.activeElement === searchInputRef.current) {
+          searchInputRef.current?.blur();
+        } else if (searchQuery) {
+          setSearchQuery('');
+        }
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [searchQuery]);
+
 
 
   return (
@@ -122,8 +144,27 @@ export default function POSPage() {
           </button>
         </div>
 
-        {/* Category tabs */}
-        <div className="px-6 pt-5 pb-3 shrink-0">
+        {/* Search & Category tabs */}
+        <div className="px-6 pt-5 pb-3 shrink-0 flex flex-col gap-4">
+          <div className="relative">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+            <Input
+              ref={searchInputRef}
+              placeholder={t('search_products') + ' (Ctrl+F)'}
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="pl-9 pr-10 h-11 bg-card border-border shadow-sm w-full md:w-1/2 lg:w-1/3"
+            />
+            {searchQuery && (
+              <button
+                onClick={() => setSearchQuery('')}
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            )}
+          </div>
+          
           <CategoryTabs
             categories={posData.categories}
             selected={selectedCategory}
@@ -148,6 +189,7 @@ export default function POSPage() {
               cartItems={items}
               inventoryMap={posData.inventoryMap}
               selectedCategory={selectedCategory}
+              searchQuery={searchQuery}
               onAddProduct={handleAddProduct}
             />
           )}

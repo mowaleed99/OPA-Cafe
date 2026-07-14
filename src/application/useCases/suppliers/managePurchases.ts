@@ -30,18 +30,27 @@ export async function getPurchaseDetails(purchaseId: string): Promise<PurchaseWi
 }
 
 export async function createPurchase(params: CreatePurchaseParams): Promise<Purchase> {
+  if (!params.items || params.items.length === 0) {
+    throw new Error('Purchase must contain at least one item');
+  }
+
   const purchaseId = crypto.randomUUID();
   const now = new Date().toISOString();
 
-  const purchaseItems: PurchaseItem[] = params.items.map(item => ({
-    id: crypto.randomUUID(),
-    purchase_id: purchaseId,
-    inventory_item_id: item.inventoryItemId,
-    item_name: item.itemName,
-    quantity: item.quantity,
-    unit_cost: item.unitCost,
-    subtotal: item.quantity * item.unitCost,
-  }));
+  const purchaseItems: PurchaseItem[] = params.items.map(item => {
+    if (item.quantity <= 0) throw new Error(`Invalid quantity for item ${item.itemName || item.inventoryItemId}`);
+    if (item.unitCost < 0) throw new Error(`Invalid unit cost for item ${item.itemName || item.inventoryItemId}`);
+
+    return {
+      id: crypto.randomUUID(),
+      purchase_id: purchaseId,
+      inventory_item_id: item.inventoryItemId,
+      item_name: item.itemName,
+      quantity: item.quantity,
+      unit_cost: item.unitCost,
+      subtotal: item.quantity * item.unitCost,
+    };
+  });
 
   const totalAmount = purchaseItems.reduce((sum, i) => sum + i.subtotal, 0);
 
@@ -94,6 +103,10 @@ export async function recordPayment(
   amount: number,
   notes?: string
 ): Promise<{ purchase: Purchase; payment: SupplierPayment }> {
+  if (amount <= 0) {
+    throw new Error('Payment amount must be greater than zero');
+  }
+
   const newAmountPaid = purchase.amount_paid + amount;
   const newAmountRemaining = purchase.total_amount - newAmountPaid;
   const newStatus = newAmountRemaining <= 0 ? 'paid' : 'partial';

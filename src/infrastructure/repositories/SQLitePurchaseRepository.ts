@@ -25,4 +25,11 @@ export class SQLitePurchaseRepository implements IPurchaseRepository {
     const list = await window.electronAPI.db.findMany('supplier_payments', { purchase_id: purchaseId });
     return list.filter((p: any) => !p.deleted_at) as SupplierPayment[];
   }
+
+  async getPayments(cafeId: string): Promise<SupplierPayment[]> {
+    const list = await window.electronAPI.db.findMany('supplier_payments');
+    // Note: Since supplier_payments does not have cafe_id, we fetch all and let use cases filter by supplier_ids.
+    // Or if they DO have cafe_id, we could filter here. schema.cjs shows supplier_payments doesn't have cafe_id.
+    return list.filter((p: any) => !p.deleted_at) as SupplierPayment[];
+  }
 }

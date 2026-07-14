@@ -29,6 +29,7 @@ import {
 } from '../../application/useCases/suppliers/managePurchases';
 import { getInventoryItems } from '../../application/useCases/inventory/manageInventory';
 import { useCurrency } from '../../application/utils/useCurrency';
+import { useToast } from '../hooks/useToast';
 
 // ── Status Badge ──────────────────────────────────────────────────────────────
 function StatusBadge({ status }: { status: Purchase['payment_status'] }) {
@@ -79,6 +80,7 @@ function CreatePurchaseModal({
     { inventoryItemId: '', quantity: '', unitCost: '', isCountable: false, cartons: '0', piecesPerCarton: '1', loosePieces: '0' },
   ]);
   const [saving, setSaving] = useState(false);
+  const { addToast } = useToast();
 
   useEffect(() => {
     if (isOpen) {
@@ -144,6 +146,8 @@ function CreatePurchaseModal({
       await createPurchase(params);
       onCreated();
       onClose();
+    } catch (err: any) {
+      addToast(err.message || 'Failed to create purchase', 'error');
     } finally {
       setSaving(false);
     }

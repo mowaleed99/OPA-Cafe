@@ -1,5 +1,5 @@
 import { buildSyncOperation } from '../../sync/syncQueue';
-import { closingRepository, orderRepository, supplierRepository, purchaseRepository } from '../../../infrastructure/repositories/index';
+import { closingRepository, orderRepository, supplierRepository, purchaseRepository, productRepository, categoryRepository, expenseRepository, inventoryRepository } from '../../../infrastructure/repositories/index';
 import { executeTransaction, TransactionOperation } from '../../../infrastructure/database/transaction';
 import type { DailyClosing, DailyClosingItem } from '../../../domain/entities/daily_closing';
 
@@ -26,6 +26,34 @@ export interface ClosingReport {
   items: DailyClosingItem[];
   expenses: number;
   payments?: any[]; // Array of payments with supplier details
+  metrics?: {
+    totalSales: number;
+    totalOrders: number;
+    averageOrderValue: number;
+    totalItemsSold: number;
+    paymentMethods: {
+      cash: { amount: number; percentage: number };
+      card: { amount: number; percentage: number };
+      other: { amount: number; percentage: number };
+    };
+    topProducts: { name: string; quantity: number; revenue: number }[];
+    slowProducts: { name: string; quantity: number; revenue: number }[];
+    categories: { name: string; quantity: number; revenue: number }[];
+    expensesByCategory: { name: string; amount: number; count: number }[];
+    expenseCount: number;
+    profit: {
+      revenue: number;
+      cogs: number;
+      expenses: number;
+      netProfit: number;
+      profitMargin: number;
+    };
+    inventory: {
+      currentValue: number;
+      lowStockCount: number;
+      outOfStockCount: number;
+    };
+  };
 }
 
 export async function closingDay(cafeId: string, selectedDate: string = new Date().toISOString().split('T')[0]): Promise<ClosingReport> {
@@ -85,7 +113,14 @@ export async function closingDay(cafeId: string, selectedDate: string = new Date
   const cafeSupplierIds = new Set(cafeSuppliers.map(s => s.id));
   
   const cafeShiftPayments = shiftPayments.filter(p => cafeSupplierIds.has(p.supplier_id));
-  const totalExpenses = cafeShiftPayments.reduce((sum, p) => sum + p.amount, 0);
+  const purchaseExpenses = cafeShiftPayments.reduce((sum, p) => sum + p.amount, 0);
+
+  // 4b. Find other direct expenses
+  const allDirectExpenses = await expenseRepository.getExpenses(cafeId);
+  const directExpenses = allDirectExpenses.filter(e => e.expense_date.startsWith(selectedDate));
+  const totalDirectExpenses = directExpenses.reduce((sum, e) => sum + e.amount, 0);
+
+  const totalExpenses = purchaseExpenses + totalDirectExpenses;
 
   const closing: DailyClosing = {
     id: closingId,
@@ -151,7 +186,118 @@ export async function closingDay(cafeId: string, selectedDate: string = new Date
     };
   });
 
-  return { closing, items: closingItems, expenses: totalExpenses, payments: enrichedPayments };
+  // Calculate detailed metrics for Phase 10a
+  const allProducts = await productRepository.getProducts(cafeId);
+  const allCategories = await categoryRepository.getCategories(cafeId);
+  const allInventory = await inventoryRepository.getInventoryItems(cafeId);
+
+  let cogs = 0;
+  let totalItemsSold = 0;
+  
+  const productStats: { name: string; quantity: number; revenue: number }[] = [];
+  const catStatsMap: Record<string, { quantity: number; revenue: number }> = {};
+  
+  for (const [productId, agg] of Object.entries(productTotals)) {
+    const product = allProducts.find(p => p.id === productId);
+    const cost = product?.cost || 0;
+    cogs += cost * agg.quantity;
+    totalItemsSold += agg.quantity;
+    
+    if (product) {
+      productStats.push({ name: product.name, quantity: agg.quantity, revenue: agg.revenue });
+      
+      const catId = product.category_id;
+      if (!catStatsMap[catId]) catStatsMap[catId] = { quantity: 0, revenue: 0 };
+      catStatsMap[catId].quantity += agg.quantity;
+      catStatsMap[catId].revenue += agg.revenue;
+    }
+  }
+
+  productStats.sort((a, b) => b.quantity - a.quantity);
+  const topProducts = productStats.slice(0, 5);
+  const slowProducts = productStats.slice(-5).reverse();
+
+  const categories = Object.entries(catStatsMap).map(([catId, stats]) => {
+    const cat = allCategories.find(c => c.id === catId);
+    return { name: cat ? cat.name : 'Unknown', quantity: stats.quantity, revenue: stats.revenue };
+  });
+
+  const paymentMethods = {
+    cash: { amount: 0, percentage: 0 },
+    card: { amount: 0, percentage: 0 },
+    other: { amount: 0, percentage: 0 },
+  };
+
+  shiftOrders.forEach(o => {
+    if (o.payment_method === 'cash') paymentMethods.cash.amount += o.total_amount;
+    else if (o.payment_method === 'instapay' || 
+             o.payment_method === 'vodafone_cash' || 
+             (o.payment_method as string) === 'card') paymentMethods.card.amount += o.total_amount;
+    else paymentMethods.other.amount += o.total_amount;
+  });
+
+  if (totalSales > 0) {
+    paymentMethods.cash.percentage = Math.round((paymentMethods.cash.amount / totalSales) * 100);
+    paymentMethods.card.percentage = Math.round((paymentMethods.card.amount / totalSales) * 100);
+    paymentMethods.other.percentage = Math.round((paymentMethods.other.amount / totalSales) * 100);
+  }
+
+  const expensesByCategoryMap: Record<string, { amount: number; count: number }> = {};
+  directExpenses.forEach(e => {
+    if (!expensesByCategoryMap[e.category]) expensesByCategoryMap[e.category] = { amount: 0, count: 0 };
+    expensesByCategoryMap[e.category].amount += e.amount;
+    expensesByCategoryMap[e.category].count++;
+  });
+  
+  if (cafeShiftPayments.length > 0) {
+    if (!expensesByCategoryMap['Purchases']) expensesByCategoryMap['Purchases'] = { amount: 0, count: 0 };
+    expensesByCategoryMap['Purchases'].amount += purchaseExpenses;
+    expensesByCategoryMap['Purchases'].count += cafeShiftPayments.length;
+  }
+
+  const expensesByCategory = Object.entries(expensesByCategoryMap).map(([name, stats]) => ({
+    name,
+    amount: stats.amount,
+    count: stats.count
+  }));
+
+  const netProfit = totalSales - cogs - totalExpenses;
+  const profitMargin = totalSales > 0 ? (netProfit / totalSales) * 100 : 0;
+
+  const inventoryCurrentValue = allInventory.reduce((sum, p) => sum + ((p.cost || 0) * (p.stock_quantity || 0)), 0);
+  const lowStockCount = allInventory.filter(p => (p.stock_quantity || 0) <= (p.low_stock_threshold || 5) && (p.stock_quantity || 0) > 0).length;
+  const outOfStockCount = allInventory.filter(p => (p.stock_quantity || 0) <= 0).length;
+
+  return {
+    closing,
+    items: closingItems,
+    expenses: totalExpenses,
+    payments: enrichedPayments,
+    metrics: {
+      totalSales,
+      totalOrders: shiftOrders.length,
+      averageOrderValue: shiftOrders.length > 0 ? totalSales / shiftOrders.length : 0,
+      totalItemsSold,
+      paymentMethods,
+      topProducts,
+      slowProducts,
+      categories,
+      expensesByCategory,
+      expenseCount: directExpenses.length + cafeShiftPayments.length,
+      profit: {
+        revenue: totalSales,
+        cogs,
+        expenses: totalExpenses,
+        netProfit,
+        profitMargin
+      },
+      inventory: {
+        currentValue: inventoryCurrentValue,
+        lowStockCount,
+        outOfStockCount
+      }
+    }
+  };
 }
 
 export async function getClosingPayments(cafeId: string, selectedDate: string) {

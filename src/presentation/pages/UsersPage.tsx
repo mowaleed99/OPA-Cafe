@@ -7,6 +7,7 @@ import { updateUser } from '../../application/useCases/users/updateUser';
 import { deleteUser } from '../../application/useCases/users/deleteUser';
 import { AppUser } from '../../domain/entities/user';
 import { Users, Plus, Shield, Loader2, X, Trash2, Eye, EyeOff } from 'lucide-react';
+import { PageLayout, PageHeader, PageContent } from '../components/ui/page-layout';
 
 export default function UsersPage() {
   const { t } = useTranslation();
@@ -117,31 +118,26 @@ export default function UsersPage() {
     refetch();
   };
 
+  const headerActions = (
+    <button
+      onClick={() => setIsModalOpen(true)}
+      className="flex items-center gap-2 bg-primary text-primary-foreground px-4 py-2 rounded-xl font-medium shadow-sm hover:opacity-90 transition-opacity"
+    >
+      <Plus size={18} />
+      {t('create_cashier_btn')}
+    </button>
+  );
+
   return (
-    <div className="h-full flex flex-col bg-muted/20">
-      {/* Header */}
-      <div className="flex-shrink-0 bg-background border-b border-border p-6 flex justify-between items-center">
-        <div>
-          <h1 className="text-2xl font-bold tracking-tight text-foreground flex items-center gap-3">
-            <Users className="text-primary" size={28} />
-            {t('user_management_title')}
-          </h1>
-          <p className="text-sm text-muted-foreground mt-1">
-            {t('manage_cashiers_desc2')}
-          </p>
-        </div>
-        
-        <button
-          onClick={() => setIsModalOpen(true)}
-          className="flex items-center gap-2 bg-primary text-primary-foreground px-4 py-2 rounded-xl font-medium shadow-sm hover:opacity-90 transition-opacity"
-        >
-          <Plus size={18} />
-          {t('create_cashier_btn')}
-        </button>
-      </div>
+    <PageLayout>
+      <PageHeader 
+        title={t('user_management_title')} 
+        description={t('manage_cashiers_desc2')} 
+        actions={headerActions}
+      />
 
       {/* Main Content */}
-      <div className="flex-1 p-6 overflow-auto">
+      <PageContent>
         <div className="bg-background rounded-xl border border-border shadow-sm overflow-hidden">
           <div className="p-4 border-b border-border bg-muted/30 font-medium text-foreground">
             {t('current_cashiers_title')}
@@ -185,7 +181,7 @@ export default function UsersPage() {
             </div>
           )}
         </div>
-      </div>
+      </PageContent>
 
       {/* Create Modal */}
       {isModalOpen && (
@@ -384,6 +380,6 @@ export default function UsersPage() {
           </div>
         </div>
       )}
-    </div>
+    </PageLayout>
   );
 }

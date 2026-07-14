@@ -213,6 +213,12 @@ const settings = sqliteTable('settings', {
   auto_backup_time: text('auto_backup_time'),
   last_backup_date: text('last_backup_date'),
   owner_pin_hash: text('owner_pin_hash'),
+  default_printer: text('default_printer'),
+  paper_size: text('paper_size').default('80mm'), // 58mm, 80mm, custom
+  auto_print_receipts: integer('auto_print_receipts', { mode: 'boolean' }).default(false),
+  receipt_copies: integer('receipt_copies').default(1),
+  report_default_output: text('report_default_output').default('thermal'), // thermal, pdf
+  receipt_template_config: text('receipt_template_config'), // JSON: { showLogo: boolean, showCashier: boolean, showDiscount: boolean, footerMessage: string }
   ...syncFields
 });
 
@@ -236,16 +242,16 @@ const syncQueue = sqliteTable('sync_queue', {
   status: text('status').notNull().default('pending'),
   retry_count: integer('retry_count').notNull().default(0),
   created_at: text('created_at').notNull(),
-  record_id: text('record_id')
+  record_id: text('record_id'),
+  last_error: text('last_error')
 });
 
 const syncConflicts = sqliteTable('sync_conflicts', {
   id: text('id').primaryKey(),
-  table_name: text('table_name').notNull(),
-  record_id: text('record_id').notNull(),
-  local_data: text('local_data').notNull(),
-  remote_data: text('remote_data').notNull(),
-  resolved: integer('resolved', { mode: 'boolean' }).default(false),
+  entity_name: text('entity_name').notNull(),
+  entity_id: text('entity_id').notNull(),
+  local_version: integer('local_version'),
+  remote_version: integer('remote_version'),
   resolution: text('resolution'), // 'local_wins' | 'remote_wins' | 'merged'
   created_at: text('created_at').notNull()
 });

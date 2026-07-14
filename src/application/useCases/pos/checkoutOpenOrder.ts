@@ -3,10 +3,24 @@ import { orderRepository, productRepository, inventoryRepository } from '../../.
 import { executeTransaction, TransactionOperation } from '../../../infrastructure/database/transaction';
 import type { PaymentMethod } from '../../../domain/entities/order';
 import type { StockMovement } from '../../../domain/entities/stock_movement';
+import type { OrderAuditLog } from '../../../domain/entities/order_audit_log';
 
-export async function checkoutOpenOrder(orderId: string, paymentMethod: PaymentMethod): Promise<void> {
+export async function checkoutOpenOrder(orderId: string, paymentMethod: PaymentMethod, userId?: string, userName?: string): Promise<void> {
   const order = await orderRepository.getOrderById(orderId);
   if (!order) throw new Error('Order not found');
+
+  const orderItems = await orderRepository.getOrderItems(orderId);
+  if (orderItems.length === 0) {
+    throw new Error('Cannot checkout an empty order');
+  }
+
+  const subtotal = orderItems.reduce((sum, item) => sum + item.subtotal, 0);
+  if (order.total_amount < 0) {
+    throw new Error('Discount cannot exceed subtotal');
+  }
+  if (order.total_amount > subtotal) {
+    throw new Error('Total cannot exceed subtotal (invalid discount)');
+  }
 
   // Map invalid payment methods to 'other' for Supabase CHECK constraint
   let supabasePaymentMethod = paymentMethod;
@@ -28,8 +42,26 @@ export async function checkoutOpenOrder(orderId: string, paymentMethod: PaymentM
     ops.push(buildSyncOperation('update', 'tables', { id: order.table_id, cafe_id: order.cafe_id, ...tableUpdate }));
   }
 
+  // Discount Audit Log
+  const discountAmount = subtotal - order.total_amount;
+  if (discountAmount > 0) {
+    const auditEntry: OrderAuditLog = {
+      id: crypto.randomUUID(),
+      cafe_id: order.cafe_id,
+      order_id: orderId,
+      action_type: 'discount' as any,
+      initiated_by_user_id: userId || 'unknown',
+      initiated_by_name: userName || 'Unknown Cashier',
+      approved_by_owner_pin: false,
+      reason: `Discount applied during checkout: ${discountAmount}`,
+      order_total: order.total_amount,
+      created_at: new Date().toISOString(),
+    };
+    ops.push({ type: 'insert', table: 'order_audit_log', data: auditEntry });
+    ops.push(buildSyncOperation('insert', 'order_audit_log', auditEntry as unknown as Record<string, unknown>));
+  }
+
   // Deduct stock
-  const orderItems = await orderRepository.getOrderItems(orderId);
   const now = new Date().toISOString();
   
   for (const item of orderItems) {

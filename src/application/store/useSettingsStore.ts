@@ -11,13 +11,24 @@ interface SettingsState {
   autoBackupTime: string;
   lastBackupDate: string | null;
   ownerPinHash: string | null;
+  defaultPrinter: string | null;
+  paperSize: '58mm' | '80mm' | 'custom';
+  autoPrintReceipts: boolean;
+  receiptCopies: number;
+  reportDefaultOutput: 'thermal' | 'pdf';
+  receiptTemplateConfig: {
+    showLogo: boolean;
+    showCashier: boolean;
+    showDiscount: boolean;
+    footerMessage: string;
+  };
   setLanguage: (lang: 'ar' | 'en') => void;
   setCafeName: (name: string) => void;
   setCurrency: (currency: string) => void;
-  setPrintPaperSize: (size: 'A4' | '80mm' | '58mm') => void;
   setCashierPermissions: (permissions: string[]) => void;
   setOwnerPinHash: (hash: string | null) => void;
   loadSettings: (settings: Partial<SettingsState>) => void;
+  setPrintSettings: (settings: Partial<Pick<SettingsState, 'defaultPrinter' | 'paperSize' | 'autoPrintReceipts' | 'receiptCopies' | 'reportDefaultOutput' | 'receiptTemplateConfig'>>) => void;
 }
 
 export const useSettingsStore = create<SettingsState>()((set) => ({
@@ -31,12 +42,23 @@ export const useSettingsStore = create<SettingsState>()((set) => ({
   autoBackupTime: '02:00',
   lastBackupDate: null,
   ownerPinHash: null,
+  defaultPrinter: null,
+  paperSize: '80mm',
+  autoPrintReceipts: false,
+  receiptCopies: 1,
+  reportDefaultOutput: 'thermal',
+  receiptTemplateConfig: {
+    showLogo: true,
+    showCashier: true,
+    showDiscount: true,
+    footerMessage: 'Thank you for your visit!',
+  },
   setLanguage: (lang) => set({ language: lang }),
   setCafeName: (name) => set({ cafeName: name }),
   setCurrency: (currency) => set({ currency }),
-  setPrintPaperSize: (size) => set({ printPaperSize: size }),
   setCashierPermissions: (permissions) => set({ cashierPermissions: permissions }),
   setOwnerPinHash: (hash) => set({ ownerPinHash: hash }),
   loadSettings: (settings) => set((state) => ({ ...state, ...settings })),
+  setPrintSettings: (settings) => set((state) => ({ ...state, ...settings })),
 }));
 

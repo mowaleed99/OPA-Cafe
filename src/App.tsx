@@ -2,13 +2,11 @@ import { useState, useEffect } from 'react';
 import { HashRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { useAuthStore } from './application/store/useAuthStore';
 import { useSettingsStore } from './application/store/useSettingsStore';
-import { processSyncQueue, startRealtimeSync } from './application/sync/syncQueue';
-import { pullInitialData } from './application/sync/pullInitialData';
-import { cleanupLocalDuplicates } from './cleanupLocal';
+import { processSyncQueue } from './application/sync/syncQueue';
+
 import { fetchSettings } from './application/useCases/settings/manageSettings';
 import { useTranslation } from 'react-i18next';
 import { RefreshCw } from 'lucide-react';
-import { AutoBackupService } from './application/services/AutoBackupService';
 
 // Layouts
 import AuthLayout from './presentation/layouts/AuthLayout';
@@ -38,6 +36,8 @@ import SettingsPage from './presentation/pages/SettingsPage';
 import InvoicesPage from './presentation/pages/InvoicesPage';
 import AuditLogPage from './presentation/pages/AuditLogPage';
 
+import { Toaster } from './presentation/components/ui/toaster';
+
 export default function App() {
   const { initialize, appUser } = useAuthStore();
   const { language } = useSettingsStore();
@@ -46,7 +46,7 @@ export default function App() {
   // Restore session on app start
   useEffect(() => {
     initialize();
-    AutoBackupService.initialize();
+    // Note: AutoBackup is now handled by Electron main process using SQLite backups
   }, [initialize]);
 
   // Sync language with i18n and HTML dir
@@ -62,15 +62,12 @@ export default function App() {
       if (!appUser?.cafe_id) return;
       
       try {
-        // Run sync in background without blocking the UI
-        await cleanupLocalDuplicates();
-        await processSyncQueue();
-        await pullInitialData(appUser.cafe_id);
+        // Offline-first sync pulls data down only if DB is empty, otherwise we rely on syncWorker.
       } catch (err) {
         console.warn('Background sync failed:', err);
       }
 
-      startRealtimeSync(appUser.cafe_id);
+      // Real-time sync removed for SQLite-first Electron mode
       fetchSettings(appUser.cafe_id);
     }
     
@@ -79,6 +76,7 @@ export default function App() {
 
   return (
     <HashRouter>
+      <Toaster />
       <Routes>
         {/* Public routes */}
         <Route element={<AuthLayout />}>

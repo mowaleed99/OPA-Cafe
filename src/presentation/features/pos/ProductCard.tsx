@@ -9,6 +9,7 @@ interface ProductCardProps {
   product: Product;
   cartQuantity: number;
   inventoryStatus?: { stock_quantity: number; minimum_stock: number } | null;
+  isFocused?: boolean;
   onAdd: (product: Product) => void;
 }
 
@@ -31,7 +32,7 @@ function getCardColor(name: string): string {
   return colors[Math.abs(hash) % colors.length];
 }
 
-export default React.memo(function ProductCard({ product, cartQuantity, inventoryStatus, onAdd }: ProductCardProps) {
+export default React.memo(function ProductCard({ product, cartQuantity, inventoryStatus, isFocused = false, onAdd }: ProductCardProps) {
   const [isAdding, setIsAdding] = useState(false);
   const { t } = useTranslation();
   const color = getCardColor(product.name);
@@ -71,7 +72,8 @@ export default React.memo(function ProductCard({ product, cartQuantity, inventor
         'group relative flex flex-col rounded-md overflow-hidden border bg-card',
         'transition-all duration-150 active:scale-95 cursor-pointer text-left',
         'hover:border-primary hover:shadow-sm',
-        inCart ? 'border-primary ring-1 ring-primary' : 'border-border'
+        inCart ? 'border-primary ring-1 ring-primary' : 'border-border',
+        isFocused && 'ring-2 ring-primary ring-offset-2 ring-offset-background'
       )}
       aria-label={`Add ${product.name} to cart`}
     >

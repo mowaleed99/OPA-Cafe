@@ -1,3 +1,4 @@
+import React, { useState, useEffect } from 'react';
 import { Outlet, NavLink, useNavigate } from 'react-router-dom';
 import { useAuthStore } from '../../application/store/useAuthStore';
 import { useSettingsStore } from '../../application/store/useSettingsStore';
@@ -20,6 +21,11 @@ import {
   Receipt,
   FileText,
   ClipboardCheck,
+  Wifi,
+  WifiOff,
+  RefreshCw,
+  CheckCircle2,
+  AlertCircle
 } from 'lucide-react';
 
 const ownerNav = [
@@ -45,6 +51,33 @@ export default function AppLayout() {
   const { cashierPermissions } = useSettingsStore();
   const navigate = useNavigate();
   const { t } = useTranslation();
+  
+  const [isOnline, setIsOnline] = useState(navigator.onLine);
+  const [syncStatus, setSyncStatus] = useState<{ pending: number; synced: number; failed: number; isSyncing: boolean } | null>(null);
+
+  useEffect(() => {
+    const handleOnline = () => setIsOnline(true);
+    const handleOffline = () => setIsOnline(false);
+    window.addEventListener('online', handleOnline);
+    window.addEventListener('offline', handleOffline);
+
+    if (window.electronAPI?.getSyncStatus) {
+      window.electronAPI.getSyncStatus().then(setSyncStatus);
+    }
+    
+    let cleanup = () => {};
+    if (window.electronAPI?.onSyncStatus) {
+      cleanup = window.electronAPI.onSyncStatus((status) => {
+        setSyncStatus(status);
+      });
+    }
+
+    return () => {
+      window.removeEventListener('online', handleOnline);
+      window.removeEventListener('offline', handleOffline);
+      cleanup();
+    };
+  }, []);
   
   const navItems = isOwner() 
     ? ownerNav 
@@ -93,6 +126,36 @@ export default function AppLayout() {
           ))}
         </nav>
 
+        {/* Sync Indicator */}
+        <div className="px-3 py-3 border-t border-border flex flex-col gap-1 items-center md:items-start text-xs font-medium">
+          {!isOnline ? (
+            <div className="flex items-center gap-2 text-muted-foreground w-full justify-center md:justify-start" title="Offline">
+              <WifiOff className="h-4 w-4" />
+              <span className="hidden md:block">Offline</span>
+            </div>
+          ) : syncStatus?.isSyncing ? (
+            <div className="flex items-center gap-2 text-yellow-500 w-full justify-center md:justify-start" title="Syncing...">
+              <RefreshCw className="h-4 w-4 animate-spin" />
+              <span className="hidden md:block">Syncing...</span>
+            </div>
+          ) : syncStatus?.failed > 0 ? (
+            <div className="flex items-center gap-2 text-red-500 w-full justify-center md:justify-start" title={`Sync Failed (${syncStatus.failed})`}>
+              <AlertCircle className="h-4 w-4" />
+              <span className="hidden md:block truncate">Sync Failed ({syncStatus.failed})</span>
+            </div>
+          ) : syncStatus?.pending > 0 ? (
+            <div className="flex items-center gap-2 text-yellow-500 w-full justify-center md:justify-start" title="Pending Sync">
+              <RefreshCw className="h-4 w-4" />
+              <span className="hidden md:block">Pending ({syncStatus.pending})</span>
+            </div>
+          ) : (
+            <div className="flex items-center gap-2 text-emerald-500 w-full justify-center md:justify-start" title="Synced">
+              <CheckCircle2 className="h-4 w-4" />
+              <span className="hidden md:block">Synced</span>
+            </div>
+          )}
+        </div>
+
         {/* Sign out */}
         <div className="p-2 border-t border-border">
           <button
@@ -106,8 +169,10 @@ export default function AppLayout() {
       </aside>
 
       {/* Main content */}
-      <main className="flex-1 overflow-y-auto">
-        <Outlet />
+      <main className="flex-1 overflow-y-auto relative bg-background">
+        <div className="absolute inset-0 animate-in fade-in duration-300">
+          <Outlet />
+        </div>
       </main>
     </div>
   );

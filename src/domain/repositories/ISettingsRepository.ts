@@ -7,6 +7,12 @@ export interface AppSettings {
   print_paper_size: string;
   cashier_permissions: string; // JSON string
   owner_pin_hash: string | null;
+  default_printer?: string | null;
+  paper_size?: string;
+  auto_print_receipts?: boolean;
+  receipt_copies?: number;
+  report_default_output?: string;
+  receipt_template_config?: string; // JSON string
   deleted_at?: string;
 }
 

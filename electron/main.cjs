@@ -84,7 +84,7 @@ app.whenReady().then(() => {
   setupHandlers();
 
   // Start background sync worker
-  const { startSyncWorker, processSyncQueue } = require('./syncWorker.cjs');
+  const { startSyncWorker, processSyncQueue, getSyncStatus } = require('./syncWorker.cjs');
   startSyncWorker();
 
   createWindow();
@@ -152,6 +152,100 @@ app.whenReady().then(() => {
       return { success: false, error: err.message };
     }
   });
+
+  ipcMain.handle('sync:getStatus', () => {
+    return getSyncStatus();
+  });
+
+  // Printer Handlers
+  ipcMain.handle('printer:getPrinters', async () => {
+    try {
+      if (!mainWindow) return [];
+      const printers = await mainWindow.webContents.getPrintersAsync();
+      return printers.map(p => ({
+        name: p.name,
+        displayName: p.displayName || p.name,
+        description: p.description,
+        isDefault: p.isDefault
+      }));
+    } catch (e) {
+      console.error('Failed to get printers', e);
+      return [];
+    }
+  });
+
+  ipcMain.handle('printer:printHtml', async (event, html, options) => {
+    return new Promise((resolve, reject) => {
+      let printWindow = new BrowserWindow({
+        show: false,
+        webPreferences: {
+          nodeIntegration: false,
+          contextIsolation: true
+        }
+      });
+
+      printWindow.loadURL(`data:text/html;charset=utf-8,${encodeURIComponent(html)}`);
+
+      printWindow.webContents.on('did-finish-load', () => {
+        printWindow.webContents.print({
+          silent: true,
+          deviceName: options.deviceName || undefined,
+          copies: options.copies || 1,
+          margins: { marginType: 'none' },
+        }, (success, failureReason) => {
+          if (!success) {
+            reject(new Error(failureReason));
+          } else {
+            resolve({ success: true });
+          }
+          printWindow.close();
+        });
+      });
+    });
+  });
+
+  ipcMain.handle('printer:exportPdf', async (event, html, options) => {
+    return new Promise((resolve, reject) => {
+      let printWindow = new BrowserWindow({
+        show: false,
+        webPreferences: {
+          nodeIntegration: false,
+          contextIsolation: true
+        }
+      });
+
+      printWindow.loadURL(`data:text/html;charset=utf-8,${encodeURIComponent(html)}`);
+
+      printWindow.webContents.on('did-finish-load', async () => {
+        try {
+          const pdfData = await printWindow.webContents.printToPDF({
+            marginsType: 0,
+            pageSize: 'A4',
+            printBackground: true,
+            printSelectionOnly: false,
+            landscape: options.landscape || false
+          });
+
+          const documentsPath = app.getPath('documents');
+          const exportDir = path.join(documentsPath, 'OPA Cafe', 'Exports');
+          if (!fs.existsSync(exportDir)) {
+            fs.mkdirSync(exportDir, { recursive: true });
+          }
+
+          const filename = options.filename || `Export_${Date.now()}.pdf`;
+          const filePath = path.join(exportDir, filename);
+
+          fs.writeFileSync(filePath, pdfData);
+          printWindow.close();
+          resolve({ success: true, filePath });
+        } catch (error) {
+          printWindow.close();
+          reject(error);
+        }
+      });
+    });
+  });
+
   ipcMain.handle('dialog:showSaveDialog', async (event, options) => {
     const result = await dialog.showSaveDialog(mainWindow, options);
     return result;

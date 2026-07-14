@@ -8,7 +8,6 @@ import { useAuthStore } from '../../../application/store/useAuthStore';
 import { getCategories, deleteCategory } from '../../../application/useCases/products/manageCategories';
 import { CategoryFormModal } from './CategoryFormModal';
 import { ConfirmDialog } from '../../components/ui/confirm-dialog';
-import { ConfirmDialog } from '../../components/ui/confirm-dialog';
 
 export function CategoriesTab() {
   const { t } = useTranslation();

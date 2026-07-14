@@ -60,6 +60,54 @@ function initDb() {
     console.error('Failed to create pre-migration backup', e);
   }
 
+  // Phase 9 Safe Migrations for sync tracking
+  try {
+    // Add last_error to sync_queue if it doesn't exist
+    _db.exec(`ALTER TABLE sync_queue ADD COLUMN last_error TEXT`);
+  } catch (e) {
+    // Column already exists
+  }
+
+  try {
+    // Check if sync_conflicts has old schema (table_name instead of entity_name)
+    const tableInfo = _db.prepare("PRAGMA table_info(sync_conflicts)").all();
+    const hasTableName = tableInfo.some(col => col.name === 'table_name');
+    
+    if (hasTableName) {
+      // Recreate the lightweight sync_conflicts table
+      _db.exec(`DROP TABLE sync_conflicts;`);
+      _db.exec(`
+        CREATE TABLE sync_conflicts (
+          id TEXT PRIMARY KEY,
+          entity_name TEXT NOT NULL,
+          entity_id TEXT NOT NULL,
+          local_version INTEGER,
+          remote_version INTEGER,
+          resolution TEXT,
+          created_at TEXT NOT NULL
+        );
+      `);
+    }
+  } catch (e) {
+    console.error('Failed to migrate sync_conflicts', e);
+  }
+
+  // Phase 10 Settings Migrations for Printing
+  const addColumnSafe = (table, column, def) => {
+    try {
+      _db.exec(`ALTER TABLE ${table} ADD COLUMN ${column} ${def}`);
+    } catch (e) {
+      // Column already exists
+    }
+  };
+
+  addColumnSafe('settings', 'default_printer', 'TEXT');
+  addColumnSafe('settings', 'paper_size', "TEXT DEFAULT '80mm'");
+  addColumnSafe('settings', 'auto_print_receipts', 'INTEGER DEFAULT 0');
+  addColumnSafe('settings', 'receipt_copies', 'INTEGER DEFAULT 1');
+  addColumnSafe('settings', 'report_default_output', "TEXT DEFAULT 'thermal'");
+  addColumnSafe('settings', 'receipt_template_config', 'TEXT');
+
   migrate(_drizzleDb, { migrationsFolder });
   
   return _drizzleDb;

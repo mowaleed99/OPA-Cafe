@@ -7,6 +7,7 @@ export interface IOrderRepository {
   getOrders(cafeId: string): Promise<Order[]>;
   getOrderById(id: string): Promise<Order | null>;
   getOrderItems(orderId: string): Promise<OrderItem[]>;
+  getAllOrderItems(): Promise<OrderItem[]>;
   
   // Tables
   getTables(cafeId: string): Promise<DiningTable[]>;

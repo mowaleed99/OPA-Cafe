@@ -5,6 +5,17 @@ import type { CartItem } from '../../store/useCartStore';
 import type { OrderItem } from '../../../domain/entities/order';
 
 export async function updateOpenOrder(orderId: string, items: CartItem[], total: number): Promise<void> {
+  if (!items || items.length === 0) {
+    throw new Error('Cannot update order to be empty');
+  }
+
+  const subtotal = items.reduce((sum, item) => sum + item.subtotal, 0);
+  if (total < 0) {
+    throw new Error('Discount cannot exceed subtotal');
+  }
+  if (total > subtotal) {
+    throw new Error('Total cannot exceed subtotal (invalid discount)');
+  }
   const orderItems: OrderItem[] = items.map((item) => ({
     id: crypto.randomUUID(),
     order_id: orderId,
