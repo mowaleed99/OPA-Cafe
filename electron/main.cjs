@@ -90,6 +90,58 @@ app.whenReady().then(() => {
   createWindow();
   createTray();
 
+  // Auto-backup logic
+  async function runAutoBackup() {
+    try {
+      const documentsPath = app.getPath('documents');
+      const backupDir = path.join(documentsPath, 'OPA Cafe', 'Backups');
+      if (!fs.existsSync(backupDir)) {
+        fs.mkdirSync(backupDir, { recursive: true });
+      }
+
+      const files = fs.readdirSync(backupDir)
+        .filter(f => f.endsWith('.sqlite'))
+        .map(f => {
+          const stats = fs.statSync(path.join(backupDir, f));
+          return { name: f, time: stats.mtime.getTime() };
+        })
+        .sort((a, b) => b.time - a.time);
+
+      const now = Date.now();
+      const needsBackup = files.length === 0 || (now - files[0].time > 24 * 60 * 60 * 1000);
+
+      if (needsBackup) {
+        const dateStr = new Date().toISOString().replace(/[:.]/g, '-');
+        const filename = `opa-cafe-auto-${dateStr}.sqlite`;
+        const filePath = path.join(backupDir, filename);
+        
+        const { getRawDb } = require('./database/db.cjs');
+        const rawDb = getRawDb();
+        await rawDb.backup(filePath);
+        console.log(`[AutoBackup] Created backup ${filename}`);
+        
+        // Add new backup to the list
+        files.unshift({ name: filename, time: now });
+      }
+
+      // Keep only last 30 files
+      if (files.length > 30) {
+        const toDelete = files.slice(30);
+        for (const file of toDelete) {
+          fs.unlinkSync(path.join(backupDir, file.name));
+          console.log(`[AutoBackup] Deleted old backup ${file.name}`);
+        }
+      }
+    } catch (err) {
+      console.error('[AutoBackup] Error:', err);
+    }
+  }
+
+  // Run auto-backup on startup
+  runAutoBackup();
+  // Check every hour
+  setInterval(runAutoBackup, 60 * 60 * 1000);
+
   // IPC Handlers
   ipcMain.handle('sync:trigger', async () => {
     try {
