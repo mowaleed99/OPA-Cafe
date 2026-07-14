@@ -9,4 +9,5 @@ export interface StockMovement {
   reason?: string | null;
   created_by?: string | null;
   created_at: string;
+  deleted_at?: string;
 }

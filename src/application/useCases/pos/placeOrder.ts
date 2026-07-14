@@ -1,7 +1,9 @@
-import { db } from '../../../infrastructure/database/db';
-import { enqueueSync } from '../../sync/syncQueue';
+import { buildSyncOperation } from '../../sync/syncQueue';
+import { orderRepository, productRepository, inventoryRepository } from '../../../infrastructure/repositories/index';
+import { executeTransaction, TransactionOperation } from '../../../infrastructure/database/transaction';
 import type { CartItem } from '../../store/useCartStore';
-import type { Order, OrderItem, PaymentMethod, OrderStatus, OrderType } from '../../../core/entities/order';
+import type { Order, OrderItem, PaymentMethod, OrderStatus, OrderType } from '../../../domain/entities/order';
+import type { StockMovement } from '../../../domain/entities/stock_movement';
 
 export interface PlaceOrderParams {
   cafeId: string;
@@ -17,10 +19,6 @@ export interface PlaceOrderResult {
   orderId: string;
 }
 
-/**
- * Creates an Order + OrderItems in Dexie (offline-first), then enqueues
- * a sync to Supabase.
- */
 export async function placeOrder(params: PlaceOrderParams): Promise<PlaceOrderResult> {
   const orderId = crypto.randomUUID();
   const now = new Date().toISOString();
@@ -53,53 +51,63 @@ export async function placeOrder(params: PlaceOrderParams): Promise<PlaceOrderRe
     subtotal: item.subtotal,
   }));
 
-  // 1. Write to local Dexie first (works fully offline)
-  await db.transaction('rw', [db.orders, db.order_items, db.dining_tables, db.products, db.inventory_items, db.stock_movements, db.sync_queue], async () => {
-    await db.orders.add(order);
-    await db.order_items.bulkAdd(orderItems);
+  const ops: TransactionOperation[] = [];
 
-    // If there's a table and it's an open order, mark it as occupied
-    if (params.tableId && status === 'open') {
-      await db.dining_tables.update(params.tableId, { status: 'occupied', current_order_id: orderId });
-      await enqueueSync('update', 'dining_tables', { id: params.tableId, cafe_id: params.cafeId, status: 'occupied', current_order_id: orderId });
-    }
-    
-    // 2. Enqueue sync to Supabase (runs immediately if online, queued if offline)
-    await enqueueSync('insert', 'orders', order as unknown as Record<string, unknown>);
+  // Order
+  ops.push({ type: 'insert', table: 'orders', data: order });
+  ops.push(buildSyncOperation('insert', 'orders', order as unknown as Record<string, unknown>));
+
+  // Order Items
+  if (orderItems.length > 0) {
+    ops.push({ type: 'insertMany', table: 'order_items', data: orderItems });
     for (const item of orderItems) {
-      await enqueueSync('insert', 'order_items', item as unknown as Record<string, unknown>);
+      ops.push(buildSyncOperation('insert', 'order_items', item as unknown as Record<string, unknown>));
     }
+  }
 
-    // 3. Deduct stock if order is paid immediately
-    if (status === 'paid') {
-      for (const item of orderItems) {
-        const product = await db.products.get(item.product_id);
-        if (!product || !product.track_stock || !product.inventory_item_id) continue;
+  // Table
+  if (params.tableId && status === 'open') {
+    const tableUpdate = { status: 'occupied' as const, current_order_id: orderId };
+    ops.push({ type: 'update', table: 'tables', id: params.tableId, data: tableUpdate });
+    ops.push(buildSyncOperation('update', 'tables', { id: params.tableId, cafe_id: params.cafeId, ...tableUpdate }));
+  }
 
-        const inventoryItem = await db.inventory_items.get(product.inventory_item_id);
-        if (!inventoryItem) continue;
+  // Inventory Stock Update & Stock Movements
+  if (status === 'paid') {
+    for (const item of orderItems) {
+      const product = await productRepository.getProductById(item.product_id);
+      if (!product || !product.track_stock || !product.inventory_item_id) continue;
 
-        const newQuantity = inventoryItem.stock_quantity - item.quantity;
-        await db.inventory_items.update(inventoryItem.id, { stock_quantity: newQuantity });
-        await enqueueSync('update', 'inventory_items', { id: inventoryItem.id, cafe_id: params.cafeId, stock_quantity: newQuantity });
+      const inventoryItem = await inventoryRepository.findOne(product.inventory_item_id);
+      if (!inventoryItem) continue;
 
-        const movementId = crypto.randomUUID();
-        const movement = {
-          id: movementId,
-          cafe_id: params.cafeId,
-          inventory_item_id: inventoryItem.id,
-          type: 'out' as const,
-          quantity: item.quantity,
-          reference_type: 'sale',
-          reference_id: orderId,
-          notes: `Sale - Order ${orderId.split('-')[0]}`,
-          created_at: now
-        };
-        await db.stock_movements.add(movement);
-        await enqueueSync('insert', 'stock_movements', movement as unknown as Record<string, unknown>);
-      }
+      const newQuantity = inventoryItem.stock_quantity - item.quantity;
+      const updatedItem = { ...inventoryItem, stock_quantity: newQuantity };
+      
+      ops.push({ type: 'update', table: 'inventory_items', id: inventoryItem.id, data: updatedItem });
+      ops.push(buildSyncOperation('update', 'inventory_items', updatedItem as unknown as Record<string, unknown>));
+
+      const movementId = crypto.randomUUID();
+      const movement: StockMovement = {
+        id: movementId,
+        cafe_id: params.cafeId,
+        inventory_item_id: inventoryItem.id,
+        type: 'out',
+        quantity: item.quantity,
+        reason: `Sale - Order ${orderId.split('-')[0]}`,
+        created_at: now
+      };
+      
+      ops.push({ type: 'insert', table: 'stock_movements', data: movement });
+      ops.push(buildSyncOperation('insert', 'stock_movements', movement as unknown as Record<string, unknown>));
     }
-  });
+  }
+
+  await executeTransaction(ops);
+
+  if (navigator.onLine && window.electronAPI) {
+    window.electronAPI.triggerSync();
+  }
 
   return { orderId };
 }

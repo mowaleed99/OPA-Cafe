@@ -6,6 +6,7 @@ export interface Supplier {
   name: string;
   contact_info?: string | null;
   created_at: string;
+  deleted_at?: string;
 }
 
 export interface Purchase {
@@ -17,6 +18,7 @@ export interface Purchase {
   amount_remaining: number;
   payment_status: PaymentStatus;
   created_at: string;
+  deleted_at?: string;
 }
 
 export interface PurchaseItem {
@@ -27,6 +29,7 @@ export interface PurchaseItem {
   quantity: number;
   unit_cost: number;
   subtotal: number;
+  deleted_at?: string;
 }
 
 export interface SupplierPayment {
@@ -36,4 +39,5 @@ export interface SupplierPayment {
   amount: number;
   payment_date: string;
   notes?: string | null;
+  deleted_at?: string;
 }

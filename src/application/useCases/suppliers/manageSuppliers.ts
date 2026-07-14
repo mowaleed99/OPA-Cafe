@@ -1,9 +1,9 @@
-import { db } from '../../../infrastructure/database/db';
 import { enqueueSync } from '../../sync/syncQueue';
-import type { Supplier } from '../../../core/entities/supplier';
+import { supplierRepository } from '../../../infrastructure/repositories/index';
+import type { Supplier } from '../../../domain/entities/supplier';
 
 export async function getSuppliers(cafeId: string): Promise<Supplier[]> {
-  return await db.suppliers.where('cafe_id').equals(cafeId).sortBy('name');
+  return await supplierRepository.getSuppliers(cafeId);
 }
 
 export async function createSupplier(
@@ -18,18 +18,18 @@ export async function createSupplier(
     contact_info: contactInfo || null,
     created_at: new Date().toISOString(),
   };
-  await db.suppliers.add(supplier);
+  await supplierRepository.createSupplier(supplier);
   await enqueueSync('insert', 'suppliers', supplier as unknown as Record<string, unknown>);
   return supplier;
 }
 
 export async function updateSupplier(supplier: Supplier): Promise<Supplier> {
-  await db.suppliers.put(supplier);
+  await supplierRepository.updateSupplier(supplier.id, supplier);
   await enqueueSync('update', 'suppliers', supplier as unknown as Record<string, unknown>);
   return supplier;
 }
 
 export async function deleteSupplier(supplier: Supplier): Promise<void> {
-  await db.suppliers.delete(supplier.id);
+  await supplierRepository.deleteSupplier(supplier.id);
   await enqueueSync('delete', 'suppliers', { id: supplier.id });
 }

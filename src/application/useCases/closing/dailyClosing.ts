@@ -1,42 +1,26 @@
-import { db } from '../../../infrastructure/database/db';
 import { enqueueSync } from '../../sync/syncQueue';
-import type { DailyClosing, DailyClosingItem } from '../../../core/entities/daily_closing';
+import { createRepository } from '../../../infrastructure/repositories/RepositoryFactory';
+import type { DailyClosing, DailyClosingItem } from '../../../domain/entities/daily_closing';
+import type { Order, OrderItem } from '../../../domain/entities/order';
+import type { Supplier, SupplierPayment } from '../../../domain/entities/supplier';
 
-/**
- * Fetch all daily closings for a cafe, sorted newest first.
- */
 export async function getDailyClosings(cafeId: string): Promise<DailyClosing[]> {
-  const closings = await db.daily_closings
-    .where('cafe_id')
-    .equals(cafeId)
-    .sortBy('closing_date');
-  return closings.reverse();
+  const repo = createRepository<DailyClosing>('daily_closings');
+  const closings = await repo.findMany({ cafe_id: cafeId });
+  return closings.sort((a, b) => b.closing_date.localeCompare(a.closing_date));
 }
 
-/**
- * Fetch the line items for a given closing.
- */
 export async function getDailyClosingItems(dailyClosingId: string): Promise<DailyClosingItem[]> {
-  return await db.daily_closing_items
-    .where('daily_closing_id')
-    .equals(dailyClosingId)
-    .toArray();
+  const repo = createRepository<DailyClosingItem>('daily_closing_items');
+  return await repo.findMany({ daily_closing_id: dailyClosingId });
 }
 
-/**
- * Checks if there is already a closing for a specific date.
- */
 export async function getClosingByDate(cafeId: string, date: string): Promise<DailyClosing | undefined> {
-  return await db.daily_closings
-    .where('cafe_id')
-    .equals(cafeId)
-    .filter(c => c.closing_date === date)
-    .first();
+  const repo = createRepository<DailyClosing>('daily_closings');
+  const closings = await repo.findMany({ cafe_id: cafeId });
+  return closings.find(c => c.closing_date === date);
 }
 
-/**
- * Checks if there is already a closing for today's date (legacy support/convenience).
- */
 export async function getTodayClosing(cafeId: string): Promise<DailyClosing | undefined> {
   const today = new Date().toISOString().split('T')[0];
   return getClosingByDate(cafeId, today);
@@ -50,6 +34,13 @@ export interface ClosingReport {
 }
 
 export async function closingDay(cafeId: string, selectedDate: string = new Date().toISOString().split('T')[0]): Promise<ClosingReport> {
+  const closingsRepo = createRepository<DailyClosing>('daily_closings');
+  const itemsRepo = createRepository<DailyClosingItem>('daily_closing_items');
+  const orderRepo = createRepository<Order>('orders');
+  const orderItemsRepo = createRepository<OrderItem>('order_items');
+  const suppliersRepo = createRepository<Supplier>('suppliers');
+  const paymentsRepo = createRepository<SupplierPayment>('supplier_payments');
+
   // Check for existing duplicate and update it if necessary
   const existing = await getClosingByDate(cafeId, selectedDate);
   const closingId = existing ? existing.id : crypto.randomUUID();
@@ -58,53 +49,39 @@ export async function closingDay(cafeId: string, selectedDate: string = new Date
   let startTime = '1970-01-01T00:00:00.000Z';
   let endTime = new Date().toISOString();
 
+  const allClosings = await closingsRepo.findMany({ cafe_id: cafeId });
+  allClosings.sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime());
+
   if (existing) {
-    // If it exists, find the closing right before it to get the start time
-    const allClosings = await db.daily_closings
-      .where('cafe_id')
-      .equals(cafeId)
-      .sortBy('created_at');
-    
     const currentIndex = allClosings.findIndex(c => c.id === existing.id);
     if (currentIndex > 0) {
       startTime = allClosings[currentIndex - 1].created_at;
     }
-    endTime = existing.created_at; // keep the original end time window
+    endTime = existing.created_at;
   } else {
-    // If it's new, find the latest closing for the start time
-    const allClosings = await db.daily_closings
-      .where('cafe_id')
-      .equals(cafeId)
-      .sortBy('created_at');
-    
     if (allClosings.length > 0) {
       startTime = allClosings[allClosings.length - 1].created_at;
     }
   }
 
   // 1. Find all paid orders within the time window
-  const shiftOrders = await db.orders
-    .where('cafe_id')
-    .equals(cafeId)
-    .filter(o => o.status === 'paid' && o.created_at > startTime && o.created_at <= endTime)
-    .toArray();
+  const allOrders = await orderRepo.findMany({ cafe_id: cafeId });
+  const shiftOrders = allOrders.filter(o => o.status === 'paid' && o.created_at > startTime && o.created_at <= endTime);
 
   if (shiftOrders.length === 0 && !existing) {
     throw new Error(`No paid orders found since the last closing to close for ${selectedDate}.`);
   }
 
-  const orderIds = shiftOrders.map(o => o.id);
+  const orderIds = new Set(shiftOrders.map(o => o.id));
   const totalSales = shiftOrders.reduce((sum, o) => sum + o.total_amount, 0);
 
   // 2. Get all order items for those orders
-  const allOrderItems = await db.order_items
-    .where('order_id')
-    .anyOf(orderIds)
-    .toArray();
+  const allOrderItems = await orderItemsRepo.findMany();
+  const shiftOrderItems = allOrderItems.filter(i => orderIds.has(i.order_id));
 
   // 3. Aggregate per product
   const productTotals: Record<string, { quantity: number; revenue: number }> = {};
-  for (const item of allOrderItems) {
+  for (const item of shiftOrderItems) {
     if (!productTotals[item.product_id]) {
       productTotals[item.product_id] = { quantity: 0, revenue: 0 };
     }
@@ -113,19 +90,10 @@ export async function closingDay(cafeId: string, selectedDate: string = new Date
   }
 
   // 4. Find all supplier payments (expenses) within the time window
-  const shiftPayments = await db.supplier_payments
-    .filter(p => {
-      // payment_date is usually just YYYY-MM-DD but we'll use created_at if possible.
-      // Wait, supplier_payments doesn't have created_at. Let's filter by payment_date string matching or just date comparison.
-      // If payment_date is YYYY-MM-DD, we can check if it matches selectedDate, or falls within startTime/endTime if it has time.
-      // Assuming payment_date is YYYY-MM-DD, we can just match selectedDate.
-      return p.payment_date.startsWith(selectedDate);
-    })
-    .toArray();
+  const allPayments = await paymentsRepo.findMany();
+  const shiftPayments = allPayments.filter(p => p.payment_date.startsWith(selectedDate));
     
-  // Filter shift payments by cafe_id? supplier_payments don't have cafe_id directly, we need to join or assume they belong to this cafe based on suppliers.
-  // Actually, let's get all suppliers for this cafe first.
-  const cafeSuppliers = await db.suppliers.where('cafe_id').equals(cafeId).toArray();
+  const cafeSuppliers = await suppliersRepo.findMany({ cafe_id: cafeId });
   const cafeSupplierIds = new Set(cafeSuppliers.map(s => s.id));
   
   const cafeShiftPayments = shiftPayments.filter(p => cafeSupplierIds.has(p.supplier_id));
@@ -150,35 +118,30 @@ export async function closingDay(cafeId: string, selectedDate: string = new Date
     total_revenue: agg.revenue,
   }));
 
-  // 6. Write to Dexie and sync
-  await db.transaction('rw', db.daily_closings, db.daily_closing_items, db.sync_queue, async () => {
-    if (existing) {
-      await db.daily_closings.put(closing);
-      
-      // Fetch and delete old items
-      const oldItems = await db.daily_closing_items.where('daily_closing_id').equals(closingId).toArray();
-      const oldItemIds = oldItems.map(i => i.id);
-      await db.daily_closing_items.bulkDelete(oldItemIds);
-      
-      for (const oldItem of oldItems) {
-        await enqueueSync('delete', 'daily_closing_items', oldItem as unknown as Record<string, unknown>);
-      }
-      
-      await db.daily_closing_items.bulkAdd(closingItems);
-      
-      await enqueueSync('update', 'daily_closings', closing as unknown as Record<string, unknown>);
-      for (const item of closingItems) {
-        await enqueueSync('insert', 'daily_closing_items', item as unknown as Record<string, unknown>);
-      }
-    } else {
-      await db.daily_closings.add(closing);
-      await db.daily_closing_items.bulkAdd(closingItems);
-      await enqueueSync('insert', 'daily_closings', closing as unknown as Record<string, unknown>);
-      for (const item of closingItems) {
-        await enqueueSync('insert', 'daily_closing_items', item as unknown as Record<string, unknown>);
-      }
+  // 6. Write to DB and sync
+  if (existing) {
+    await closingsRepo.update(closingId, closing);
+    
+    const oldItems = await itemsRepo.findMany({ daily_closing_id: closingId });
+    for (const oldItem of oldItems) {
+      await itemsRepo.delete(oldItem.id);
+      await enqueueSync('delete', 'daily_closing_items', { id: oldItem.id });
     }
-  });
+    
+    await itemsRepo.insertMany(closingItems);
+    
+    await enqueueSync('update', 'daily_closings', closing as unknown as Record<string, unknown>);
+    for (const item of closingItems) {
+      await enqueueSync('insert', 'daily_closing_items', item as unknown as Record<string, unknown>);
+    }
+  } else {
+    await closingsRepo.insert(closing);
+    await itemsRepo.insertMany(closingItems);
+    await enqueueSync('insert', 'daily_closings', closing as unknown as Record<string, unknown>);
+    for (const item of closingItems) {
+      await enqueueSync('insert', 'daily_closing_items', item as unknown as Record<string, unknown>);
+    }
+  }
 
   const enrichedPayments = cafeShiftPayments.map(p => {
     const supplier = cafeSuppliers.find(s => s.id === p.supplier_id);
@@ -192,11 +155,13 @@ export async function closingDay(cafeId: string, selectedDate: string = new Date
 }
 
 export async function getClosingPayments(cafeId: string, selectedDate: string) {
-  const shiftPayments = await db.supplier_payments
-    .filter(p => p.payment_date.startsWith(selectedDate))
-    .toArray();
+  const suppliersRepo = createRepository<Supplier>('suppliers');
+  const paymentsRepo = createRepository<SupplierPayment>('supplier_payments');
+
+  const allPayments = await paymentsRepo.findMany();
+  const shiftPayments = allPayments.filter(p => p.payment_date.startsWith(selectedDate));
     
-  const cafeSuppliers = await db.suppliers.where('cafe_id').equals(cafeId).toArray();
+  const cafeSuppliers = await suppliersRepo.findMany({ cafe_id: cafeId });
   const cafeSupplierIds = new Set(cafeSuppliers.map(s => s.id));
   
   const cafeShiftPayments = shiftPayments.filter(p => cafeSupplierIds.has(p.supplier_id));

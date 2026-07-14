@@ -11,6 +11,7 @@ export interface Order {
   payment_method?: PaymentMethod | null;
   total_amount: number;
   created_at: string;
+  deleted_at?: string;
 }
 
 export interface OrderItem {
@@ -20,4 +21,5 @@ export interface OrderItem {
   quantity: number;
   unit_price: number;
   subtotal: number;
+  deleted_at?: string;
 }

@@ -5,8 +5,8 @@ import { useSettingsStore } from '../../application/store/useSettingsStore';
 import { useCurrency } from '../../application/utils/useCurrency';
 import { db } from '../../infrastructure/database/db';
 import { voidOrder } from '../../application/useCases/orders/voidOrder';
-import type { Order, OrderItem } from '../../core/entities/order';
-import type { Purchase, PurchaseItem, Supplier } from '../../core/entities/supplier';
+import type { Order, OrderItem } from '../../domain/entities/order';
+import type { Purchase, PurchaseItem, Supplier } from '../../domain/entities/supplier';
 import PinEntryDialog from '../components/PinEntryDialog';
 import {
   Dialog,

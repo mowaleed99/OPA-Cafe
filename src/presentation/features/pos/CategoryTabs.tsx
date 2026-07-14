@@ -1,5 +1,5 @@
 import { cn } from '../../lib/utils';
-import type { Category } from '../../../core/entities/category';
+import type { Category } from '../../../domain/entities/category';
 
 interface CategoryTabsProps {
   categories: Category[];

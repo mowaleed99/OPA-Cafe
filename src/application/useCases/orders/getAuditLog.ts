@@ -1,5 +1,5 @@
 import { db } from '../../../infrastructure/database/db';
-import type { OrderAuditLog } from '../../../core/entities/order_audit_log';
+import type { OrderAuditLog } from '../../../domain/entities/order_audit_log';
 
 interface AuditLogFilters {
   from?: string;   // ISO date string YYYY-MM-DD

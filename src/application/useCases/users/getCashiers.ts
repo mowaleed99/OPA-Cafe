@@ -1,41 +1,30 @@
-import { useState, useEffect } from 'react';
-import { supabase } from '../../../infrastructure/api/supabase';
-
-export interface CashierUser {
-  id: string;
-  role: string;
-  cafe_id: string;
-  name?: string | null;
-  email?: string | null;
-}
+import { useState, useEffect, useCallback } from 'react';
+import { authRepository } from '../../../infrastructure/repositories/index';
+import { AppUser } from '../../../domain/entities/user';
 
 export function useCashiers(cafeId: string | null) {
-  const [cashiers, setCashiers] = useState<CashierUser[]>([]);
+  const [cashiers, setCashiers] = useState<AppUser[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  const fetchCashiers = async () => {
+  const fetchCashiers = useCallback(async () => {
     if (!cafeId) return;
     setIsLoading(true);
     setError(null);
     try {
-      const { data, error } = await supabase
-        .from('app_users')
-        .select('*')
-        .eq('cafe_id', cafeId);
-
-      if (error) throw error;
+      const data = await authRepository.getUsers(cafeId);
+      // Ensure we don't show soft-deleted cashiers just in case, though the repo filters it.
       setCashiers(data || []);
     } catch (err: any) {
       setError(err.message);
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [cafeId]);
 
   useEffect(() => {
     fetchCashiers();
-  }, [cafeId]);
+  }, [fetchCashiers]);
 
   return { cashiers, isLoading, error, refetch: fetchCashiers };
 }

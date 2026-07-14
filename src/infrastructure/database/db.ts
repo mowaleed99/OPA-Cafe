@@ -1,25 +1,26 @@
 import Dexie, { type Table } from 'dexie';
-import type { AppUser } from '../../core/entities/user';
-import type { Category } from '../../core/entities/category';
-import type { Product } from '../../core/entities/product';
-import type { InventoryItem } from '../../core/entities/inventory';
-import type { StockMovement } from '../../core/entities/stock_movement';
-import type { DiningTable } from '../../core/entities/table';
-import type { Order, OrderItem } from '../../core/entities/order';
-import type { Supplier, Purchase, PurchaseItem, SupplierPayment } from '../../core/entities/supplier';
-import type { DailyClosing, DailyClosingItem } from '../../core/entities/daily_closing';
-import type { Settings } from '../../core/entities/settings';
-import type { Expense } from '../../core/entities/expense';
-import type { OrderAuditLog } from '../../core/entities/order_audit_log';
+import type { AppUser } from '../../domain/entities/user';
+import type { Category } from '../../domain/entities/category';
+import type { Product } from '../../domain/entities/product';
+import type { InventoryItem } from '../../domain/entities/inventory';
+import type { StockMovement } from '../../domain/entities/stock_movement';
+import type { DiningTable } from '../../domain/entities/table';
+import type { Order, OrderItem } from '../../domain/entities/order';
+import type { Supplier, Purchase, PurchaseItem, SupplierPayment } from '../../domain/entities/supplier';
+import type { DailyClosing, DailyClosingItem } from '../../domain/entities/daily_closing';
+import type { Settings } from '../../domain/entities/settings';
+import type { Expense } from '../../domain/entities/expense';
+import type { OrderAuditLog } from '../../domain/entities/order_audit_log';
 
 export interface SyncQueueItem {
-  id?: number; // Auto-incremented primary key
+  id?: string;
   action: 'insert' | 'update' | 'delete';
-  table: string;
-  payload: Record<string, unknown>;
+  table_name: string;
+  payload: string; // JSON string
   created_at: string;
   status: 'pending' | 'syncing' | 'failed';
   retry_count: number;
+  record_id?: string;
 }
 
 export class CafeDatabase extends Dexie {

@@ -1,6 +1,6 @@
 import { create } from 'zustand';
-import type { Product } from '../../core/entities/product';
-import type { PaymentMethod } from '../../core/entities/order';
+import type { Product } from '../../domain/entities/product';
+import type { PaymentMethod } from '../../domain/entities/order';
 
 export interface CartItem {
   product: Product;

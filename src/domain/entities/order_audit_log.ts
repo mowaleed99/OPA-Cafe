@@ -11,4 +11,5 @@ export interface OrderAuditLog {
   reason?: string | null;
   order_total: number;            // snapshot of order total at time of action
   created_at: string;
+  deleted_at?: string;
 }

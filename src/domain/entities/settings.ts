@@ -8,5 +8,6 @@ export interface Settings {
   cashier_permissions?: string[];
   currency?: string;
   owner_pin_hash?: string | null;
+  deleted_at?: string;
 }
 

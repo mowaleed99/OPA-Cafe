@@ -11,8 +11,8 @@ import { Button } from '../components/ui/button';
 import { Input } from '../components/ui/input';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../components/ui/table';
 import { Banknote, ChevronRight, X, Search } from 'lucide-react';
-import type { Supplier, Purchase, PurchaseItem, SupplierPayment } from '../../core/entities/supplier';
-import type { InventoryItem } from '../../core/entities/inventory';
+import type { Supplier, Purchase, PurchaseItem, SupplierPayment } from '../../domain/entities/supplier';
+import type { InventoryItem } from '../../domain/entities/inventory';
 import { useAuthStore } from '../../application/store/useAuthStore';
 import { getSuppliers } from '../../application/useCases/suppliers/manageSuppliers';
 import {

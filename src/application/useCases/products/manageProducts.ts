@@ -1,13 +1,9 @@
-import { db } from '../../../infrastructure/database/db';
 import { enqueueSync } from '../../sync/syncQueue';
-import type { Product } from '../../../core/entities/product';
+import { productRepository } from '../../../infrastructure/repositories/index';
+import type { Product } from '../../../domain/entities/product';
 
 export async function getProducts(cafeId: string): Promise<Product[]> {
-  return await db.products
-    .where('cafe_id')
-    .equals(cafeId)
-    .filter(p => p.status !== 'inactive')
-    .toArray();
+  return await productRepository.getProducts(cafeId);
 }
 
 export async function createProduct(
@@ -36,7 +32,7 @@ export async function createProduct(
     created_at: new Date().toISOString(),
   };
 
-  await db.products.add(product);
+  await productRepository.createProduct(product);
   await enqueueSync('insert', 'products', product as unknown as Record<string, unknown>);
   return product;
 }
@@ -45,12 +41,12 @@ export async function updateProduct(product: Product): Promise<Product> {
   if (product.track_stock && !product.inventory_item_id) {
     throw new Error('Inventory Item ID is required when tracking stock.');
   }
-  await db.products.put(product);
+  await productRepository.updateProduct(product.id, product);
   await enqueueSync('update', 'products', product as unknown as Record<string, unknown>);
   return product;
 }
 
 export async function deleteProduct(product: Product): Promise<void> {
-  await db.products.delete(product.id);
+  await productRepository.deleteProduct(product.id);
   await enqueueSync('delete', 'products', { id: product.id });
 }

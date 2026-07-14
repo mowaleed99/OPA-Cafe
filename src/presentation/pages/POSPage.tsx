@@ -11,7 +11,7 @@ import { loadPOSData, type POSData } from '../../application/useCases/pos/loadPO
 import CategoryTabs from '../features/pos/CategoryTabs';
 import ProductGrid from '../features/pos/ProductGrid';
 import CartPanel from '../features/pos/CartPanel';
-import type { Product } from '../../core/entities/product';
+import type { Product } from '../../domain/entities/product';
 
 export default function POSPage() {
   const { cafeId } = useAuthStore();

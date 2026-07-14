@@ -5,7 +5,7 @@ import { Input } from '../../components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../../components/ui/select';
 import { useTranslation } from 'react-i18next';
 import { adjustStock } from '../../../application/useCases/inventory/manageStockMovements';
-import type { InventoryItem } from '../../../core/entities/inventory';
+import type { InventoryItem } from '../../../domain/entities/inventory';
 
 interface StockAdjustmentModalProps {
   item: InventoryItem | null;

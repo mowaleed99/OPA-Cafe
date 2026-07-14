@@ -14,7 +14,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '.
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../components/ui/table';
 import { PlusCircle, Pencil, Trash2, Receipt, Calendar } from 'lucide-react';
 import { ConfirmDialog } from '../components/ui/confirm-dialog';
-import type { Expense } from '../../core/entities/expense';
+import type { Expense } from '../../domain/entities/expense';
 import { useAuthStore } from '../../application/store/useAuthStore';
 import { useCurrency } from '../../application/utils/useCurrency';
 import {

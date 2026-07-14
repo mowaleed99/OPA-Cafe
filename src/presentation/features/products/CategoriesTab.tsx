@@ -3,7 +3,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { Button } from '../../components/ui/button';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../../components/ui/table';
 import { PlusCircle, Pencil, Trash2 } from 'lucide-react';
-import type { Category } from '../../../core/entities/category';
+import type { Category } from '../../../domain/entities/category';
 import { useAuthStore } from '../../../application/store/useAuthStore';
 import { getCategories, deleteCategory } from '../../../application/useCases/products/manageCategories';
 import { CategoryFormModal } from './CategoryFormModal';

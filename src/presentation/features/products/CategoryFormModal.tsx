@@ -9,7 +9,7 @@ import {
 } from '../../components/ui/dialog';
 import { Button } from '../../components/ui/button';
 import { Input } from '../../components/ui/input';
-import type { Category } from '../../../core/entities/category';
+import type { Category } from '../../../domain/entities/category';
 import { useAuthStore } from '../../../application/store/useAuthStore';
 import { createCategory, updateCategory } from '../../../application/useCases/products/manageCategories';
 

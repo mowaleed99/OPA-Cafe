@@ -7,4 +7,6 @@ export interface AppUser {
   name?: string | null;
   email?: string | null;
   created_at: string;
+  local_password_hash?: string; // Used for secure offline login
+  deleted_at?: string;
 }

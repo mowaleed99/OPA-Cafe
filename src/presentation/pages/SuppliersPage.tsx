@@ -12,7 +12,7 @@ import { Input } from '../components/ui/input';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../components/ui/table';
 import { PlusCircle, Pencil, Trash2, Truck } from 'lucide-react';
 import { ConfirmDialog } from '../components/ui/confirm-dialog';
-import type { Supplier } from '../../core/entities/supplier';
+import type { Supplier } from '../../domain/entities/supplier';
 import { useAuthStore } from '../../application/store/useAuthStore';
 import {
   getSuppliers,

@@ -1,0 +1,99 @@
+const Database = require('better-sqlite3');
+const { drizzle } = require('drizzle-orm/better-sqlite3');
+const schema = require('./schema.cjs');
+const path = require('path');
+const fs = require('fs');
+const { app } = require('electron');
+
+let _db = null;
+let _drizzleDb = null;
+
+function initDb() {
+  if (_db) return _drizzleDb;
+
+  const userDataPath = app.getPath('userData'); // e.g. AppData/Roaming/opa-cafe
+  // But user requested AppData/Roaming/OPA Cafe/database/cafe.sqlite
+  // Let's use app.getPath('appData') and manually build the path to be exact
+  const appDataPath = app.getPath('appData');
+  const dbDir = path.join(appDataPath, 'OPA Cafe', 'database');
+
+  if (!fs.existsSync(dbDir)) {
+    fs.mkdirSync(dbDir, { recursive: true });
+  }
+
+  const dbPath = path.join(dbDir, 'cafe.sqlite');
+  
+  _db = new Database(dbPath);
+  _db.pragma('journal_mode = WAL');
+  _db.pragma('foreign_keys = ON');
+
+  _drizzleDb = drizzle(_db, { schema });
+
+  // Run migrations
+  const { migrate } = require('drizzle-orm/better-sqlite3/migrator');
+  const migrationsFolder = path.join(__dirname, 'migrations');
+  
+  // Create auto-backup before migrations
+  try {
+    const backupDir = path.join(appDataPath, 'OPA Cafe', 'AutoBackups');
+    if (!fs.existsSync(backupDir)) {
+      fs.mkdirSync(backupDir, { recursive: true });
+    }
+    const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
+    const backupFile = path.join(backupDir, `pre-migration-${timestamp}.sqlite`);
+    
+    // Check if we already have a clean shutdown WAL etc., better-sqlite3 backup handles WAL safely
+    _db.backup(backupFile).then(() => {
+      // Clean up old backups (keep last 30)
+      const files = fs.readdirSync(backupDir).filter(f => f.startsWith('pre-migration-') && f.endsWith('.sqlite'));
+      if (files.length > 30) {
+        files.sort((a, b) => {
+          const aStat = fs.statSync(path.join(backupDir, a));
+          const bStat = fs.statSync(path.join(backupDir, b));
+          return aStat.mtimeMs - bStat.mtimeMs;
+        });
+        const toDelete = files.slice(0, files.length - 30);
+        toDelete.forEach(f => fs.unlinkSync(path.join(backupDir, f)));
+      }
+    }).catch(console.error);
+  } catch (e) {
+    console.error('Failed to create pre-migration backup', e);
+  }
+
+  migrate(_drizzleDb, { migrationsFolder });
+  
+  return _drizzleDb;
+}
+
+function getDb() {
+  if (!_drizzleDb) {
+    throw new Error('Database not initialized. Call initDb() first.');
+  }
+  return _drizzleDb;
+}
+
+function getRawDb() {
+    return _db;
+}
+
+function getDbPath() {
+    const appDataPath = app.getPath('appData');
+    return path.join(appDataPath, 'OPA Cafe', 'database', 'cafe.sqlite');
+}
+
+function closeDb() {
+  if (_db) {
+    _db.close();
+    _db = null;
+    _drizzleDb = null;
+  }
+}
+
+module.exports = {
+  initDb,
+  getDb,
+  getRawDb,
+  getDbPath,
+  closeDb,
+  schema
+};

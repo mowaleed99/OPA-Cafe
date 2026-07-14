@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useAuthStore } from '../../application/store/useAuthStore';
 import { getInventoryItems, addInventoryItem, updateInventoryItem, deleteInventoryItem } from '../../application/useCases/inventory/manageInventory';
-import type { InventoryItem } from '../../core/entities/inventory';
+import type { InventoryItem } from '../../domain/entities/inventory';
 import { Button } from '../components/ui/button';
 import { Input } from '../components/ui/input';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../components/ui/table';

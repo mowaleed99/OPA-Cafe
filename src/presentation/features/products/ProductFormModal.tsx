@@ -16,13 +16,13 @@ import {
   SelectTrigger,
   SelectValue,
 } from '../../components/ui/select';
-import type { Product } from '../../../core/entities/product';
-import type { Category } from '../../../core/entities/category';
+import type { Product } from '../../../domain/entities/product';
+import type { Category } from '../../../domain/entities/category';
 import { useAuthStore } from '../../../application/store/useAuthStore';
 import { createProduct, updateProduct } from '../../../application/useCases/products/manageProducts';
 import { getCategories } from '../../../application/useCases/products/manageCategories';
 import { getInventoryItems } from '../../../application/useCases/inventory/manageInventory';
-import type { InventoryItem } from '../../../core/entities/inventory';
+import type { InventoryItem } from '../../../domain/entities/inventory';
 import { Search } from 'lucide-react';
 
 interface ProductFormModalProps {

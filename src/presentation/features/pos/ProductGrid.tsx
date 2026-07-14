@@ -1,6 +1,6 @@
 import { Package } from 'lucide-react';
-import type { Category } from '../../../core/entities/category';
-import type { Product } from '../../../core/entities/product';
+import type { Category } from '../../../domain/entities/category';
+import type { Product } from '../../../domain/entities/product';
 import type { CartItem } from '../../../application/store/useCartStore';
 import ProductCard from './ProductCard';
 

@@ -6,6 +6,7 @@ export interface DailyClosing {
   total_orders: number;
   total_expenses?: number;
   created_at: string;
+  deleted_at?: string;
 }
 
 export interface DailyClosingItem {
@@ -14,4 +15,5 @@ export interface DailyClosingItem {
   product_id: string;
   quantity_sold: number;
   total_revenue: number;
+  deleted_at?: string;
 }

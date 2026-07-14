@@ -1,21 +1,18 @@
-import { supabase } from '../../../infrastructure/api/supabase';
+import { authRepository } from '../../../infrastructure/repositories/index';
+import { enqueueSync } from '../../sync/syncQueue';
 
 export async function deleteUser(
   userId: string,
   cafeId: string
 ): Promise<{ error: string | null }> {
   try {
-    const { data, error } = await supabase.functions.invoke('delete-user', {
-      body: { userId, cafe_id: cafeId }
-    });
-
-    if (error) {
-      return { error: error.message || 'Failed to delete user' };
+    const existing = await authRepository.findById(userId);
+    if (!existing) {
+      return { error: 'User not found locally.' };
     }
 
-    if (data?.error) {
-      return { error: data.error };
-    }
+    await authRepository.deleteUser(userId); // Performs soft delete internally
+    await enqueueSync('delete', 'app_users', { id: userId, cafe_id: cafeId });
 
     return { error: null };
   } catch (err: any) {

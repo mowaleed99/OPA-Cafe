@@ -4,4 +4,5 @@ export interface Category {
   name: string;
   status?: 'active' | 'inactive';
   created_at: string;
+  deleted_at?: string;
 }

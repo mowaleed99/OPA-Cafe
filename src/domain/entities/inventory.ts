@@ -10,4 +10,5 @@ export interface InventoryItem {
   pieces_per_carton?: number | null;
   minimum_stock?: number | null;
   created_at: string;
+  deleted_at?: string;
 }

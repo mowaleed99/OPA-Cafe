@@ -1,57 +1,68 @@
-import { db } from '../../../infrastructure/database/db';
-import { enqueueSync } from '../../sync/syncQueue';
-import type { PaymentMethod } from '../../../core/entities/order';
+import { buildSyncOperation } from '../../sync/syncQueue';
+import { orderRepository, productRepository, inventoryRepository } from '../../../infrastructure/repositories/index';
+import { executeTransaction, TransactionOperation } from '../../../infrastructure/database/transaction';
+import type { PaymentMethod } from '../../../domain/entities/order';
+import type { StockMovement } from '../../../domain/entities/stock_movement';
 
 export async function checkoutOpenOrder(orderId: string, paymentMethod: PaymentMethod): Promise<void> {
-  await db.transaction('rw', [db.orders, db.dining_tables, db.order_items, db.products, db.inventory_items, db.stock_movements, db.sync_queue], async () => {
-    const order = await db.orders.get(orderId);
-    if (!order) throw new Error('Order not found');
+  const order = await orderRepository.getOrderById(orderId);
+  if (!order) throw new Error('Order not found');
 
-    // Map invalid payment methods to 'other' for Supabase CHECK constraint
-    let supabasePaymentMethod = paymentMethod;
-    if (supabasePaymentMethod && !['cash', 'card', 'other'].includes(supabasePaymentMethod)) {
-      supabasePaymentMethod = 'other' as PaymentMethod;
-    }
+  // Map invalid payment methods to 'other' for Supabase CHECK constraint
+  let supabasePaymentMethod = paymentMethod;
+  if (supabasePaymentMethod && !['cash', 'card', 'other'].includes(supabasePaymentMethod)) {
+    supabasePaymentMethod = 'other' as PaymentMethod;
+  }
 
-    // Update order status to paid
-    await db.orders.update(orderId, { status: 'paid', payment_method: supabasePaymentMethod });
-    await enqueueSync('update', 'orders', { id: orderId, cafe_id: order.cafe_id, status: 'paid', payment_method: supabasePaymentMethod });
+  const ops: TransactionOperation[] = [];
 
-    // Update table status to available
-    if (order.table_id) {
-      await db.dining_tables.update(order.table_id, { status: 'available', current_order_id: null });
-      await enqueueSync('update', 'dining_tables', { id: order.table_id, cafe_id: order.cafe_id, status: 'available', current_order_id: null });
-    }
+  // Update order status to paid
+  const orderUpdate = { status: 'paid' as const, payment_method: supabasePaymentMethod };
+  ops.push({ type: 'update', table: 'orders', id: orderId, data: orderUpdate });
+  ops.push(buildSyncOperation('update', 'orders', { id: orderId, cafe_id: order.cafe_id, ...orderUpdate }));
 
-    // Deduct stock
-    const orderItems = await db.order_items.where('order_id').equals(orderId).toArray();
-    const now = new Date().toISOString();
+  // Update table status to available
+  if (order.table_id) {
+    const tableUpdate = { status: 'available' as const, current_order_id: null };
+    ops.push({ type: 'update', table: 'tables', id: order.table_id, data: tableUpdate });
+    ops.push(buildSyncOperation('update', 'tables', { id: order.table_id, cafe_id: order.cafe_id, ...tableUpdate }));
+  }
+
+  // Deduct stock
+  const orderItems = await orderRepository.getOrderItems(orderId);
+  const now = new Date().toISOString();
+  
+  for (const item of orderItems) {
+    const product = await productRepository.getProductById(item.product_id);
+    if (!product || !product.track_stock || !product.inventory_item_id) continue;
+
+    const inventoryItem = await inventoryRepository.findOne(product.inventory_item_id);
+    if (!inventoryItem) continue;
+
+    const newQuantity = inventoryItem.stock_quantity - item.quantity;
+    const updatedItem = { ...inventoryItem, stock_quantity: newQuantity };
     
-    for (const item of orderItems) {
-      const product = await db.products.get(item.product_id);
-      if (!product || !product.track_stock || !product.inventory_item_id) continue;
+    ops.push({ type: 'update', table: 'inventory_items', id: inventoryItem.id, data: updatedItem });
+    ops.push(buildSyncOperation('update', 'inventory_items', updatedItem as unknown as Record<string, unknown>));
 
-      const inventoryItem = await db.inventory_items.get(product.inventory_item_id);
-      if (!inventoryItem) continue;
+    const movementId = crypto.randomUUID();
+    const movement: StockMovement = {
+      id: movementId,
+      cafe_id: order.cafe_id,
+      inventory_item_id: inventoryItem.id,
+      type: 'out',
+      quantity: item.quantity,
+      reason: `Sale - Order ${orderId.split('-')[0]}`,
+      created_at: now
+    };
+    
+    ops.push({ type: 'insert', table: 'stock_movements', data: movement });
+    ops.push(buildSyncOperation('insert', 'stock_movements', movement as unknown as Record<string, unknown>));
+  }
 
-      const newQuantity = inventoryItem.stock_quantity - item.quantity;
-      await db.inventory_items.update(inventoryItem.id, { stock_quantity: newQuantity });
-      await enqueueSync('update', 'inventory_items', { id: inventoryItem.id, cafe_id: order.cafe_id, stock_quantity: newQuantity });
+  await executeTransaction(ops);
 
-      const movementId = crypto.randomUUID();
-      const movement = {
-        id: movementId,
-        cafe_id: order.cafe_id,
-        inventory_item_id: inventoryItem.id,
-        type: 'out' as const,
-        quantity: item.quantity,
-        reference_type: 'sale',
-        reference_id: orderId,
-        notes: `Sale - Order ${orderId.split('-')[0]}`,
-        created_at: now
-      };
-      await db.stock_movements.add(movement);
-      await enqueueSync('insert', 'stock_movements', movement as unknown as Record<string, unknown>);
-    }
-  });
+  if (navigator.onLine && window.electronAPI) {
+    window.electronAPI.triggerSync();
+  }
 }

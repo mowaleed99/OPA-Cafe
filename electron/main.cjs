@@ -76,10 +76,30 @@ function createTray() {
 }
 
 app.whenReady().then(() => {
+  // Initialize SQLite database
+  const { initDb } = require('./database/db.cjs');
+  initDb();
+
+  const { setupHandlers } = require('./database/handlers.cjs');
+  setupHandlers();
+
+  // Start background sync worker
+  const { startSyncWorker, processSyncQueue } = require('./syncWorker.cjs');
+  startSyncWorker();
+
   createWindow();
   createTray();
 
   // IPC Handlers
+  ipcMain.handle('sync:trigger', async () => {
+    try {
+      await processSyncQueue();
+      return { success: true };
+    } catch (err) {
+      console.error('Trigger sync error:', err);
+      return { success: false, error: err.message };
+    }
+  });
   ipcMain.handle('dialog:showSaveDialog', async (event, options) => {
     const result = await dialog.showSaveDialog(mainWindow, options);
     return result;
@@ -94,16 +114,74 @@ app.whenReady().then(() => {
     }
   });
 
-  ipcMain.handle('file:saveAutoBackup', async (event, filename, data) => {
+  ipcMain.handle('backup:create', async (event, filename) => {
     try {
       const documentsPath = app.getPath('documents');
-      const backupDir = path.join(documentsPath, 'OPA_Cafe_Backups');
+      const backupDir = path.join(documentsPath, 'OPA Cafe', 'Backups');
       if (!fs.existsSync(backupDir)) {
         fs.mkdirSync(backupDir, { recursive: true });
       }
+      
       const filePath = path.join(backupDir, filename);
-      fs.writeFileSync(filePath, data);
+      const { getRawDb } = require('./database/db.cjs');
+      const rawDb = getRawDb();
+      
+      await rawDb.backup(filePath);
       return { success: true, filePath };
+    } catch (err) {
+      return { success: false, error: err.message };
+    }
+  });
+
+  ipcMain.handle('backup:list', async () => {
+    try {
+      const backupDir = path.join(app.getPath('documents'), 'OPA Cafe', 'Backups');
+      if (!fs.existsSync(backupDir)) return [];
+      
+      return fs.readdirSync(backupDir)
+        .filter(f => f.endsWith('.sqlite'))
+        .map(f => {
+          const stats = fs.statSync(path.join(backupDir, f));
+          return { name: f, size: stats.size, modified: stats.mtime.toISOString() };
+        })
+        .sort((a, b) => b.modified.localeCompare(a.modified));
+    } catch (err) {
+      console.error('List backups error:', err);
+      return [];
+    }
+  });
+
+  ipcMain.handle('backup:restore', async (event, filename) => {
+    try {
+      const backupDir = path.join(app.getPath('documents'), 'OPA Cafe', 'Backups');
+      const backupPath = path.join(backupDir, filename);
+      
+      if (!fs.existsSync(backupPath)) throw new Error('Backup file not found');
+      
+      // Perform integrity check on the backup file before restoring
+      const Database = require('better-sqlite3');
+      const testDb = new Database(backupPath, { readonly: true });
+      const integrity = testDb.pragma('integrity_check', { simple: true });
+      testDb.close();
+      
+      if (integrity !== 'ok') {
+        throw new Error('Backup integrity check failed: ' + integrity);
+      }
+      
+      const { getDbPath, closeDb } = require('./database/db.cjs');
+      const currentDbPath = getDbPath();
+      
+      // Close db and clean up WAL
+      closeDb();
+      if (fs.existsSync(currentDbPath + '-wal')) fs.unlinkSync(currentDbPath + '-wal');
+      if (fs.existsSync(currentDbPath + '-shm')) fs.unlinkSync(currentDbPath + '-shm');
+      
+      fs.copyFileSync(backupPath, currentDbPath);
+      
+      // Relaunch app to initialize fresh database
+      app.relaunch();
+      app.exit(0);
+      return { success: true };
     } catch (err) {
       return { success: false, error: err.message };
     }

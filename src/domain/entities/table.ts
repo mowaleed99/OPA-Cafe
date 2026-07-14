@@ -6,4 +6,5 @@ export interface DiningTable {
   name_or_number: string;
   status: TableStatus;
   current_order_id?: string | null;
+  deleted_at?: string;
 }

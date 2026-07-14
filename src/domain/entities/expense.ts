@@ -8,4 +8,5 @@ export interface Expense {
   is_recurring: boolean;
   created_at: string;
   updated_at: string;
+  deleted_at?: string;
 }

@@ -6,8 +6,8 @@ import { getAuditLog } from '../../application/useCases/orders/getAuditLog';
 import { clearAuditLog } from '../../application/useCases/orders/clearAuditLog';
 import { verifyOwnerPin } from '../../application/useCases/settings/manageOwnerPin';
 import { db } from '../../infrastructure/database/db';
-import type { OrderAuditLog } from '../../core/entities/order_audit_log';
-import type { AppUser } from '../../core/entities/user';
+import type { OrderAuditLog } from '../../domain/entities/order_audit_log';
+import type { AppUser } from '../../domain/entities/user';
 import {
   Table,
   TableBody,

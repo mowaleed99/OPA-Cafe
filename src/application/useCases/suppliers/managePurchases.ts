@@ -1,6 +1,7 @@
-import { db } from '../../../infrastructure/database/db';
-import { enqueueSync } from '../../sync/syncQueue';
-import type { Purchase, PurchaseItem, SupplierPayment } from '../../../core/entities/supplier';
+import { buildSyncOperation, enqueueSync } from '../../sync/syncQueue';
+import { purchaseRepository, inventoryRepository } from '../../../infrastructure/repositories/index';
+import { executeTransaction, TransactionOperation } from '../../../infrastructure/database/transaction';
+import type { Purchase, PurchaseItem, SupplierPayment } from '../../../domain/entities/supplier';
 
 export interface PurchaseWithItems {
   purchase: Purchase;
@@ -15,16 +16,15 @@ export interface CreatePurchaseParams {
 }
 
 export async function getPurchases(cafeId: string): Promise<Purchase[]> {
-  const purchases = await db.purchases.where('cafe_id').equals(cafeId).sortBy('created_at');
-  return purchases.reverse();
+  return await purchaseRepository.getPurchases(cafeId);
 }
 
 export async function getPurchaseDetails(purchaseId: string): Promise<PurchaseWithItems | null> {
-  const purchase = await db.purchases.get(purchaseId);
+  const purchase = await purchaseRepository.getPurchaseById(purchaseId);
   if (!purchase) return null;
   const [items, payments] = await Promise.all([
-    db.purchase_items.where('purchase_id').equals(purchaseId).toArray(),
-    db.supplier_payments.where('purchase_id').equals(purchaseId).toArray(),
+    purchaseRepository.getPurchaseItems(purchaseId),
+    purchaseRepository.getSupplierPayments(purchaseId),
   ]);
   return { purchase, items, payments };
 }
@@ -56,26 +56,35 @@ export async function createPurchase(params: CreatePurchaseParams): Promise<Purc
     created_at: now,
   };
 
-  await db.transaction('rw', db.purchases, db.purchase_items, db.inventory_items, db.sync_queue, async () => {
-    await db.purchases.add(purchase);
-    await db.purchase_items.bulkAdd(purchaseItems);
-    await enqueueSync('insert', 'purchases', purchase as unknown as Record<string, unknown>);
-    
+  const ops: TransactionOperation[] = [];
+
+  ops.push({ type: 'insert', table: 'purchases', data: purchase });
+  ops.push(buildSyncOperation('insert', 'purchases', purchase as unknown as Record<string, unknown>));
+
+  if (purchaseItems.length > 0) {
+    ops.push({ type: 'insertMany', table: 'purchase_items', data: purchaseItems });
     for (const item of purchaseItems) {
-      await enqueueSync('insert', 'purchase_items', item as unknown as Record<string, unknown>);
+      ops.push(buildSyncOperation('insert', 'purchase_items', item as unknown as Record<string, unknown>));
       
       // Update inventory stock
-      const inventoryItem = await db.inventory_items.get(item.inventory_item_id);
+      const inventoryItem = await inventoryRepository.findOne(item.inventory_item_id);
       if (inventoryItem) {
         const updatedItem = {
           ...inventoryItem,
           stock_quantity: inventoryItem.stock_quantity + item.quantity
         };
-        await db.inventory_items.put(updatedItem);
-        await enqueueSync('update', 'inventory_items', updatedItem as unknown as Record<string, unknown>);
+        ops.push({ type: 'update', table: 'inventory_items', id: updatedItem.id, data: updatedItem });
+        ops.push(buildSyncOperation('update', 'inventory_items', updatedItem as unknown as Record<string, unknown>));
       }
     }
-  });
+  }
+
+  await executeTransaction(ops);
+  
+  // Trigger background sync processing if online
+  if (navigator.onLine && window.electronAPI) {
+    window.electronAPI.triggerSync();
+  }
 
   return purchase;
 }
@@ -105,12 +114,18 @@ export async function recordPayment(
     notes: notes || null,
   };
 
-  await db.transaction('rw', db.purchases, db.supplier_payments, db.sync_queue, async () => {
-    await db.purchases.put(updatedPurchase);
-    await db.supplier_payments.add(payment);
-    await enqueueSync('update', 'purchases', updatedPurchase as unknown as Record<string, unknown>);
-    await enqueueSync('insert', 'supplier_payments', payment as unknown as Record<string, unknown>);
-  });
+  const ops: TransactionOperation[] = [
+    { type: 'update', table: 'purchases', id: updatedPurchase.id, data: updatedPurchase },
+    buildSyncOperation('update', 'purchases', updatedPurchase as unknown as Record<string, unknown>),
+    { type: 'insert', table: 'supplier_payments', data: payment },
+    buildSyncOperation('insert', 'supplier_payments', payment as unknown as Record<string, unknown>)
+  ];
+
+  await executeTransaction(ops);
+
+  if (navigator.onLine && window.electronAPI) {
+    window.electronAPI.triggerSync();
+  }
 
   return { purchase: updatedPurchase, payment };
 }

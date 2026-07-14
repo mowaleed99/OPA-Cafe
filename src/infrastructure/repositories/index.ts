@@ -1,0 +1,20 @@
+import { SQLiteAuthRepository } from './SQLiteAuthRepository';
+import { SQLiteSettingsRepository } from './SQLiteSettingsRepository';
+import { SQLiteCategoryRepository } from './SQLiteCategoryRepository';
+import { SQLiteProductRepository } from './SQLiteProductRepository';
+import { SQLiteInventoryRepository } from './SQLiteInventoryRepository';
+import { SQLiteSupplierRepository } from './SQLiteSupplierRepository';
+import { SQLitePurchaseRepository } from './SQLitePurchaseRepository';
+import { SQLiteExpenseRepository } from './SQLiteExpenseRepository';
+import { SQLiteOrderRepository } from './SQLiteOrderRepository';
+
+// Basic Service Locator for Repositories
+export const authRepository = new SQLiteAuthRepository();
+export const settingsRepository = new SQLiteSettingsRepository();
+export const categoryRepository = new SQLiteCategoryRepository();
+export const productRepository = new SQLiteProductRepository();
+export const inventoryRepository = new SQLiteInventoryRepository();
+export const supplierRepository = new SQLiteSupplierRepository();
+export const purchaseRepository = new SQLitePurchaseRepository();
+export const expenseRepository = new SQLiteExpenseRepository();
+export const orderRepository = new SQLiteOrderRepository();

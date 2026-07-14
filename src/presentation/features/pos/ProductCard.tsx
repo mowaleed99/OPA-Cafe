@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { Plus } from 'lucide-react';
 import { cn } from '../../lib/utils';
-import type { Product } from '../../../core/entities/product';
+import type { Product } from '../../../domain/entities/product';
 
 import { useTranslation } from 'react-i18next';
 

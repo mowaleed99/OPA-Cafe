@@ -1,13 +1,10 @@
-import { db } from '../../../infrastructure/database/db';
-import { enqueueSync } from '../../sync/syncQueue';
-import type { Expense } from '../../../core/entities/expense';
+import { buildSyncOperation, enqueueSync } from '../../sync/syncQueue';
+import { expenseRepository } from '../../../infrastructure/repositories/index';
+import { executeTransaction, TransactionOperation } from '../../../infrastructure/database/transaction';
+import type { Expense } from '../../../domain/entities/expense';
 
 export async function getExpenses(cafeId: string): Promise<Expense[]> {
-  return await db.expenses
-    .where('cafe_id')
-    .equals(cafeId)
-    .reverse()
-    .sortBy('expense_date');
+  return await expenseRepository.getExpenses(cafeId);
 }
 
 export async function createExpense(
@@ -31,10 +28,16 @@ export async function createExpense(
     updated_at: now,
   };
 
-  await db.transaction('rw', db.expenses, db.sync_queue, async () => {
-    await db.expenses.add(expense);
-    await enqueueSync('insert', 'expenses', expense as any);
-  });
+  const ops: TransactionOperation[] = [
+    { type: 'insert', table: 'expenses', data: expense },
+    buildSyncOperation('insert', 'expenses', expense as unknown as Record<string, unknown>)
+  ];
+
+  await executeTransaction(ops);
+
+  if (navigator.onLine && window.electronAPI) {
+    window.electronAPI.triggerSync();
+  }
 
   return expense;
 }
@@ -43,15 +46,27 @@ export async function updateExpense(expense: Expense): Promise<void> {
   expense.updated_at = new Date().toISOString();
   expense.amount = Number(expense.amount);
   
-  await db.transaction('rw', db.expenses, db.sync_queue, async () => {
-    await db.expenses.put(expense);
-    await enqueueSync('update', 'expenses', expense as any);
-  });
+  const ops: TransactionOperation[] = [
+    { type: 'update', table: 'expenses', id: expense.id, data: expense },
+    buildSyncOperation('update', 'expenses', expense as unknown as Record<string, unknown>)
+  ];
+
+  await executeTransaction(ops);
+
+  if (navigator.onLine && window.electronAPI) {
+    window.electronAPI.triggerSync();
+  }
 }
 
 export async function deleteExpense(expenseId: string): Promise<void> {
-  await db.transaction('rw', db.expenses, db.sync_queue, async () => {
-    await db.expenses.delete(expenseId);
-    await enqueueSync('delete', 'expenses', { id: expenseId });
-  });
+  const ops: TransactionOperation[] = [
+    { type: 'delete', table: 'expenses', id: expenseId },
+    buildSyncOperation('delete', 'expenses', { id: expenseId })
+  ];
+
+  await executeTransaction(ops);
+
+  if (navigator.onLine && window.electronAPI) {
+    window.electronAPI.triggerSync();
+  }
 }

@@ -1,6 +1,7 @@
-import { db } from '../../../infrastructure/database/db';
-import type { DailyClosing, DailyClosingItem } from '../../../core/entities/daily_closing';
-import type { Expense } from '../../../core/entities/expense';
+import { createRepository } from '../../../infrastructure/repositories/RepositoryFactory';
+import type { DailyClosing, DailyClosingItem } from '../../../domain/entities/daily_closing';
+import type { Expense } from '../../../domain/entities/expense';
+import type { Supplier, SupplierPayment } from '../../../domain/entities/supplier';
 
 export interface MonthlyClosingReport {
   month: string;
@@ -15,15 +16,17 @@ export interface MonthlyClosingReport {
   explicitExpenses?: Expense[];
 }
 
-/**
- * Fetch all daily closings for a cafe in a given month (YYYY-MM).
- */
 export async function getMonthlyClosing(cafeId: string, monthPrefix: string): Promise<MonthlyClosingReport> {
-  const closings = await db.daily_closings
-    .where('cafe_id')
-    .equals(cafeId)
+  const closingsRepo = createRepository<DailyClosing>('daily_closings');
+  const itemsRepo = createRepository<DailyClosingItem>('daily_closing_items');
+  const suppliersRepo = createRepository<Supplier>('suppliers');
+  const paymentsRepo = createRepository<SupplierPayment>('supplier_payments');
+  const expensesRepo = createRepository<Expense>('expenses');
+
+  const allClosings = await closingsRepo.findMany({ cafe_id: cafeId });
+  const closings = allClosings
     .filter(c => c.closing_date.startsWith(monthPrefix))
-    .sortBy('closing_date');
+    .sort((a, b) => a.closing_date.localeCompare(b.closing_date));
     
   let total_sales = 0;
   let total_orders = 0;
@@ -36,11 +39,9 @@ export async function getMonthlyClosing(cafeId: string, monthPrefix: string): Pr
     return { month: monthPrefix, total_sales, total_orders, total_expenses, total_cost_of_goods, total_explicit_expenses, closings, aggregatedItems, payments: [], explicitExpenses: [] };
   }
 
-  const closingIds = closings.map(c => c.id);
-  const items = await db.daily_closing_items
-    .where('daily_closing_id')
-    .anyOf(closingIds)
-    .toArray();
+  const closingIds = new Set(closings.map(c => c.id));
+  const allItems = await itemsRepo.findMany(); // Or fetch in a loop/query if supported
+  const items = allItems.filter(i => closingIds.has(i.daily_closing_id));
 
   for (const c of closings) {
     total_sales += c.total_sales;
@@ -55,22 +56,18 @@ export async function getMonthlyClosing(cafeId: string, monthPrefix: string): Pr
     aggregatedItems[item.product_id].revenue += item.total_revenue;
   }
 
-  const cafeSuppliers = await db.suppliers.where('cafe_id').equals(cafeId).toArray();
+  const cafeSuppliers = await suppliersRepo.findMany({ cafe_id: cafeId });
   const cafeSupplierIds = new Set(cafeSuppliers.map(s => s.id));
   
-  const monthPayments = await db.supplier_payments
-    .filter(p => p.payment_date.startsWith(monthPrefix))
-    .toArray();
+  const allPayments = await paymentsRepo.findMany();
+  const monthPayments = allPayments.filter(p => p.payment_date.startsWith(monthPrefix));
 
   const cafeShiftPayments = monthPayments.filter(p => cafeSupplierIds.has(p.supplier_id));
 
   total_cost_of_goods = cafeShiftPayments.reduce((sum, p) => sum + p.amount, 0);
 
-  const explicitExpenses = await db.expenses
-    .where('cafe_id')
-    .equals(cafeId)
-    .filter(e => e.expense_date.startsWith(monthPrefix))
-    .toArray();
+  const allExpenses = await expensesRepo.findMany({ cafe_id: cafeId });
+  const explicitExpenses = allExpenses.filter(e => e.expense_date.startsWith(monthPrefix));
 
   total_explicit_expenses = explicitExpenses.reduce((sum, e) => sum + Number(e.amount), 0);
   

@@ -12,4 +12,5 @@ export interface Product {
   track_stock: boolean;
   inventory_item_id?: string | null;
   created_at: string;
+  deleted_at?: string;
 }

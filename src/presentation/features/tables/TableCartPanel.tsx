@@ -18,7 +18,7 @@ import { updateOpenOrder } from '../../../application/useCases/pos/updateOpenOrd
 import { checkoutOpenOrder } from '../../../application/useCases/pos/checkoutOpenOrder';
 import { useAuthStore } from '../../../application/store/useAuthStore';
 import { useSettingsStore } from '../../../application/store/useSettingsStore';
-import type { PaymentMethod } from '../../../core/entities/order';
+import type { PaymentMethod } from '../../../domain/entities/order';
 
 const PAYMENT_METHOD_KEYS: { id: PaymentMethod; labelKey: string; icon: React.ReactNode }[] = [
   { id: 'cash', labelKey: 'cash', icon: <Banknote size={15} /> },

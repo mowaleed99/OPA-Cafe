@@ -17,8 +17,8 @@ import {
 } from '../components/ui/select';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../components/ui/table';
 import { PlusCircle, ChevronRight, X, Search, ChevronLeft, ShoppingBag, Loader2, Package, Trash2 } from 'lucide-react';
-import type { Supplier, Purchase, PurchaseItem, SupplierPayment } from '../../core/entities/supplier';
-import type { InventoryItem } from '../../core/entities/inventory';
+import type { Supplier, Purchase, PurchaseItem, SupplierPayment } from '../../domain/entities/supplier';
+import type { InventoryItem } from '../../domain/entities/inventory';
 import { useAuthStore } from '../../application/store/useAuthStore';
 import { getSuppliers } from '../../application/useCases/suppliers/manageSuppliers';
 import {

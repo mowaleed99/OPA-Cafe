@@ -55,23 +55,29 @@ export async function cleanupLocalDuplicates() {
     // ─── STEP 1: Remove any pending INSERT ops for duplicates from sync queue ─
     // (prevents them from being re-created on Supabase)
     const syncQueue = await db.sync_queue.toArray();
-    const staleQueueIds: number[] = [];
+    const staleQueueIds: string[] = [];
 
     for (const item of syncQueue) {
-      const id = item.payload.id as string | undefined;
+      let parsedPayload: Record<string, unknown> = {};
+      try {
+        parsedPayload = JSON.parse(item.payload);
+      } catch (e) {}
+      
+      const id = parsedPayload.id as string | undefined;
       if (!id) continue;
 
       if (item.action === 'insert') {
-        if (item.table === 'categories' && catToDelete.has(id)) {
+        if (item.table_name === 'categories' && catToDelete.has(id)) {
           staleQueueIds.push(item.id!);
         }
-        if (item.table === 'products' && prodToDelete.has(id)) {
+        if (item.table_name === 'products' && prodToDelete.has(id)) {
           staleQueueIds.push(item.id!);
         }
       }
     }
 
     if (staleQueueIds.length > 0) {
+      // @ts-ignore
       await db.sync_queue.bulkDelete(staleQueueIds);
       console.log(`[Cleanup] Removed ${staleQueueIds.length} stale INSERT ops from sync queue.`);
     }
@@ -95,17 +101,19 @@ export async function cleanupLocalDuplicates() {
     // ─── STEP 3: Enqueue DELETE ops so Supabase is also cleaned ──────────────
     const remoteDeleteOps = [
       ...Array.from(catToDelete).map(id => ({
+        id: crypto.randomUUID(),
         action: 'delete' as const,
-        table: 'categories',
-        payload: { id } as Record<string, unknown>,
+        table_name: 'categories',
+        payload: JSON.stringify({ id }),
         created_at: new Date().toISOString(),
         status: 'pending' as const,
         retry_count: 0,
       })),
       ...Array.from(prodToDelete).map(id => ({
+        id: crypto.randomUUID(),
         action: 'delete' as const,
-        table: 'products',
-        payload: { id } as Record<string, unknown>,
+        table_name: 'products',
+        payload: JSON.stringify({ id }),
         created_at: new Date().toISOString(),
         status: 'pending' as const,
         retry_count: 0,

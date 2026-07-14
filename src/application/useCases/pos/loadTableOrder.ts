@@ -1,24 +1,24 @@
-import { db } from '../../../infrastructure/database/db';
+import { orderRepository, productRepository } from '../../../infrastructure/repositories/index';
 import { useCartStore } from '../../store/useCartStore';
 
 export async function loadTableOrder(orderId: string): Promise<void> {
-  const order = await db.orders.get(orderId);
+  const order = await orderRepository.getOrderById(orderId);
   if (!order) {
     throw new Error('Order not found');
   }
 
-  const orderItems = await db.order_items.where('order_id').equals(orderId).toArray();
+  const orderItems = await orderRepository.getOrderItems(orderId);
 
   const cartItems = [];
   for (const item of orderItems) {
-    const product = await db.products.get(item.product_id);
+    const product = await productRepository.getProductById(item.product_id);
     if (product) {
       cartItems.push({
         product,
         quantity: item.quantity,
         unit_price: item.unit_price,
         subtotal: item.subtotal,
-        note: '', // order items don't currently store notes, but we could add it
+        note: '',
       });
     }
   }

@@ -3,8 +3,8 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from '../../componen
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../../components/ui/table';
 import { useTranslation } from 'react-i18next';
 import { getStockMovements } from '../../../application/useCases/inventory/manageStockMovements';
-import type { InventoryItem } from '../../../core/entities/inventory';
-import type { StockMovement } from '../../../core/entities/stock_movement';
+import type { InventoryItem } from '../../../domain/entities/inventory';
+import type { StockMovement } from '../../../domain/entities/stock_movement';
 import { TrendingUp, TrendingDown, RefreshCcw } from 'lucide-react';
 
 interface StockHistoryModalProps {

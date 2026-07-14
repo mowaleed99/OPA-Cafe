@@ -1,10 +1,11 @@
 import { useTranslation } from 'react-i18next';
 import { useState } from 'react';
 import { useAuthStore } from '../../application/store/useAuthStore';
-import { useCashiers, CashierUser } from '../../application/useCases/users/getCashiers';
+import { useCashiers } from '../../application/useCases/users/getCashiers';
 import { createCashier } from '../../application/useCases/users/createCashier';
 import { updateUser } from '../../application/useCases/users/updateUser';
 import { deleteUser } from '../../application/useCases/users/deleteUser';
+import { AppUser } from '../../domain/entities/user';
 import { Users, Plus, Shield, Loader2, X, Trash2, Eye, EyeOff } from 'lucide-react';
 
 export default function UsersPage() {
@@ -23,7 +24,7 @@ export default function UsersPage() {
   const [showPassword, setShowPassword] = useState(false);
 
   // Edit/Delete State
-  const [selectedUser, setSelectedUser] = useState<CashierUser | null>(null);
+  const [selectedUser, setSelectedUser] = useState<AppUser | null>(null);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [editEmail, setEditEmail] = useState('');
   const [editPassword, setEditPassword] = useState('');
@@ -59,7 +60,7 @@ export default function UsersPage() {
     refetch();
   };
 
-  const openEditModal = (user: CashierUser) => {
+  const openEditModal = (user: AppUser) => {
     setSelectedUser(user);
     setEditEmail(user.email || '');
     setEditPassword('');

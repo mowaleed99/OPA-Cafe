@@ -1,8 +1,10 @@
 import bcrypt from 'bcryptjs';
-import { db } from '../../../infrastructure/database/db';
-import { enqueueSync } from '../../sync/syncQueue';
-import type { OrderAuditLog, AuditActionType } from '../../../core/entities/order_audit_log';
-import type { AppUser } from '../../../core/entities/user';
+import { buildSyncOperation } from '../../sync/syncQueue';
+import { orderRepository, productRepository, inventoryRepository, settingsRepository } from '../../../infrastructure/repositories/index';
+import { executeTransaction, TransactionOperation } from '../../../infrastructure/database/transaction';
+import type { OrderAuditLog, AuditActionType } from '../../../domain/entities/order_audit_log';
+import type { AppUser } from '../../../domain/entities/user';
+import type { StockMovement } from '../../../domain/entities/stock_movement';
 
 interface VoidOrderParams {
   orderId: string;
@@ -27,7 +29,7 @@ export async function voidOrder({
   enteredPin,
 }: VoidOrderParams): Promise<VoidOrderResult> {
   // 1. Load settings to get the owner PIN hash
-  const settings = await db.settings.where('cafe_id').equals(cafeId).first();
+  const settings = await settingsRepository.getSettings(cafeId);
 
   if (!settings?.owner_pin_hash) {
     return {
@@ -46,7 +48,7 @@ export async function voidOrder({
   }
 
   // 3. Load the order to snapshot its total
-  const order = await db.orders.get(orderId);
+  const order = await orderRepository.getOrderById(orderId);
   if (!order) {
     return {
       success: false,
@@ -76,44 +78,53 @@ export async function voidOrder({
     created_at: now,
   };
 
-  // 6. Persist both atomically in a Dexie transaction
-  await db.transaction('rw', [db.orders, db.order_audit_log, db.order_items, db.products, db.inventory_items, db.stock_movements, db.sync_queue], async () => {
-    await db.orders.put(updatedOrder);
-    await db.order_audit_log.add(auditEntry);
-    await enqueueSync('update', 'orders', updatedOrder as unknown as Record<string, unknown>);
-    await enqueueSync('insert', 'order_audit_log', auditEntry as unknown as Record<string, unknown>);
+  const ops: TransactionOperation[] = [];
 
-    // 7. Restore stock if applicable
-    if (shouldRestoreStock) {
-      const orderItems = await db.order_items.where('order_id').equals(orderId).toArray();
-      for (const item of orderItems) {
-        const product = await db.products.get(item.product_id);
-        if (!product || !product.track_stock || !product.inventory_item_id) continue;
+  // Order
+  ops.push({ type: 'update', table: 'orders', id: orderId, data: updatedOrder });
+  ops.push(buildSyncOperation('update', 'orders', updatedOrder as unknown as Record<string, unknown>));
 
-        const inventoryItem = await db.inventory_items.get(product.inventory_item_id);
-        if (!inventoryItem) continue;
+  // Audit
+  ops.push({ type: 'insert', table: 'order_audit_log', data: auditEntry });
+  ops.push(buildSyncOperation('insert', 'order_audit_log', auditEntry as unknown as Record<string, unknown>));
 
-        const newQuantity = inventoryItem.stock_quantity + item.quantity; // Restore
-        await db.inventory_items.update(inventoryItem.id, { stock_quantity: newQuantity });
-        await enqueueSync('update', 'inventory_items', { id: inventoryItem.id, cafe_id: cafeId, stock_quantity: newQuantity });
+  // 7. Restore stock if applicable
+  if (shouldRestoreStock) {
+    const orderItems = await orderRepository.getOrderItems(orderId);
+    for (const item of orderItems) {
+      const product = await productRepository.getProductById(item.product_id);
+      if (!product || !product.track_stock || !product.inventory_item_id) continue;
 
-        const movementId = crypto.randomUUID();
-        const movement = {
-          id: movementId,
-          cafe_id: cafeId,
-          inventory_item_id: inventoryItem.id,
-          type: 'in' as const,
-          quantity: item.quantity,
-          reference_type: 'refund',
-          reference_id: orderId,
-          notes: `Refund - Order ${orderId.split('-')[0]} voided/refunded`,
-          created_at: now
-        };
-        await db.stock_movements.add(movement);
-        await enqueueSync('insert', 'stock_movements', movement as unknown as Record<string, unknown>);
-      }
+      const inventoryItem = await inventoryRepository.findOne(product.inventory_item_id);
+      if (!inventoryItem) continue;
+
+      const newQuantity = inventoryItem.stock_quantity + item.quantity; // Restore
+      const updatedItem = { ...inventoryItem, stock_quantity: newQuantity };
+      
+      ops.push({ type: 'update', table: 'inventory_items', id: inventoryItem.id, data: updatedItem });
+      ops.push(buildSyncOperation('update', 'inventory_items', updatedItem as unknown as Record<string, unknown>));
+
+      const movementId = crypto.randomUUID();
+      const movement: StockMovement = {
+        id: movementId,
+        cafe_id: cafeId,
+        inventory_item_id: inventoryItem.id,
+        type: 'in' as const,
+        quantity: item.quantity,
+        reason: `Refund - Order ${orderId.split('-')[0]} voided/refunded`,
+        created_at: now
+      };
+      
+      ops.push({ type: 'insert', table: 'stock_movements', data: movement });
+      ops.push(buildSyncOperation('insert', 'stock_movements', movement as unknown as Record<string, unknown>));
     }
-  });
+  }
+
+  await executeTransaction(ops);
+
+  if (navigator.onLine && window.electronAPI) {
+    window.electronAPI.triggerSync();
+  }
 
   return { success: true };
 }

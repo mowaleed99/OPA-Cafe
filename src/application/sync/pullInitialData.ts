@@ -96,7 +96,16 @@ export async function pullInitialData(cafeId: string): Promise<void> {
     if (purchases && purchases.length > 0) await db.purchases.bulkPut(purchases as any[]);
     if (dailyClosings && dailyClosings.length > 0) await db.daily_closings.bulkPut(dailyClosings as any[]);
     if (settings && settings.length > 0) await db.settings.bulkPut(settings as any[]);
-    if (appUsers && appUsers.length > 0) await db.app_users.bulkPut(appUsers as any[]);
+    if (appUsers && appUsers.length > 0) {
+      // Preserve local_password_hash if it exists locally
+      const existingUsers = await db.app_users.toArray();
+      const existingUsersMap = new Map(existingUsers.map(u => [u.id, u.local_password_hash]));
+      const syncedUsers = appUsers.map(u => ({
+        ...u,
+        local_password_hash: existingUsersMap.get(u.id) || u.local_password_hash
+      }));
+      await db.app_users.bulkPut(syncedUsers as any[]);
+    }
     if (expenses && expenses.length > 0) await db.expenses.bulkPut(expenses as any[]);
     if (auditLog && auditLog.length > 0) await db.order_audit_log.bulkPut(auditLog as any[]);
 

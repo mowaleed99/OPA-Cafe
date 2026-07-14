@@ -13,8 +13,8 @@ import {
   getClosingPayments,
   type ClosingReport,
 } from '../../application/useCases/closing/dailyClosing';
-import type { DailyClosing } from '../../core/entities/daily_closing';
-import type { Product } from '../../core/entities/product';
+import type { DailyClosing } from '../../domain/entities/daily_closing';
+import type { Product } from '../../domain/entities/product';
 import { db } from '../../infrastructure/database/db';
 import { useCurrency } from '../../application/utils/useCurrency';
 const formatDate = (dateStr: string) => {

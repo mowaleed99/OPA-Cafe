@@ -1,24 +1,25 @@
 import { create } from 'zustand';
 import type { Session } from '@supabase/supabase-js';
-import type { AppUser } from '../../core/entities/user';
+import type { AppUser } from '../../domain/entities/user';
 import { supabase } from '../../infrastructure/api/supabase';
-import { db } from '../../infrastructure/database/db';
+import bcrypt from 'bcryptjs';
+import { authRepository } from '../../infrastructure/repositories/index';
 
 interface AuthState {
   session: Session | null;
   appUser: AppUser | null;
   isLoading: boolean;
-  // Computed helpers
   isOwner: () => boolean;
   isCashier: () => boolean;
   cafeId: () => string | null;
-  // Actions
   setSession: (session: Session | null) => void;
   setAppUser: (user: AppUser | null) => void;
   signIn: (email: string, password: string) => Promise<{ error: string | null }>;
   signOut: () => Promise<void>;
   initialize: () => Promise<void>;
 }
+
+const DEFAULT_CAFE_ID = '00000000-0000-0000-0000-000000000000';
 
 export const useAuthStore = create<AuthState>((set, get) => ({
   session: null,
@@ -29,42 +30,61 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   isCashier: () => get().appUser?.role === 'cashier',
   cafeId: () => get().appUser?.cafe_id ?? null,
 
-  setSession: (session) => set({ session }),
+  setSession: (session) => {
+    if (session?.user) localStorage.setItem('offline_user_id', session.user.id);
+    else localStorage.removeItem('offline_user_id');
+    set({ session });
+  },
+  
   setAppUser: (appUser) => set({ appUser }),
 
   signIn: async (email, password) => {
-    if (!navigator.onLine) {
-      return { error: 'You are offline. Please connect to the internet to sign in.' };
-    }
-
-    const { data, error } = await supabase.auth.signInWithPassword({ email, password });
-    if (error) return { error: error.message };
-    if (!data.user) return { error: 'No user returned' };
-
-    let appUser = null;
     try {
-      const { data: remoteUser, error: userError } = await supabase
-        .from('app_users')
-        .select('*')
-        .eq('id', data.user.id)
-        .single();
+      const localUser = await authRepository.findByEmail(email);
 
-      if (remoteUser) {
-        appUser = remoteUser;
-        await db.app_users.put(appUser);
+      if (!localUser) {
+        return { error: 'Invalid login credentials. User not found locally.' };
       }
-    } catch (err) {
-      console.warn('Could not fetch remote user, falling back to local DB', err);
+
+      if (!localUser.local_password_hash) {
+        return { error: 'Offline login is not set up. Please connect to the internet to sync credentials.' };
+      }
+
+      const isValid = bcrypt.compareSync(password, localUser.local_password_hash);
+      
+      if (!isValid) {
+        return { error: 'Invalid login credentials.' };
+      }
+
+      const localSession = {
+        access_token: 'local_offline_token',
+        refresh_token: 'local_offline_token',
+        expires_in: 3600,
+        expires_at: Math.floor(Date.now() / 1000) + 3600,
+        token_type: 'bearer',
+        user: {
+          id: localUser.id,
+          email: localUser.email || email,
+          app_metadata: {},
+          user_metadata: {},
+          aud: 'authenticated',
+          created_at: localUser.created_at,
+        }
+      } as Session;
+      
+      localStorage.setItem('offline_user_id', localUser.id);
+      set({ session: localSession, appUser: localUser });
+
+      // Background Supabase Sync
+      if (navigator.onLine) {
+        supabase.auth.signInWithPassword({ email, password }).catch(console.warn);
+      }
+
+      return { error: null };
+    } catch (err: any) {
+      console.error('Local sign in error:', err);
+      return { error: err.message };
     }
-
-    if (!appUser) {
-      appUser = await db.app_users.get(data.user.id) ?? null;
-    }
-
-    if (!appUser) return { error: 'User profile not found. Contact your administrator or check connection.' };
-
-    set({ session: data.session, appUser });
-    return { error: null };
   },
 
   signOut: async () => {
@@ -75,77 +95,75 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     } catch (e) {
       console.error('Logout error:', e);
     }
+    localStorage.removeItem('offline_user_id');
     set({ session: null, appUser: null });
   },
 
   initialize: async () => {
     set({ isLoading: true });
     try {
-      const { data: { session } } = await supabase.auth.getSession();
+      // 1. Owner Bootstrap Check
+      const count = await authRepository.countUsers();
+      if (count === 0) {
+        console.log('[Auth] SQLite is empty. Bootstrapping initial Owner account.');
+        const ownerEmail = 'ebrahimnagy2026@opa.com';
+        const ownerPassword = 'nagy@Ebrahim2026';
+        
+        const newOwner: AppUser = {
+          id: crypto.randomUUID(),
+          cafe_id: DEFAULT_CAFE_ID,
+          role: 'owner',
+          name: 'System Owner',
+          email: ownerEmail,
+          created_at: new Date().toISOString(),
+          local_password_hash: bcrypt.hashSync(ownerPassword, 10)
+        };
+        
+        await authRepository.insertUser(newOwner);
+        console.log('[Auth] Bootstrap complete.');
+      }
 
-      if (session?.user) {
-        // 1. Load from local DB immediately (Stale-while-revalidate)
-        let appUser = await db.app_users.get(session.user.id) ?? null;
-        set({ session, appUser, isLoading: false });
-
-        // 2. Fetch remote asynchronously without blocking
-        if (navigator.onLine) {
-          (async () => {
-            try {
-              const { data, error } = await supabase
-                .from('app_users')
-                .select('*')
-                .eq('id', session.user.id)
-                .single();
-
-              if (error) throw error;
-              if (data) {
-                await db.app_users.put(data);
-                set((state) => ({ ...state, appUser: data }));
-              }
-            } catch (err) {
-              console.warn('Failed to fetch remote user in background:', err);
+      // 2. Local Login via Stored ID
+      const offlineUserId = localStorage.getItem('offline_user_id');
+      if (offlineUserId) {
+        const localUser = await authRepository.findById(offlineUserId);
+        if (localUser) {
+          const mockSession = {
+            access_token: 'local_offline_token',
+            refresh_token: 'local_offline_token',
+            expires_in: 3600,
+            expires_at: Math.floor(Date.now() / 1000) + 3600,
+            token_type: 'bearer',
+            user: {
+              id: offlineUserId,
+              email: localUser.email || '',
+              app_metadata: {},
+              user_metadata: {},
+              aud: 'authenticated',
+              created_at: localUser.created_at,
             }
-          })();
+          } as Session;
+          set({ session: mockSession, appUser: localUser, isLoading: false });
+        } else {
+          set({ session: null, appUser: null, isLoading: false });
         }
       } else {
         set({ session: null, appUser: null, isLoading: false });
       }
+
+      // 3. Background Supabase Check (Non-Blocking)
+      if (navigator.onLine) {
+        supabase.auth.getSession().then(({ data: { session } }) => {
+          if (session?.user) {
+            // Note: Since we are fully local-first, the remote session mainly just keeps Supabase client alive for sync queue listening
+            console.log('[Auth] Supabase session verified in background.');
+          }
+        }).catch(console.warn);
+      }
+
     } catch (e) {
-      console.error('Initialize error:', e);
+      console.error('[Auth] Initialize error:', e);
       set({ isLoading: false });
     }
-
-    supabase.auth.onAuthStateChange(async (_event, session) => {
-      if (!session) {
-        set({ session: null, appUser: null });
-        return;
-      }
-      
-      // Local first
-      let appUser = await db.app_users.get(session.user.id) ?? null;
-      set({ session, appUser });
-
-      // Remote async
-      if (navigator.onLine) {
-        (async () => {
-          try {
-            const { data, error } = await supabase
-              .from('app_users')
-              .select('*')
-              .eq('id', session.user.id)
-              .single();
-
-            if (error) throw error;
-            if (data) {
-              await db.app_users.put(data);
-              set((state) => ({ ...state, appUser: data }));
-            }
-          } catch (err) {
-            console.warn('Failed to fetch remote user on auth change in background:', err);
-          }
-        })();
-      }
-    });
   },
 }));

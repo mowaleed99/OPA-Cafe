@@ -1,6 +1,7 @@
-import { db } from '../../../infrastructure/database/db';
-import type { Category } from '../../../core/entities/category';
-import type { Product } from '../../../core/entities/product';
+import { createRepository } from '../../../infrastructure/repositories/RepositoryFactory';
+import type { Category } from '../../../domain/entities/category';
+import type { Product } from '../../../domain/entities/product';
+import type { InventoryItem } from '../../../domain/entities/inventory';
 
 export interface POSData {
   categories: Category[];
@@ -8,20 +9,24 @@ export interface POSData {
   inventoryMap: Record<string, { stock_quantity: number; minimum_stock: number }>;
 }
 
-/**
- * Reads active categories and products from local Dexie DB for the given cafe.
- * Fully offline-first — no network call.
- */
 export async function loadPOSData(cafeId: string): Promise<POSData> {
-  const [categories, products, inventoryItems] = await Promise.all([
-    db.categories.where('cafe_id').equals(cafeId).filter((c) => !c.status || c.status !== 'inactive').sortBy('name'),
-    db.products
-      .where('cafe_id')
-      .equals(cafeId)
-      .filter((p) => p.status === 'active')
-      .sortBy('name'),
-    db.inventory_items.where('cafe_id').equals(cafeId).toArray(),
+  const catRepo = createRepository<Category>('categories');
+  const prodRepo = createRepository<Product>('products');
+  const invRepo = createRepository<InventoryItem>('inventory_items');
+
+  const [allCategories, allProducts, inventoryItems] = await Promise.all([
+    catRepo.findMany({ cafe_id: cafeId }),
+    prodRepo.findMany({ cafe_id: cafeId }),
+    invRepo.findMany({ cafe_id: cafeId })
   ]);
+
+  const categories = allCategories
+    .filter(c => !c.status || c.status !== 'inactive')
+    .sort((a, b) => a.name.localeCompare(b.name));
+    
+  const products = allProducts
+    .filter(p => p.status === 'active')
+    .sort((a, b) => a.name.localeCompare(b.name));
 
   const inventoryMap: Record<string, { stock_quantity: number; minimum_stock: number }> = {};
   for (const item of inventoryItems) {
