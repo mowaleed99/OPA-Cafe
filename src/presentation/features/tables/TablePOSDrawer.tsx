@@ -2,7 +2,7 @@ import { useEffect, useState, useCallback } from 'react';
 import { createPortal } from 'react-dom';
 import { X, RefreshCw, WifiOff, Users } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
-import { db } from '../../../infrastructure/database/db';
+import { orderRepository } from '../../../infrastructure/repositories/index';
 import { loadTableOrder } from '../../../application/useCases/pos/loadTableOrder';
 import { useAuthStore } from '../../../application/store/useAuthStore';
 import { useCartStore } from '../../../application/store/useCartStore';
@@ -38,7 +38,7 @@ export default function TablePOSDrawer({ tableId, tableName, onClose }: TablePOS
       setPosData(data);
 
       setTableId(tableId);
-      const table = await db.dining_tables.get(tableId);
+      const table = await orderRepository.getTableById(tableId);
       if (table) {
         if (table.status === 'occupied' && table.current_order_id) {
           await loadTableOrder(table.current_order_id);

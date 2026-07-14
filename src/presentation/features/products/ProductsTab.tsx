@@ -1,5 +1,5 @@
 import { useTranslation } from 'react-i18next';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { Button } from '../../components/ui/button';
 import { Input } from '../../components/ui/input';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../../components/ui/table';
@@ -9,8 +9,6 @@ import type { Category } from '../../../domain/entities/category';
 import { useAuthStore } from '../../../application/store/useAuthStore';
 import { getProducts, deleteProduct } from '../../../application/useCases/products/manageProducts';
 import { getCategories } from '../../../application/useCases/products/manageCategories';
-import { useLiveQuery } from 'dexie-react-hooks';
-import { db } from '../../../infrastructure/database/db';
 import { ProductFormModal } from './ProductFormModal';
 import { ConfirmDialog } from '../../components/ui/confirm-dialog';
 
@@ -21,24 +19,25 @@ export function ProductsTab() {
   const [searchQuery, setSearchQuery] = useState('');
   const cafeId = useAuthStore(state => state.cafeId());
 
-  const products = useLiveQuery(
-    () => db.products.where('cafe_id').equals(cafeId || '').filter(p => p.status !== 'inactive').toArray(),
-    [cafeId]
-  ) || [];
+  const [products, setProducts] = useState<Product[]>([]);
+  const [categories, setCategories] = useState<Category[]>([]);
 
-  const categories = useLiveQuery(
-    async () => {
-      if (!cafeId) return [];
-      const cats = await db.categories.where('cafe_id').equals(cafeId).filter(c => !c.status || c.status !== 'inactive').toArray();
-      const seen = new Set<string>();
-      return cats.filter(c => {
-        if (seen.has(c.id)) return false;
-        seen.add(c.id);
-        return true;
-      });
-    },
-    [cafeId]
-  ) || [];
+  const fetchData = useCallback(async () => {
+    if (!cafeId) return;
+    try {
+      const prods = await getProducts(cafeId);
+      setProducts(prods);
+      
+      const cats = await getCategories(cafeId);
+      setCategories(cats);
+    } catch (error) {
+      console.error('Failed to fetch data:', error);
+    }
+  }, [cafeId]);
+
+  useEffect(() => {
+    fetchData();
+  }, [fetchData]);
 
   const handleAdd = () => {
     setProductToEdit(null);

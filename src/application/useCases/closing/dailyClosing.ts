@@ -1,24 +1,19 @@
-import { enqueueSync } from '../../sync/syncQueue';
-import { createRepository } from '../../../infrastructure/repositories/RepositoryFactory';
+import { buildSyncOperation } from '../../sync/syncQueue';
+import { closingRepository, orderRepository, supplierRepository, purchaseRepository } from '../../../infrastructure/repositories/index';
+import { executeTransaction, TransactionOperation } from '../../../infrastructure/database/transaction';
 import type { DailyClosing, DailyClosingItem } from '../../../domain/entities/daily_closing';
-import type { Order, OrderItem } from '../../../domain/entities/order';
-import type { Supplier, SupplierPayment } from '../../../domain/entities/supplier';
 
 export async function getDailyClosings(cafeId: string): Promise<DailyClosing[]> {
-  const repo = createRepository<DailyClosing>('daily_closings');
-  const closings = await repo.findMany({ cafe_id: cafeId });
-  return closings.sort((a, b) => b.closing_date.localeCompare(a.closing_date));
+  return await closingRepository.getClosings(cafeId);
 }
 
 export async function getDailyClosingItems(dailyClosingId: string): Promise<DailyClosingItem[]> {
-  const repo = createRepository<DailyClosingItem>('daily_closing_items');
-  return await repo.findMany({ daily_closing_id: dailyClosingId });
+  return await closingRepository.getClosingItems(dailyClosingId);
 }
 
 export async function getClosingByDate(cafeId: string, date: string): Promise<DailyClosing | undefined> {
-  const repo = createRepository<DailyClosing>('daily_closings');
-  const closings = await repo.findMany({ cafe_id: cafeId });
-  return closings.find(c => c.closing_date === date);
+  const closing = await closingRepository.getClosingByDate(cafeId, date);
+  return closing || undefined;
 }
 
 export async function getTodayClosing(cafeId: string): Promise<DailyClosing | undefined> {
@@ -34,13 +29,6 @@ export interface ClosingReport {
 }
 
 export async function closingDay(cafeId: string, selectedDate: string = new Date().toISOString().split('T')[0]): Promise<ClosingReport> {
-  const closingsRepo = createRepository<DailyClosing>('daily_closings');
-  const itemsRepo = createRepository<DailyClosingItem>('daily_closing_items');
-  const orderRepo = createRepository<Order>('orders');
-  const orderItemsRepo = createRepository<OrderItem>('order_items');
-  const suppliersRepo = createRepository<Supplier>('suppliers');
-  const paymentsRepo = createRepository<SupplierPayment>('supplier_payments');
-
   // Check for existing duplicate and update it if necessary
   const existing = await getClosingByDate(cafeId, selectedDate);
   const closingId = existing ? existing.id : crypto.randomUUID();
@@ -49,7 +37,8 @@ export async function closingDay(cafeId: string, selectedDate: string = new Date
   let startTime = '1970-01-01T00:00:00.000Z';
   let endTime = new Date().toISOString();
 
-  const allClosings = await closingsRepo.findMany({ cafe_id: cafeId });
+  const allClosings = await closingRepository.getClosings(cafeId);
+  // sort ascending by created_at for time window logic
   allClosings.sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime());
 
   if (existing) {
@@ -65,7 +54,7 @@ export async function closingDay(cafeId: string, selectedDate: string = new Date
   }
 
   // 1. Find all paid orders within the time window
-  const allOrders = await orderRepo.findMany({ cafe_id: cafeId });
+  const allOrders = await orderRepository.getOrders(cafeId);
   const shiftOrders = allOrders.filter(o => o.status === 'paid' && o.created_at > startTime && o.created_at <= endTime);
 
   if (shiftOrders.length === 0 && !existing) {
@@ -76,24 +65,23 @@ export async function closingDay(cafeId: string, selectedDate: string = new Date
   const totalSales = shiftOrders.reduce((sum, o) => sum + o.total_amount, 0);
 
   // 2. Get all order items for those orders
-  const allOrderItems = await orderItemsRepo.findMany();
-  const shiftOrderItems = allOrderItems.filter(i => orderIds.has(i.order_id));
-
-  // 3. Aggregate per product
   const productTotals: Record<string, { quantity: number; revenue: number }> = {};
-  for (const item of shiftOrderItems) {
-    if (!productTotals[item.product_id]) {
-      productTotals[item.product_id] = { quantity: 0, revenue: 0 };
+  for (const orderId of orderIds) {
+    const items = await orderRepository.getOrderItems(orderId);
+    for (const item of items) {
+      if (!productTotals[item.product_id]) {
+        productTotals[item.product_id] = { quantity: 0, revenue: 0 };
+      }
+      productTotals[item.product_id].quantity += item.quantity;
+      productTotals[item.product_id].revenue += item.subtotal;
     }
-    productTotals[item.product_id].quantity += item.quantity;
-    productTotals[item.product_id].revenue += item.subtotal;
   }
 
   // 4. Find all supplier payments (expenses) within the time window
-  const allPayments = await paymentsRepo.findMany();
+  const allPayments = await purchaseRepository.getPayments(cafeId);
   const shiftPayments = allPayments.filter(p => p.payment_date.startsWith(selectedDate));
     
-  const cafeSuppliers = await suppliersRepo.findMany({ cafe_id: cafeId });
+  const cafeSuppliers = await supplierRepository.getSuppliers(cafeId);
   const cafeSupplierIds = new Set(cafeSuppliers.map(s => s.id));
   
   const cafeShiftPayments = shiftPayments.filter(p => cafeSupplierIds.has(p.supplier_id));
@@ -118,29 +106,41 @@ export async function closingDay(cafeId: string, selectedDate: string = new Date
     total_revenue: agg.revenue,
   }));
 
+  const ops: TransactionOperation[] = [];
+
   // 6. Write to DB and sync
   if (existing) {
-    await closingsRepo.update(closingId, closing);
-    
-    const oldItems = await itemsRepo.findMany({ daily_closing_id: closingId });
+    ops.push({ type: 'update', table: 'daily_closings', id: closingId, data: closing });
+    ops.push(buildSyncOperation('update', 'daily_closings', closing as unknown as Record<string, unknown>));
+
+    const oldItems = await closingRepository.getClosingItems(closingId);
     for (const oldItem of oldItems) {
-      await itemsRepo.delete(oldItem.id);
-      await enqueueSync('delete', 'daily_closing_items', { id: oldItem.id });
+      ops.push({ type: 'delete', table: 'daily_closing_items', id: oldItem.id });
+      ops.push(buildSyncOperation('delete', 'daily_closing_items', { id: oldItem.id }));
     }
     
-    await itemsRepo.insertMany(closingItems);
-    
-    await enqueueSync('update', 'daily_closings', closing as unknown as Record<string, unknown>);
-    for (const item of closingItems) {
-      await enqueueSync('insert', 'daily_closing_items', item as unknown as Record<string, unknown>);
+    if (closingItems.length > 0) {
+      ops.push({ type: 'insertMany', table: 'daily_closing_items', data: closingItems });
+      for (const item of closingItems) {
+        ops.push(buildSyncOperation('insert', 'daily_closing_items', item as unknown as Record<string, unknown>));
+      }
     }
   } else {
-    await closingsRepo.insert(closing);
-    await itemsRepo.insertMany(closingItems);
-    await enqueueSync('insert', 'daily_closings', closing as unknown as Record<string, unknown>);
-    for (const item of closingItems) {
-      await enqueueSync('insert', 'daily_closing_items', item as unknown as Record<string, unknown>);
+    ops.push({ type: 'insert', table: 'daily_closings', data: closing });
+    ops.push(buildSyncOperation('insert', 'daily_closings', closing as unknown as Record<string, unknown>));
+
+    if (closingItems.length > 0) {
+      ops.push({ type: 'insertMany', table: 'daily_closing_items', data: closingItems });
+      for (const item of closingItems) {
+        ops.push(buildSyncOperation('insert', 'daily_closing_items', item as unknown as Record<string, unknown>));
+      }
     }
+  }
+
+  await executeTransaction(ops);
+
+  if (navigator.onLine && window.electronAPI) {
+    window.electronAPI.triggerSync();
   }
 
   const enrichedPayments = cafeShiftPayments.map(p => {
@@ -155,13 +155,10 @@ export async function closingDay(cafeId: string, selectedDate: string = new Date
 }
 
 export async function getClosingPayments(cafeId: string, selectedDate: string) {
-  const suppliersRepo = createRepository<Supplier>('suppliers');
-  const paymentsRepo = createRepository<SupplierPayment>('supplier_payments');
-
-  const allPayments = await paymentsRepo.findMany();
+  const allPayments = await purchaseRepository.getPayments(cafeId);
   const shiftPayments = allPayments.filter(p => p.payment_date.startsWith(selectedDate));
     
-  const cafeSuppliers = await suppliersRepo.findMany({ cafe_id: cafeId });
+  const cafeSuppliers = await supplierRepository.getSuppliers(cafeId);
   const cafeSupplierIds = new Set(cafeSuppliers.map(s => s.id));
   
   const cafeShiftPayments = shiftPayments.filter(p => cafeSupplierIds.has(p.supplier_id));

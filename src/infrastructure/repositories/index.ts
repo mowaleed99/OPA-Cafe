@@ -7,6 +7,7 @@ import { SQLiteSupplierRepository } from './SQLiteSupplierRepository';
 import { SQLitePurchaseRepository } from './SQLitePurchaseRepository';
 import { SQLiteExpenseRepository } from './SQLiteExpenseRepository';
 import { SQLiteOrderRepository } from './SQLiteOrderRepository';
+import { SQLiteClosingRepository } from './SQLiteClosingRepository';
 
 // Basic Service Locator for Repositories
 export const authRepository = new SQLiteAuthRepository();
@@ -18,3 +19,4 @@ export const supplierRepository = new SQLiteSupplierRepository();
 export const purchaseRepository = new SQLitePurchaseRepository();
 export const expenseRepository = new SQLiteExpenseRepository();
 export const orderRepository = new SQLiteOrderRepository();
+export const closingRepository = new SQLiteClosingRepository();

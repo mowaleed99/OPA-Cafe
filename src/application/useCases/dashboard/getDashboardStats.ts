@@ -1,6 +1,5 @@
-import { createRepository } from '../../../infrastructure/repositories/RepositoryFactory';
+import { orderRepository, closingRepository } from '../../../infrastructure/repositories/index';
 import type { DailyClosing } from '../../../domain/entities/daily_closing';
-import type { Order } from '../../../domain/entities/order';
 
 export interface DashboardStats {
   todaySales: number;
@@ -14,11 +13,8 @@ export async function getDashboardStats(cafeId: string): Promise<DashboardStats>
   const today = new Date().toISOString().split('T')[0];
   const weekAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
 
-  const orderRepo = createRepository<Order>('orders');
-  const closingRepo = createRepository<DailyClosing>('daily_closings');
-
   // Today's paid orders (live)
-  const allOrders = await orderRepo.findMany({ cafe_id: cafeId });
+  const allOrders = await orderRepository.getOrders(cafeId);
   const todayOrders = allOrders.filter(o => o.status === 'paid' && o.created_at.startsWith(today));
 
   const todaySales = todayOrders.reduce((sum, o) => sum + o.total_amount, 0);
@@ -26,7 +22,7 @@ export async function getDashboardStats(cafeId: string): Promise<DashboardStats>
   const todayAverageOrder = todayOrderCount > 0 ? todaySales / todayOrderCount : 0;
 
   // This week's closings for the chart
-  const allClosings = await closingRepo.findMany({ cafe_id: cafeId });
+  const allClosings = await closingRepository.getClosings(cafeId);
   const recentClosings = allClosings
     .filter(c => c.closing_date >= weekAgo)
     .sort((a, b) => a.closing_date.localeCompare(b.closing_date));

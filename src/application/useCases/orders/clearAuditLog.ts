@@ -1,20 +1,21 @@
-import { db } from '../../../infrastructure/database/db';
-import { enqueueSync } from '../../sync/syncQueue';
+import { orderRepository } from '../../../infrastructure/repositories/index';
+import { executeTransaction, TransactionOperation } from '../../../infrastructure/database/transaction';
+import { buildSyncOperation } from '../../sync/syncQueue';
 
 export async function clearAuditLog(cafeId: string): Promise<void> {
-  const entries = await db.order_audit_log.where('cafe_id').equals(cafeId).toArray();
+  const entries = await orderRepository.getAuditLogs(cafeId);
   if (entries.length === 0) return;
 
-  const entryIds = entries.map(e => e.id);
+  const ops: TransactionOperation[] = [];
 
-  // Perform deletion and sync queueing in a single atomic transaction
-  await db.transaction('rw', db.order_audit_log, db.sync_queue, async () => {
-    // Local delete
-    await db.order_audit_log.bulkDelete(entryIds);
+  for (const entry of entries) {
+    ops.push({ type: 'delete', table: 'order_audit_log', id: entry.id });
+    ops.push(buildSyncOperation('delete', 'order_audit_log', { id: entry.id }));
+  }
 
-    // Queue sync for each deleted entry
-    for (const entry of entries) {
-      await enqueueSync('delete', 'order_audit_log', { id: entry.id });
-    }
-  });
+  await executeTransaction(ops);
+
+  if (navigator.onLine && window.electronAPI) {
+    window.electronAPI.triggerSync();
+  }
 }

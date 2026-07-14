@@ -8,26 +8,27 @@ import { useAuthStore } from '../../../application/store/useAuthStore';
 import { getCategories, deleteCategory } from '../../../application/useCases/products/manageCategories';
 import { CategoryFormModal } from './CategoryFormModal';
 import { ConfirmDialog } from '../../components/ui/confirm-dialog';
-import { useLiveQuery } from 'dexie-react-hooks';
-import { db } from '../../../infrastructure/database/db';
+import { ConfirmDialog } from '../../components/ui/confirm-dialog';
 
 export function CategoriesTab() {
   const { t } = useTranslation();
   const cafeId = useAuthStore(state => state.cafeId());
 
-  const categories = useLiveQuery(
-    async () => {
-      if (!cafeId) return [];
-      const cats = await db.categories.where('cafe_id').equals(cafeId).filter(c => !c.status || c.status !== 'inactive').toArray();
-      const seen = new Set<string>();
-      return cats.filter(c => {
-        if (seen.has(c.id)) return false;
-        seen.add(c.id);
-        return true;
-      });
-    },
-    [cafeId]
-  ) || [];
+  const [categories, setCategories] = useState<Category[]>([]);
+
+  const fetchCategories = useCallback(async () => {
+    if (!cafeId) return;
+    try {
+      const data = await getCategories(cafeId);
+      setCategories(data);
+    } catch (error) {
+      console.error('Failed to fetch categories:', error);
+    }
+  }, [cafeId]);
+
+  useEffect(() => {
+    fetchCategories();
+  }, [fetchCategories]);
 
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [categoryToEdit, setCategoryToEdit] = useState<Category | null>(null);

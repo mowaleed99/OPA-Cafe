@@ -1,4 +1,4 @@
-import { db } from '../../../infrastructure/database/db';
+import { orderRepository } from '../../../infrastructure/repositories/index';
 import type { OrderAuditLog } from '../../../domain/entities/order_audit_log';
 
 interface AuditLogFilters {
@@ -11,11 +11,7 @@ export async function getAuditLog(
   cafeId: string,
   filters: AuditLogFilters = {}
 ): Promise<OrderAuditLog[]> {
-  let entries = await db.order_audit_log
-    .where('cafe_id')
-    .equals(cafeId)
-    .reverse()
-    .sortBy('created_at');
+  let entries = await orderRepository.getAuditLogs(cafeId);
 
   // Apply date filters
   if (filters.from) {
