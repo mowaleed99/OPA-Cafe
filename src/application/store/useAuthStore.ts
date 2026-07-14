@@ -1,7 +1,6 @@
 import { create } from 'zustand';
 import type { Session } from '@supabase/supabase-js';
 import type { AppUser } from '../../domain/entities/user';
-import { supabase } from '../../infrastructure/api/supabase';
 import bcrypt from 'bcryptjs';
 import { authRepository } from '../../infrastructure/repositories/index';
 
@@ -75,11 +74,6 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       localStorage.setItem('offline_user_id', localUser.id);
       set({ session: localSession, appUser: localUser });
 
-      // Background Supabase Sync
-      if (navigator.onLine) {
-        supabase.auth.signInWithPassword({ email, password }).catch(console.warn);
-      }
-
       return { error: null };
     } catch (err: any) {
       console.error('Local sign in error:', err);
@@ -88,13 +82,6 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   },
 
   signOut: async () => {
-    try {
-      if (navigator.onLine) {
-        await supabase.auth.signOut();
-      }
-    } catch (e) {
-      console.error('Logout error:', e);
-    }
     localStorage.removeItem('offline_user_id');
     set({ session: null, appUser: null });
   },
@@ -149,16 +136,6 @@ export const useAuthStore = create<AuthState>((set, get) => ({
         }
       } else {
         set({ session: null, appUser: null, isLoading: false });
-      }
-
-      // 3. Background Supabase Check (Non-Blocking)
-      if (navigator.onLine) {
-        supabase.auth.getSession().then(({ data: { session } }) => {
-          if (session?.user) {
-            // Note: Since we are fully local-first, the remote session mainly just keeps Supabase client alive for sync queue listening
-            console.log('[Auth] Supabase session verified in background.');
-          }
-        }).catch(console.warn);
       }
 
     } catch (e) {

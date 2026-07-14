@@ -12,8 +12,6 @@ import {
   LayoutDashboard, Coffee, Package, UtensilsCrossed, ClipboardList, Banknote, BookOpen, LineChart,
   FileText, Lock,
 } from 'lucide-react';
-import { db } from '../../infrastructure/database/db';
-import { supabase } from '../../infrastructure/api/supabase';
 import { updateSettings } from '../../application/useCases/settings/manageSettings';
 import { setOwnerPin, hasOwnerPin } from '../../application/useCases/settings/manageOwnerPin';
 import { useAuthStore } from '../../application/store/useAuthStore';
@@ -107,11 +105,6 @@ export default function SettingsPage() {
     setIsExporting(true);
     setBackupMessage(null);
     try {
-      const data: Record<string, unknown[]> = {};
-      for (const table of db.tables) {
-        data[table.name] = await db.table(table.name).toArray();
-      }
-      const jsonString = JSON.stringify(data);
       const defaultFilename = `opa-cafe-backup-${new Date().toISOString().split('T')[0]}.json`;
 
       // @ts-ignore
@@ -135,16 +128,7 @@ export default function SettingsPage() {
           throw new Error(saveResult.error);
         }
       } else {
-        const blob = new Blob([jsonString], { type: 'application/json' });
-        const url = URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        a.href = url;
-        a.download = defaultFilename;
-        document.body.appendChild(a);
-        a.click();
-        document.body.removeChild(a);
-        URL.revokeObjectURL(url);
-        setBackupMessage({ type: 'success', text: t('backup_success') });
+        throw new Error('Export is only supported in desktop app');
       }
     } catch (err) {
       setBackupMessage({ type: 'error', text: t('backup_error') });
@@ -153,32 +137,27 @@ export default function SettingsPage() {
     }
   };
 
-  const handleImport = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
+  const handleImport = async () => {
     setIsImporting(true);
     setBackupMessage(null);
-    const reader = new FileReader();
-    reader.onload = async (event) => {
-      try {
-        const data = JSON.parse(event.target?.result as string);
-        await db.transaction('rw', db.tables, async () => {
-          for (const tableName of Object.keys(data)) {
-            if (db.tables.find(t => t.name === tableName)) {
-              await db.table(tableName).clear();
-              await db.table(tableName).bulkAdd(data[tableName]);
-            }
-          }
-        });
-        setBackupMessage({ type: 'success', text: t('restore_success') });
-      } catch {
-        setBackupMessage({ type: 'error', text: t('restore_error') });
-      } finally {
-        setIsImporting(false);
-        e.target.value = '';
+    try {
+      // @ts-ignore
+      if (window.electronAPI) {
+        // @ts-ignore
+        const result = await window.electronAPI.restoreBackup();
+        if (result.success) {
+          setBackupMessage({ type: 'success', text: t('restore_success') });
+        } else if (!result.canceled) {
+          throw new Error(result.error);
+        }
+      } else {
+        throw new Error('Restore is only supported in desktop app');
       }
-    };
-    reader.readAsText(file);
+    } catch {
+      setBackupMessage({ type: 'error', text: t('restore_error') });
+    } finally {
+      setIsImporting(false);
+    }
   };
 
   // Danger Zone
@@ -195,23 +174,11 @@ export default function SettingsPage() {
     setIsClearingMenu(true);
     setDangerMessage(null);
     try {
-      // 1. Clear local IndexedDB
-      await db.transaction('rw', [db.categories, db.products, db.sync_queue], async () => {
-        await db.categories.clear();
-        await db.products.clear();
-        await db.sync_queue.clear();
-      });
-
-      // 2. Clear online (Supabase) — only if online and cafeId is known
-      if (navigator.onLine && cafeId) {
-        const [{ error: catErr }, { error: prodErr }] = await Promise.all([
-          supabase.from('categories').delete().eq('cafe_id', cafeId),
-          supabase.from('products').delete().eq('cafe_id', cafeId),
-        ]);
-        if (catErr) throw catErr;
-        if (prodErr) throw prodErr;
+      if (cafeId && window.electronAPI) {
+        // @ts-ignore
+        const res = await window.electronAPI.clearData(cafeId, 'menu');
+        if (!res.success) throw new Error(res.error);
       }
-
       setMenuConfirm('');
       setDangerMessage({ type: 'success', text: t('clear_menu_success') });
     } catch {
@@ -226,47 +193,11 @@ export default function SettingsPage() {
     setIsClearingSales(true);
     setDangerMessage(null);
     try {
-      // 1. Clear local IndexedDB
-      await db.transaction('rw', [db.orders, db.order_items, db.daily_closings, db.daily_closing_items, db.sync_queue, db.dining_tables], async () => {
-        await db.orders.clear();
-        await db.order_items.clear();
-        await db.daily_closings.clear();
-        await db.daily_closing_items.clear();
-        await db.sync_queue.clear();
-        const tables = await db.dining_tables.toArray();
-        for (const tbl of tables) {
-          await db.dining_tables.put({ ...tbl, status: 'available', current_order_id: undefined });
-        }
-      });
-
-      // 2. Clear online (Supabase) — only if online and cafeId is known
-      if (navigator.onLine && cafeId) {
-        // Delete child tables first to avoid FK violations
-        const { data: remoteOrders } = await supabase.from('orders').select('id').eq('cafe_id', cafeId);
-        const { data: remoteClosings } = await supabase.from('daily_closings').select('id').eq('cafe_id', cafeId);
-
-        const orderIds = (remoteOrders ?? []).map(o => o.id);
-        const closingIds = (remoteClosings ?? []).map(c => c.id);
-
-        if (orderIds.length > 0) {
-          const { error: oiErr } = await supabase.from('order_items').delete().in('order_id', orderIds);
-          if (oiErr) throw oiErr;
-        }
-        if (closingIds.length > 0) {
-          const { error: dciErr } = await supabase.from('daily_closing_items').delete().in('daily_closing_id', closingIds);
-          if (dciErr) throw dciErr;
-        }
-
-        const [{ error: ordErr }, { error: dcErr }, { error: tblErr }] = await Promise.all([
-          supabase.from('orders').delete().eq('cafe_id', cafeId),
-          supabase.from('daily_closings').delete().eq('cafe_id', cafeId),
-          supabase.from('tables').update({ status: 'available', current_order_id: null }).eq('cafe_id', cafeId),
-        ]);
-        if (ordErr) throw ordErr;
-        if (dcErr) throw dcErr;
-        if (tblErr) throw tblErr;
+      if (cafeId && window.electronAPI) {
+        // @ts-ignore
+        const res = await window.electronAPI.clearData(cafeId, 'sales');
+        if (!res.success) throw new Error(res.error);
       }
-
       setSalesConfirm('');
       setDangerMessage({ type: 'success', text: t('clear_sales_success') });
     } catch {
@@ -281,32 +212,11 @@ export default function SettingsPage() {
     setIsClearingPurchases(true);
     setDangerMessage(null);
     try {
-      // 1. Clear local IndexedDB
-      await db.transaction('rw', [db.purchases, db.purchase_items, db.supplier_payments, db.sync_queue], async () => {
-        await db.purchases.clear();
-        await db.purchase_items.clear();
-        await db.supplier_payments.clear();
-        await db.sync_queue.clear();
-      });
-
-      // 2. Clear online (Supabase) — only if online and cafeId is known
-      if (navigator.onLine && cafeId) {
-        const { data: remotePurchases } = await supabase.from('purchases').select('id').eq('cafe_id', cafeId);
-        const purchaseIds = (remotePurchases ?? []).map(p => p.id);
-
-        if (purchaseIds.length > 0) {
-          const [{ error: piErr }, { error: spErr }] = await Promise.all([
-            supabase.from('purchase_items').delete().in('purchase_id', purchaseIds),
-            supabase.from('supplier_payments').delete().in('purchase_id', purchaseIds)
-          ]);
-          if (piErr) throw piErr;
-          if (spErr) throw spErr;
-        }
-
-        const { error: purErr } = await supabase.from('purchases').delete().eq('cafe_id', cafeId);
-        if (purErr) throw purErr;
+      if (cafeId && window.electronAPI) {
+        // @ts-ignore
+        const res = await window.electronAPI.clearData(cafeId, 'purchases');
+        if (!res.success) throw new Error(res.error);
       }
-
       setPurchasesConfirm('');
       setDangerMessage({ type: 'success', text: t('clear_purchases_success') });
     } catch {
