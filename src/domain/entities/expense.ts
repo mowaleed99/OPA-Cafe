@@ -9,4 +9,8 @@ export interface Expense {
   created_at: string;
   updated_at: string;
   deleted_at?: string;
+  updated_at?: string;
+  version?: number;
+  device_id?: string;
+  last_modified_by?: string;
 }

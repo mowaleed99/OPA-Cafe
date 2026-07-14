@@ -22,4 +22,8 @@ export interface OrderItem {
   unit_price: number;
   subtotal: number;
   deleted_at?: string;
+  updated_at?: string;
+  version?: number;
+  device_id?: string;
+  last_modified_by?: string;
 }

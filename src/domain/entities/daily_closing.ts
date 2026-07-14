@@ -16,4 +16,8 @@ export interface DailyClosingItem {
   quantity_sold: number;
   total_revenue: number;
   deleted_at?: string;
+  updated_at?: string;
+  version?: number;
+  device_id?: string;
+  last_modified_by?: string;
 }

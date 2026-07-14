@@ -15,6 +15,15 @@ function toSupabaseName(localName: string): string {
 
 import { createRepository } from '../../infrastructure/repositories/RepositoryFactory';
 
+function getDeviceId(): string {
+  let deviceId = localStorage.getItem('device_id');
+  if (!deviceId) {
+    deviceId = crypto.randomUUID();
+    localStorage.setItem('device_id', deviceId);
+  }
+  return deviceId;
+}
+
 export function buildSyncOperation(
   action: 'insert' | 'update' | 'delete',
   table: string,
@@ -22,6 +31,16 @@ export function buildSyncOperation(
 ): { type: 'insert'; table: 'sync_queue'; data: SyncQueueItem } {
   let finalAction = action;
   let finalPayload = { ...payload };
+  
+  finalPayload.updated_at = new Date().toISOString();
+  finalPayload.device_id = getDeviceId();
+  finalPayload.version = (typeof payload.version === 'number' ? payload.version : 0) + 1;
+  
+  const offlineUserId = localStorage.getItem('offline_user_id');
+  if (offlineUserId) {
+    finalPayload.last_modified_by = offlineUserId;
+  }
+
   if (action === 'delete') {
     finalAction = 'update';
     finalPayload.deleted_at = new Date().toISOString();

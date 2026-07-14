@@ -6,6 +6,7 @@ const syncFields = {
   sync_status: text('sync_status', { enum: ['synced', 'pending', 'failed'] }).default('pending'),
   device_id: text('device_id'),
   version: integer('version').default(1),
+  last_modified_by: text('last_modified_by'),
 };
 
 const appUsers = sqliteTable('app_users', {
@@ -238,9 +239,20 @@ const syncQueue = sqliteTable('sync_queue', {
   record_id: text('record_id')
 });
 
+const syncConflicts = sqliteTable('sync_conflicts', {
+  id: text('id').primaryKey(),
+  table_name: text('table_name').notNull(),
+  record_id: text('record_id').notNull(),
+  local_data: text('local_data').notNull(),
+  remote_data: text('remote_data').notNull(),
+  resolved: integer('resolved', { mode: 'boolean' }).default(false),
+  resolution: text('resolution'), // 'local_wins' | 'remote_wins' | 'merged'
+  created_at: text('created_at').notNull()
+});
+
 module.exports = {
   appUsers, categories, products, inventoryItems, stockMovements,
   diningTables, orders, orderItems, suppliers, purchases, purchaseItems,
   supplierPayments, expenses, dailyClosings, dailyClosingItems, settings,
-  orderAuditLog, syncQueue
+  orderAuditLog, syncQueue, syncConflicts
 };
