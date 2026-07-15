@@ -30,6 +30,12 @@ async function shareSyncSession(session: Session | null): Promise<void> {
   } : null);
 }
 
+// Supabase refreshes access tokens in the renderer. Forward every auth state
+// change so the Electron main-process worker never keeps an expired token.
+supabase.auth.onAuthStateChange((_event, session) => {
+  void shareSyncSession(session);
+});
+
 export const useAuthStore = create<AuthState>((set, get) => ({
   session: null,
   appUser: null,

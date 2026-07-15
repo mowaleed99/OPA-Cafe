@@ -15,11 +15,13 @@ const supabase = createClient(supabaseUrl, supabaseAnonKey);
 // renderer's Supabase session automatically.  Without this session every
 // request is made as `anon` and is correctly rejected by RLS.
 let hasAuthenticatedSession = false;
+let didLogMissingSession = false;
 
 async function setSyncSession(session) {
   if (!session?.accessToken || !session?.refreshToken) {
     await supabase.auth.signOut();
     hasAuthenticatedSession = false;
+    didLogMissingSession = false;
     return;
   }
 
@@ -29,6 +31,7 @@ async function setSyncSession(session) {
   });
   if (error) throw error;
   hasAuthenticatedSession = true;
+  didLogMissingSession = false;
 }
 
 const LOCAL_TO_SUPABASE = {
@@ -37,6 +40,67 @@ const LOCAL_TO_SUPABASE = {
 
 function toSupabaseName(localName) {
   return LOCAL_TO_SUPABASE[localName] ?? localName;
+}
+
+// SQLite and the cloud schema evolved independently for a short period. Keep
+// this adapter in the worker so records already persisted in the offline queue
+// can be repaired as well as newly created records.
+function toSupabasePayload(tableName, payload) {
+  const normalized = { ...payload };
+
+  if (tableName === 'expenses') {
+    normalized.expense_date ??= normalized.date;
+    delete normalized.date;
+  }
+
+  if (tableName === 'purchases') {
+    normalized.amount_remaining ??= Math.max(
+      0,
+      Number(normalized.total_amount || 0) - Number(normalized.amount_paid || 0)
+    );
+  }
+
+  if (tableName === 'order_audit_log') {
+    // Older deployed databases use action_type, while the local model uses
+    // action. The migration keeps both columns available during the upgrade.
+    normalized.action_type ??= normalized.action;
+  }
+
+  return normalized;
+}
+
+function getTablePriority(item) {
+  const tablePriority = {
+    app_users: 0,
+    categories: 1,
+    inventory_items: 1,
+    suppliers: 1,
+    tables: 1,
+    dining_tables: 1,
+    products: 2,
+    orders: 2,
+    purchases: 2,
+    settings: 2,
+    order_items: 3,
+    purchase_items: 3,
+    supplier_payments: 3,
+    stock_movements: 3,
+    daily_closing_items: 3,
+    order_audit_log: 3,
+  };
+
+  // A table can reference its current order. Process that update only after
+  // the order exists in Supabase, preventing a transient foreign-key failure.
+  if ((item.table_name === 'tables' || item.table_name === 'dining_tables') && item.action !== 'delete') {
+    try {
+      const payload = typeof item.payload === 'string' ? JSON.parse(item.payload) : item.payload;
+      if (payload?.current_order_id) return 3;
+    } catch {
+      // Let normal processing record malformed queue items as failures.
+    }
+  }
+
+  return tablePriority[item.table_name] ?? 2;
 }
 
 // ----------------------------------------------------
@@ -97,7 +161,10 @@ async function processSyncQueue() {
     return;
   }
   if (!hasAuthenticatedSession) {
-    logSync('No authenticated Supabase session. Queue preserved until an online user signs in.');
+    if (!didLogMissingSession) {
+      logSync('No authenticated Supabase session. Queue preserved until an online user signs in.');
+      didLogMissingSession = true;
+    }
     return;
   }
   
@@ -115,26 +182,8 @@ async function processSyncQueue() {
       
     // Insert parents before dependants. This also lets old failed work recover
     // after its missing parent record has been uploaded.
-    const tablePriority = {
-      app_users: 0,
-      categories: 1,
-      inventory_items: 1,
-      suppliers: 1,
-      tables: 1,
-      dining_tables: 1,
-      products: 2,
-      orders: 2,
-      purchases: 2,
-      settings: 2,
-      order_items: 3,
-      purchase_items: 3,
-      supplier_payments: 3,
-      stock_movements: 3,
-      daily_closing_items: 3,
-      order_audit_log: 3,
-    };
     pendingItems.sort((a, b) =>
-      (tablePriority[a.table_name] ?? 2) - (tablePriority[b.table_name] ?? 2) ||
+      getTablePriority(a) - getTablePriority(b) ||
       new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
     );
     
@@ -165,7 +214,8 @@ async function processSyncQueue() {
         await db.update(schema.syncQueue).set({ status: 'syncing' }).where(eq(schema.syncQueue.id, item.id)).execute();
         
         const supabaseTable = toSupabaseName(item.table_name);
-        const payload = typeof item.payload === 'string' ? JSON.parse(item.payload) : item.payload;
+        const queuedPayload = typeof item.payload === 'string' ? JSON.parse(item.payload) : item.payload;
+        const payload = toSupabasePayload(supabaseTable, queuedPayload);
         
         let conflictDetected = false;
         let remoteData = null;

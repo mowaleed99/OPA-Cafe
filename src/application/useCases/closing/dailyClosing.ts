@@ -66,18 +66,18 @@ export async function closingDay(cafeId: string, selectedDate: string = new Date
   let endTime = new Date().toISOString();
 
   const allClosings = await closingRepository.getClosings(cafeId);
-  // sort ascending by created_at for time window logic
-  allClosings.sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime());
+  // sort ascending by closed_at for time window logic
+  allClosings.sort((a, b) => new Date(a.closed_at).getTime() - new Date(b.closed_at).getTime());
 
   if (existing) {
     const currentIndex = allClosings.findIndex(c => c.id === existing.id);
     if (currentIndex > 0) {
-      startTime = allClosings[currentIndex - 1].created_at;
+      startTime = allClosings[currentIndex - 1].closed_at;
     }
-    endTime = existing.created_at;
+    endTime = existing.closed_at;
   } else {
     if (allClosings.length > 0) {
-      startTime = allClosings[allClosings.length - 1].created_at;
+      startTime = allClosings[allClosings.length - 1].closed_at;
     }
   }
 

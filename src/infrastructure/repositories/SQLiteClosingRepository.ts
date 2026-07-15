@@ -6,7 +6,7 @@ export class SQLiteClosingRepository implements IClosingRepository {
     const list = await window.electronAPI.db.findMany('daily_closings', { cafe_id: cafeId });
     return list
       .filter((c: any) => !c.deleted_at)
-      .sort((a: any, b: any) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()) as DailyClosing[];
+      .sort((a: any, b: any) => new Date(b.closed_at).getTime() - new Date(a.closed_at).getTime()) as DailyClosing[];
   }
 
   async getClosingById(id: string): Promise<DailyClosing | null> {

@@ -7,6 +7,7 @@ export class DocumentTemplateEngine {
     const textAlignLeft = isRtl ? 'right' : 'left';
     return `
       <style>
+        * { box-sizing: border-box; }
         body {
           font-family: 'Courier New', Courier, monospace, Tahoma, Arial, sans-serif;
           font-size: 12px;
@@ -18,7 +19,6 @@ export class DocumentTemplateEngine {
           background: #fff;
           direction: ${direction};
         }
-        * { box-sizing: border-box; }
         .text-center { text-align: center; }
         .text-right { text-align: ${textAlignRight}; }
         .text-left { text-align: ${textAlignLeft}; }
@@ -218,9 +218,12 @@ export class DocumentTemplateEngine {
 <head>
 <meta charset="utf-8">
 <style>
+  * { box-sizing: border-box; }
+  @page { margin: 15mm; }
   body { 
     font-family: Tahoma, Arial, sans-serif; 
-    padding: 40px; 
+    padding: 0;
+    margin: 0;
     color: #000;
   }
   table { width: 100%; border-collapse: collapse; margin-bottom: 30px; text-align: ${align}; }
@@ -404,6 +407,28 @@ export class DocumentTemplateEngine {
       </div>`;
     });
 
+    if (report.payments && report.payments.length > 0) {
+      html += `<div class="divider"></div>`;
+      html += `<h4 class="mt-2">Purchase Details</h4>`;
+      report.payments.forEach((payment: any) => {
+        html += `<div class="item-row">
+          <div class="item-name">${payment.supplierName}</div>
+          <div class="item-details"><span>${payment.notes || '-'}</span><span class="text-red">${payment.amount} ${currency}</span></div>
+        </div>`;
+      });
+    }
+
+    if (report.explicitExpenses && report.explicitExpenses.length > 0) {
+      html += `<div class="divider"></div>`;
+      html += `<h4 class="mt-2">Other Expenses</h4>`;
+      report.explicitExpenses.forEach((exp: any) => {
+        html += `<div class="item-row">
+          <div class="item-name">${exp.category}</div>
+          <div class="item-details"><span>${exp.description || '-'}</span><span class="text-red">${exp.amount} ${currency}</span></div>
+        </div>`;
+      });
+    }
+
     html += `<div class="text-center mt-4 mb-4"><p>End of Report</p></div>`;
     html += `</body></html>`;
     return html;
@@ -420,9 +445,12 @@ export class DocumentTemplateEngine {
 <head>
 <meta charset="utf-8">
 <style>
+  * { box-sizing: border-box; }
+  @page { margin: 15mm; }
   body { 
     font-family: Tahoma, Arial, sans-serif; 
-    padding: 40px; 
+    padding: 0;
+    margin: 0;
     color: #000;
   }
   table { width: 100%; border-collapse: collapse; margin-bottom: 30px; text-align: ${align}; }
@@ -491,6 +519,56 @@ export class DocumentTemplateEngine {
           <td style="font-weight: bold;">${cat.name}</td>
           <td class="text-right">${cat.percentage}%</td>
           <td class="text-right">${cat.revenue.toFixed(2)} ${currency}</td>
+        </tr>`;
+      });
+      html += `
+  </tbody>
+</table>`;
+    }
+
+    if (report.payments && report.payments.length > 0) {
+      html += `
+<h3>Purchase Details</h3>
+<table>
+  <thead>
+    <tr>
+      <th>Supplier</th>
+      <th>Notes</th>
+      <th class="text-right">Amount Paid</th>
+    </tr>
+  </thead>
+  <tbody>`;
+      report.payments.forEach((payment: any) => {
+        html += `
+        <tr>
+          <td style="font-weight: bold;">${payment.supplierName}</td>
+          <td style="color: #6b7280;">${payment.notes || '-'}</td>
+          <td class="text-right text-red font-bold">${Number(payment.amount).toFixed(2)} ${currency}</td>
+        </tr>`;
+      });
+      html += `
+  </tbody>
+</table>`;
+    }
+
+    if (report.explicitExpenses && report.explicitExpenses.length > 0) {
+      html += `
+<h3>Other Expenses</h3>
+<table>
+  <thead>
+    <tr>
+      <th>Expense Category</th>
+      <th>Description</th>
+      <th class="text-right">Amount</th>
+    </tr>
+  </thead>
+  <tbody>`;
+      report.explicitExpenses.forEach((exp: any) => {
+        html += `
+        <tr>
+          <td style="font-weight: bold;">${exp.category}</td>
+          <td style="color: #6b7280;">${exp.description || '-'}</td>
+          <td class="text-right text-red font-bold">${Number(exp.amount).toFixed(2)} ${currency}</td>
         </tr>`;
       });
       html += `
