@@ -1,4 +1,4 @@
-const { app, BrowserWindow, ipcMain, dialog, Tray, Menu } = require('electron');
+const { app, BrowserWindow, ipcMain, dialog, Tray, Menu, shell } = require('electron');
 const path = require('path');
 const fs = require('fs');
 
@@ -243,6 +243,7 @@ app.whenReady().then(() => {
 
           fs.writeFileSync(filePath, pdfData);
           printWindow.close();
+          shell.openPath(filePath);
           resolve({ success: true, filePath });
         } catch (error) {
           printWindow.close();

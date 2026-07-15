@@ -548,7 +548,7 @@ export default function SettingsPage() {
                               }
                             }}
                           />
-                          <div className="w-11 h-6 bg-muted peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-primary/20 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-primary"></div>
+                          <div className="w-11 h-6 bg-muted peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-primary/20 rounded-full peer peer-checked:after:translate-x-full rtl:peer-checked:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-primary"></div>
                         </label>
                       </div>
                     );
@@ -777,7 +777,10 @@ export default function SettingsPage() {
                 >
                   <Select 
                     value={defaultPrinter || ''} 
-                    onValueChange={(val) => setPrintSettings({ defaultPrinter: val })}
+                    onValueChange={(val) => {
+                      setPrintSettings({ defaultPrinter: val });
+                      if (cafeId) updateSettings(cafeId, { default_printer: val });
+                    }}
                   >
                     <SelectTrigger className="w-56 bg-background">
                       <SelectValue placeholder={t('select_printer', 'Select a printer')} />
@@ -799,7 +802,10 @@ export default function SettingsPage() {
                 >
                   <Select 
                     value={paperSize || '80mm'} 
-                    onValueChange={(val: any) => setPrintSettings({ paperSize: val })}
+                    onValueChange={(val: any) => {
+                      setPrintSettings({ paperSize: val });
+                      if (cafeId) updateSettings(cafeId, { paper_size: val });
+                    }}
                   >
                     <SelectTrigger className="w-48 bg-background">
                       <SelectValue />
@@ -820,7 +826,10 @@ export default function SettingsPage() {
                       type="checkbox" 
                       className="sr-only peer"
                       checked={autoPrintReceipts}
-                      onChange={(e) => setPrintSettings({ autoPrintReceipts: e.target.checked })}
+                      onChange={(e) => {
+                        setPrintSettings({ autoPrintReceipts: e.target.checked });
+                        if (cafeId) updateSettings(cafeId, { auto_print_receipts: e.target.checked });
+                      }}
                     />
                     <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-emerald-500"></div>
                   </label>
@@ -835,7 +844,11 @@ export default function SettingsPage() {
                     min={1} max={5}
                     className="w-24 bg-background"
                     value={receiptCopies || 1}
-                    onChange={(e) => setPrintSettings({ receiptCopies: parseInt(e.target.value) || 1 })}
+                    onChange={(e) => {
+                      const val = parseInt(e.target.value) || 1;
+                      setPrintSettings({ receiptCopies: val });
+                      if (cafeId) updateSettings(cafeId, { receipt_copies: val });
+                    }}
                   />
                 </SettingRow>
 
@@ -847,9 +860,12 @@ export default function SettingsPage() {
                     type="text" 
                     className="w-64 bg-background"
                     value={receiptTemplateConfig?.footerMessage || 'Thank you for your visit!'}
-                    onChange={(e) => setPrintSettings({ 
-                      receiptTemplateConfig: { ...receiptTemplateConfig, footerMessage: e.target.value } 
-                    })}
+                    onChange={(e) => {
+                      setPrintSettings({ receiptTemplateConfig: { ...receiptTemplateConfig, footerMessage: e.target.value } });
+                    }}
+                    onBlur={() => {
+                      if (cafeId) updateSettings(cafeId, { receipt_template_config: receiptTemplateConfig });
+                    }}
                   />
                 </SettingRow>
 
@@ -859,7 +875,10 @@ export default function SettingsPage() {
                 >
                   <Select 
                     value={reportDefaultOutput || 'thermal'} 
-                    onValueChange={(val: any) => setPrintSettings({ reportDefaultOutput: val })}
+                    onValueChange={(val: any) => {
+                      setPrintSettings({ reportDefaultOutput: val });
+                      if (cafeId) updateSettings(cafeId, { report_default_output: val });
+                    }}
                   >
                     <SelectTrigger className="w-48 bg-background">
                       <SelectValue />

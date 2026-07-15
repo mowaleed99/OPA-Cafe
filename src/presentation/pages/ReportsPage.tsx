@@ -12,12 +12,14 @@ import { useCurrency } from '../../application/utils/useCurrency';
 import { printReport as thermalPrintReport } from '../../application/useCases/printing/printReport';
 import { exportPdfReport } from '../../application/useCases/printing/exportPdf';
 import { BarChart, Bar, LineChart, Line, PieChart, Pie, Cell, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from 'recharts';
+import { useToast } from '../hooks/useToast';
 
 export default function ReportsPage() {
   const cafeId = useAuthStore(s => s.cafeId());
   const { cafeName } = useSettingsStore();
   const { t } = useTranslation();
   const { currency, formatCurrency } = useCurrency();
+  const { addToast } = useToast();
   
   const [activeTab, setActiveTab] = useState('sales');
   const [analytics, setAnalytics] = useState<AnalyticsRawData | null>(null);
@@ -145,7 +147,8 @@ export default function ReportsPage() {
       const settings = useSettingsStore.getState();
       try {
         if (settings.reportDefaultOutput === 'pdf') {
-          await exportPdfReport('monthly', legacyReport, `MonthlyClosing_${legacyReport.month}.pdf`);
+          const filePath = await exportPdfReport('monthly', legacyReport, `MonthlyClosing_${legacyReport.month}.pdf`);
+          addToast(`PDF saved to: ${filePath}`, 'success');
         } else {
           await thermalPrintReport('monthly', legacyReport);
         }

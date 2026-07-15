@@ -12,7 +12,7 @@ export async function exportPdfReport(type: 'daily' | 'monthly', reportData: any
   // Inject some A4 styles since it's a PDF export
   const a4Styles = `
     <style>
-      body { width: 100% !important; max-width: 800px; margin: 0 auto; padding: 40px !important; font-family: 'Inter', sans-serif !important; font-size: 14px !important; }
+      body { width: 100% !important; max-width: 800px; margin: 0 auto; padding: 40px !important; font-size: 14px !important; }
       table { width: 100%; border-collapse: collapse; margin-bottom: 20px; }
       th, td { border: 1px solid #ccc; padding: 8px; text-align: left; }
       th { background-color: #f5f5f5; }
@@ -20,9 +20,9 @@ export async function exportPdfReport(type: 'daily' | 'monthly', reportData: any
   `;
 
   if (type === 'daily') {
-    html = DocumentTemplateEngine.generateDailyReport(reportData, pdfSettings, settings.currency);
+    html = DocumentTemplateEngine.generateA4DailyReport(reportData, pdfSettings, settings.currency);
   } else if (type === 'monthly') {
-    html = DocumentTemplateEngine.generateMonthlyReport(reportData, pdfSettings, settings.currency);
+    html = DocumentTemplateEngine.generateA4MonthlyReport(reportData, pdfSettings, settings.currency);
   }
 
   // Insert A4 styling before closing head

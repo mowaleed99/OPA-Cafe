@@ -19,6 +19,7 @@ import { productRepository, categoryRepository } from '../../infrastructure/repo
 import { useCurrency } from '../../application/utils/useCurrency';
 import { exportPdfReport } from '../../application/useCases/printing/exportPdf';
 import { printReport as thermalPrintReport } from '../../application/useCases/printing/printReport';
+import { useToast } from '../hooks/useToast';
 const formatDate = (dateStr: string) => {
   if (!dateStr) return '';
   const parts = dateStr.split('-');
@@ -32,6 +33,7 @@ export default function ClosingPage() {
   const cafeId = useAuthStore(s => s.cafeId());
   const { t } = useTranslation();
   const { currency, formatCurrency } = useCurrency();
+  const { addToast } = useToast();
   const todayIso = new Date().toISOString().split('T')[0];
   const [selectedDate, setSelectedDate] = useState(todayIso);
   const [closings, setClosings] = useState<DailyClosing[]>([]);
@@ -133,7 +135,8 @@ export default function ClosingPage() {
     const settings = useSettingsStore.getState();
     try {
       if (settings.reportDefaultOutput === 'pdf') {
-        await exportPdfReport('daily', report, `DailyClosing_${report.closing.closing_date}.pdf`);
+        const filePath = await exportPdfReport('daily', report, `DailyClosing_${report.closing.closing_date}.pdf`);
+        addToast(`PDF saved to: ${filePath}`, 'success');
       } else {
         await thermalPrintReport('daily', report);
       }
