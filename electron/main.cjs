@@ -84,7 +84,7 @@ app.whenReady().then(() => {
   setupHandlers();
 
   // Start background sync worker
-  const { startSyncWorker, processSyncQueue, getSyncStatus } = require('./syncWorker.cjs');
+  const { startSyncWorker, processSyncQueue, getSyncStatus, setSyncSession } = require('./syncWorker.cjs');
   startSyncWorker();
 
   createWindow();
@@ -151,6 +151,12 @@ app.whenReady().then(() => {
       console.error('Trigger sync error:', err);
       return { success: false, error: err.message };
     }
+  });
+
+  ipcMain.handle('sync:setSession', async (event, session) => {
+    await setSyncSession(session);
+    if (session?.accessToken) await processSyncQueue();
+    return { success: true };
   });
 
   ipcMain.handle('sync:getStatus', () => {
@@ -341,4 +347,3 @@ app.whenReady().then(() => {
 app.on('window-all-closed', function () {
   if (process.platform !== 'darwin') app.quit();
 });
-

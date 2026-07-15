@@ -11,6 +11,26 @@ const supabaseUrl = process.env.VITE_SUPABASE_URL || '';
 const supabaseAnonKey = process.env.VITE_SUPABASE_ANON_KEY || '';
 const supabase = createClient(supabaseUrl, supabaseAnonKey);
 
+// The worker runs in Electron's main process, so it does not share the
+// renderer's Supabase session automatically.  Without this session every
+// request is made as `anon` and is correctly rejected by RLS.
+let hasAuthenticatedSession = false;
+
+async function setSyncSession(session) {
+  if (!session?.accessToken || !session?.refreshToken) {
+    await supabase.auth.signOut();
+    hasAuthenticatedSession = false;
+    return;
+  }
+
+  const { error } = await supabase.auth.setSession({
+    access_token: session.accessToken,
+    refresh_token: session.refreshToken,
+  });
+  if (error) throw error;
+  hasAuthenticatedSession = true;
+}
+
 const LOCAL_TO_SUPABASE = {
   dining_tables: 'tables',
 };
@@ -76,6 +96,10 @@ async function processSyncQueue() {
     logSync('Supabase credentials not found. Skipping sync.');
     return;
   }
+  if (!hasAuthenticatedSession) {
+    logSync('No authenticated Supabase session. Queue preserved until an online user signs in.');
+    return;
+  }
   
   isSyncing = true;
   syncStatusState.isSyncing = true;
@@ -89,7 +113,30 @@ async function processSyncQueue() {
       .where(inArray(schema.syncQueue.status, ['pending', 'failed']))
       .execute();
       
-    pendingItems.sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime());
+    // Insert parents before dependants. This also lets old failed work recover
+    // after its missing parent record has been uploaded.
+    const tablePriority = {
+      app_users: 0,
+      categories: 1,
+      inventory_items: 1,
+      suppliers: 1,
+      tables: 1,
+      dining_tables: 1,
+      products: 2,
+      orders: 2,
+      purchases: 2,
+      settings: 2,
+      order_items: 3,
+      purchase_items: 3,
+      supplier_payments: 3,
+      stock_movements: 3,
+      daily_closing_items: 3,
+      order_audit_log: 3,
+    };
+    pendingItems.sort((a, b) =>
+      (tablePriority[a.table_name] ?? 2) - (tablePriority[b.table_name] ?? 2) ||
+      new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
+    );
     
     if (pendingItems.length === 0) {
       isSyncing = false;
@@ -205,4 +252,4 @@ function getSyncStatus() {
   return syncStatusState;
 }
 
-module.exports = { startSyncWorker, processSyncQueue, getSyncStatus };
+module.exports = { startSyncWorker, processSyncQueue, getSyncStatus, setSyncSession };

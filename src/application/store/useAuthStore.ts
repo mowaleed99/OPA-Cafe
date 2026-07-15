@@ -3,6 +3,7 @@ import type { Session } from '@supabase/supabase-js';
 import type { AppUser } from '../../domain/entities/user';
 import bcrypt from 'bcryptjs';
 import { authRepository } from '../../infrastructure/repositories/index';
+import { supabase } from '../../infrastructure/api/supabase';
 
 interface AuthState {
   session: Session | null;
@@ -74,6 +75,17 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       localStorage.setItem('offline_user_id', localUser.id);
       set({ session: localSession, appUser: localUser });
 
+      // Keep local login available offline, but hand a real Supabase session to
+      // the main-process worker whenever the credentials are valid online.
+      // RLS protects cloud data, so the worker must never sync as `anon`.
+      const { data } = await supabase.auth.signInWithPassword({ email, password });
+      if (data.session && window.electronAPI?.setSyncSession) {
+        await window.electronAPI.setSyncSession({
+          accessToken: data.session.access_token,
+          refreshToken: data.session.refresh_token,
+        });
+      }
+
       return { error: null };
     } catch (err: any) {
       console.error('Local sign in error:', err);
@@ -82,6 +94,10 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   },
 
   signOut: async () => {
+    if (window.electronAPI?.setSyncSession) {
+      await window.electronAPI.setSyncSession(null);
+    }
+    await supabase.auth.signOut();
     localStorage.removeItem('offline_user_id');
     set({ session: null, appUser: null });
   },

@@ -72,7 +72,7 @@ export async function createPurchase(params: CreatePurchaseParams): Promise<Purc
   delete (dbPurchase as any).amount_remaining;
 
   ops.push({ type: 'insert', table: 'purchases', data: dbPurchase });
-  ops.push(buildSyncOperation('insert', 'purchases', dbPurchase as unknown as Record<string, unknown>));
+  ops.push(buildSyncOperation('insert', 'purchases', purchase as unknown as Record<string, unknown>));
 
   if (purchaseItems.length > 0) {
     ops.push({ type: 'insertMany', table: 'purchase_items', data: purchaseItems });
@@ -141,7 +141,7 @@ export async function recordPayment(
 
   const ops: TransactionOperation[] = [
     { type: 'update', table: 'purchases', id: updatedPurchase.id, data: dbPurchase },
-    buildSyncOperation('update', 'purchases', dbPurchase as unknown as Record<string, unknown>),
+    buildSyncOperation('update', 'purchases', updatedPurchase as unknown as Record<string, unknown>),
     { type: 'insert', table: 'supplier_payments', data: payment },
     buildSyncOperation('insert', 'supplier_payments', payment as unknown as Record<string, unknown>)
   ];

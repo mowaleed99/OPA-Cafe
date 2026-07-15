@@ -16,6 +16,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
     transaction: (operations) => ipcRenderer.invoke('db:transaction', operations)
   },
   triggerSync: () => ipcRenderer.invoke('sync:trigger'),
+  setSyncSession: (session) => ipcRenderer.invoke('sync:setSession', session),
   getSyncStatus: () => ipcRenderer.invoke('sync:getStatus'),
   onSyncStatus: (callback) => {
     const handler = (event, status) => callback(status);
