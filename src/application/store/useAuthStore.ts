@@ -21,6 +21,15 @@ interface AuthState {
 
 const DEFAULT_CAFE_ID = '00000000-0000-0000-0000-000000000000';
 
+async function shareSyncSession(session: Session | null): Promise<void> {
+  if (!window.electronAPI?.setSyncSession) return;
+
+  await window.electronAPI.setSyncSession(session ? {
+    accessToken: session.access_token,
+    refreshToken: session.refresh_token,
+  } : null);
+}
+
 export const useAuthStore = create<AuthState>((set, get) => ({
   session: null,
   appUser: null,
@@ -79,12 +88,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       // the main-process worker whenever the credentials are valid online.
       // RLS protects cloud data, so the worker must never sync as `anon`.
       const { data } = await supabase.auth.signInWithPassword({ email, password });
-      if (data.session && window.electronAPI?.setSyncSession) {
-        await window.electronAPI.setSyncSession({
-          accessToken: data.session.access_token,
-          refreshToken: data.session.refresh_token,
-        });
-      }
+      await shareSyncSession(data.session);
 
       return { error: null };
     } catch (err: any) {
@@ -94,9 +98,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   },
 
   signOut: async () => {
-    if (window.electronAPI?.setSyncSession) {
-      await window.electronAPI.setSyncSession(null);
-    }
+    await shareSyncSession(null);
     await supabase.auth.signOut();
     localStorage.removeItem('offline_user_id');
     set({ session: null, appUser: null });
@@ -105,6 +107,11 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   initialize: async () => {
     set({ isLoading: true });
     try {
+      // Restore a persisted Supabase session before the worker starts flushing
+      // queued work after an Electron restart.
+      const { data: { session: cloudSession } } = await supabase.auth.getSession();
+      await shareSyncSession(cloudSession);
+
       // 1. Owner Bootstrap Check
       const count = await authRepository.countUsers();
       if (count === 0) {
