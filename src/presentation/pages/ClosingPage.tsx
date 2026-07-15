@@ -112,7 +112,7 @@ export default function ClosingPage() {
       const productName = p ? p.name : item.product_id;
       const categoryName = p ? p.category : 'Unknown';
       const safeName = `"${productName.replace(/"/g, '""')}"`;
-      csvContent += `${safeName},"${categoryName}",${item.quantity_sold},"${formatCurrency(item.total_revenue)}"\n`;
+      csvContent += `${safeName},"${categoryName}",${item.quantity_sold},"${formatCurrency(item.total_sales)}"\n`;
     });
     
     csvContent += `\nTotal Expenses,${formatCurrency(report.expenses || 0)}\n`;
@@ -200,7 +200,7 @@ export default function ClosingPage() {
                     const cat = p ? p.category : 'Unknown';
                     if (!byCategory[cat]) byCategory[cat] = { qty: 0, rev: 0, items: [] };
                     byCategory[cat].qty += item.quantity_sold;
-                    byCategory[cat].rev += item.total_revenue;
+                    byCategory[cat].rev += item.total_sales;
                     byCategory[cat].items.push(item);
                   });
 
@@ -218,7 +218,7 @@ export default function ClosingPage() {
                             <td className="p-3 pl-8">{p ? p.name : item.product_id}</td>
                             <td className="p-3 text-gray-500">{catName}</td>
                             <td className="p-3 text-right">{item.quantity_sold}</td>
-                            <td className="p-3 text-right">{formatCurrency(item.total_revenue)}</td>
+                            <td className="p-3 text-right">{formatCurrency(item.total_sales)}</td>
                           </tr>
                         );
                       })}
@@ -339,7 +339,7 @@ export default function ClosingPage() {
                   const cat = p ? p.category : 'Unknown';
                   if (!byCategory[cat]) byCategory[cat] = { qty: 0, rev: 0, items: [] };
                   byCategory[cat].qty += item.quantity_sold;
-                  byCategory[cat].rev += item.total_revenue;
+                  byCategory[cat].rev += item.total_sales;
                   byCategory[cat].items.push(item);
                 });
 
@@ -369,7 +369,7 @@ export default function ClosingPage() {
                                   <TableCell className="pl-6">{p ? p.name : item.product_id}</TableCell>
                                   <TableCell className="text-muted-foreground text-sm">{catName}</TableCell>
                                   <TableCell className="text-right">{item.quantity_sold}</TableCell>
-                                  <TableCell className="text-right">{formatCurrency(item.total_revenue)}</TableCell>
+                                  <TableCell className="text-right">{formatCurrency(item.total_sales)}</TableCell>
                                 </TableRow>
                               );
                             })}

@@ -1,6 +1,6 @@
 import { IOrderRepository } from '../../domain/repositories/IOrderRepository';
 import { Order, OrderItem } from '../../domain/entities/order';
-import { OrderAuditLog } from '../../domain/entities/order_audit_log';
+import { OrderAuditLog, AuditActionType } from '../../domain/entities/order_audit_log';
 import { DiningTable } from '../../domain/entities/table';
 
 export class SQLiteOrderRepository implements IOrderRepository {
@@ -48,6 +48,20 @@ export class SQLiteOrderRepository implements IOrderRepository {
     const list = await window.electronAPI.db.findMany('order_audit_log', { cafe_id: cafeId });
     return list
       .filter((l: any) => !l.deleted_at)
-      .sort((a: any, b: any) => new Date(b.action_timestamp).getTime() - new Date(a.action_timestamp).getTime()) as OrderAuditLog[];
+      .sort((a: any, b: any) => new Date(b.timestamp || b.created_at).getTime() - new Date(a.timestamp || a.created_at).getTime())
+      .map((l: any) => {
+        // Parse details JSON to extract legacy fields
+        let parsedDetails: any = {};
+        try { parsedDetails = JSON.parse(l.details || '{}'); } catch {}
+        return {
+          ...l,
+          // Computed/aliased fields for UI compatibility
+          action_type: l.action as AuditActionType,
+          initiated_by_name: l.performed_by,
+          initiated_by_user_id: parsedDetails.initiated_by_user_id,
+          approved_by_owner_pin: parsedDetails.approved_by_owner_pin ?? true,
+          order_total: parsedDetails.order_total ?? 0,
+        } as OrderAuditLog;
+      });
   }
 }

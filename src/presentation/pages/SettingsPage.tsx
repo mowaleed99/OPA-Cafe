@@ -449,7 +449,7 @@ export default function SettingsPage() {
                     <div className="w-2 h-2 rounded-full bg-red-400" />
                     <div className="w-2 h-2 rounded-full bg-yellow-400" />
                     <div className="w-2 h-2 rounded-full bg-green-400" />
-                    <span className="ml-1 font-medium">OPA Cafe POS</span>
+                    <span className="ms-1 font-medium">OPA Cafe POS</span>
                   </div>
                   <div className="p-3 space-y-1.5">
                     <div className={`h-2 rounded-full w-3/4 ${theme === 'dark' ? 'bg-gray-700' : 'bg-gray-200'}`} />
@@ -548,7 +548,7 @@ export default function SettingsPage() {
                               }
                             }}
                           />
-                          <div className="w-11 h-6 bg-muted peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-primary/20 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-primary"></div>
+                          <div className="w-11 h-6 bg-muted peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-primary/20 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-primary"></div>
                         </label>
                       </div>
                     );
@@ -727,7 +727,7 @@ export default function SettingsPage() {
                         checked={autoBackupEnabled}
                         onChange={(e) => useSettingsStore.setState({ autoBackupEnabled: e.target.checked })}
                       />
-                      <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-emerald-500"></div>
+                      <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-emerald-500"></div>
                     </label>
                   </div>
 
@@ -822,7 +822,7 @@ export default function SettingsPage() {
                       checked={autoPrintReceipts}
                       onChange={(e) => setPrintSettings({ autoPrintReceipts: e.target.checked })}
                     />
-                    <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-emerald-500"></div>
+                    <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-emerald-500"></div>
                   </label>
                 </SettingRow>
 
@@ -865,8 +865,8 @@ export default function SettingsPage() {
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="thermal">Thermal Printer</SelectItem>
-                      <SelectItem value="pdf">PDF File</SelectItem>
+                      <SelectItem value="thermal">{t('thermal_printer')}</SelectItem>
+                      <SelectItem value="pdf">{t('pdf_file')}</SelectItem>
                     </SelectContent>
                   </Select>
                 </SettingRow>

@@ -136,11 +136,11 @@ function SalesInvoiceModal({
           <div className="grid grid-cols-2 gap-2 text-sm">
             <div>
               <span className="text-muted-foreground">{t('order_type')}:</span>
-              <span className="font-medium ml-1">{order.order_type === 'dine_in' ? t('dine_in') : t('takeaway')}</span>
+              <span className="font-medium ms-1">{order.order_type === 'dine_in' ? t('dine_in') : t('takeaway')}</span>
             </div>
             <div>
               <span className="text-muted-foreground">{t('payment_method')}:</span>
-              <span className="font-medium ml-1 capitalize">{order.payment_method?.replace('_', ' ') ?? '—'}</span>
+              <span className="font-medium ms-1 capitalize">{order.payment_method?.replace('_', ' ') ?? '—'}</span>
             </div>
           </div>
 
@@ -426,12 +426,12 @@ function SalesInvoicesTab() {
       {/* Filters */}
       <div className="flex flex-wrap gap-3">
         <div className="relative flex-1 min-w-48">
-          <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
+          <Search size={15} className="absolute start-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
           <Input
             placeholder={t('search_by_order_id')}
             value={searchQuery}
             onChange={e => setSearchQuery(e.target.value)}
-            className="pl-9"
+            className="ps-9"
           />
         </div>
         <Input
@@ -485,7 +485,7 @@ function SalesInvoicesTab() {
                   </TableCell>
                   <TableCell className="text-sm text-muted-foreground whitespace-nowrap">
                     {new Date(order.created_at).toLocaleDateString()}
-                    <span className="ml-1 text-xs">{new Date(order.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
+                    <span className="ms-1 text-xs">{new Date(order.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
                   </TableCell>
                   <TableCell className="text-sm capitalize">
                     {order.order_type === 'dine_in' ? t('dine_in') : t('takeaway')}
@@ -603,12 +603,12 @@ function SupplierInvoicesTab() {
       {/* Filters */}
       <div className="flex gap-3">
         <div className="relative flex-1">
-          <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
+          <Search size={15} className="absolute start-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
           <Input
             placeholder={t('search_by_supplier')}
             value={searchQuery}
             onChange={e => setSearchQuery(e.target.value)}
-            className="pl-9"
+            className="ps-9"
           />
         </div>
       </div>
@@ -686,11 +686,11 @@ function SupplierInvoicesTab() {
               <div className="grid grid-cols-2 gap-2 text-sm">
                 <div>
                   <span className="text-muted-foreground">{t('supplier')}:</span>
-                  <span className="font-medium ml-1">{selectedPurchase.supplierName}</span>
+                  <span className="font-medium ms-1">{selectedPurchase.supplierName}</span>
                 </div>
                 <div>
                   <span className="text-muted-foreground">{t('date')}:</span>
-                  <span className="font-medium ml-1">{new Date(selectedPurchase.created_at).toLocaleDateString()}</span>
+                  <span className="font-medium ms-1">{new Date(selectedPurchase.created_at).toLocaleDateString()}</span>
                 </div>
               </div>
 

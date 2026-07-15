@@ -52,7 +52,7 @@ function ExpenseModal({
     if (expenseToEdit) {
       setCategory(expenseToEdit.category);
       setAmount(expenseToEdit.amount.toString());
-      setDate(expenseToEdit.expense_date);
+      setDate(expenseToEdit.date);
       setDescription(expenseToEdit.description || '');
       setIsRecurring(expenseToEdit.is_recurring);
     } else {
@@ -73,7 +73,7 @@ function ExpenseModal({
           ...expenseToEdit, 
           category, 
           amount: Number(amount), 
-          expense_date: date, 
+          date, 
           description,
           is_recurring: isRecurring
         });
@@ -219,7 +219,7 @@ export default function ExpensesPage() {
                   <TableCell className="font-medium whitespace-nowrap">
                     <div className="flex items-center gap-2">
                       <Calendar className="h-4 w-4 text-muted-foreground" />
-                      {e.expense_date}
+                      {e.date}
                     </div>
                   </TableCell>
                   <TableCell>

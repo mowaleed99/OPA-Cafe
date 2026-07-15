@@ -11,7 +11,7 @@ export async function createExpense(
   cafeId: string,
   category: string,
   amount: number,
-  expense_date: string,
+  expenseDate: string,
   description: string,
   is_recurring: boolean
 ): Promise<Expense> {
@@ -23,7 +23,7 @@ export async function createExpense(
     cafe_id: cafeId,
     category,
     amount: Number(amount),
-    expense_date,
+    date: expenseDate,
     description,
     is_recurring,
     created_at: now,

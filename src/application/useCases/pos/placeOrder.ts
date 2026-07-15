@@ -83,16 +83,19 @@ export async function placeOrder(params: PlaceOrderParams): Promise<PlaceOrderRe
   // Discount Audit Log
   const discountAmount = subtotal - params.total;
   if (discountAmount > 0) {
-    const auditEntry: OrderAuditLog = {
+    const auditEntry = {
       id: crypto.randomUUID(),
       cafe_id: params.cafeId,
       order_id: orderId,
-      action_type: 'discount' as any, // SQLite allows any string
-      initiated_by_user_id: params.userId || 'unknown',
-      initiated_by_name: params.userName || 'Unknown Cashier',
-      approved_by_owner_pin: false, // Discount might not require PIN based on current requirements
+      action: 'discount',
+      performed_by: params.userName || 'Unknown Cashier',
+      timestamp: now,
       reason: `Discount applied: ${discountAmount}`,
-      order_total: params.total,
+      details: JSON.stringify({
+         initiated_by_user_id: params.userId || 'unknown',
+         approved_by_owner_pin: false,
+         order_total: params.total
+      }),
       created_at: now,
     };
     ops.push({ type: 'insert', table: 'order_audit_log', data: auditEntry });

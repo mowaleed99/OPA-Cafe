@@ -64,6 +64,7 @@ const stockMovements = sqliteTable('stock_movements', {
   inventory_item_id: text('inventory_item_id').notNull(),
   type: text('type').notNull(), // 'in' | 'out' | 'adjustment'
   quantity: real('quantity').notNull(),
+  reason: text('reason'),
   reference_type: text('reference_type'),
   reference_id: text('reference_id'),
   notes: text('notes'),

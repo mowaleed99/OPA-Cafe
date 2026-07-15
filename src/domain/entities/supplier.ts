@@ -17,6 +17,7 @@ export interface Purchase {
   amount_paid: number;
   amount_remaining: number;
   payment_status: PaymentStatus;
+  date: string;
   created_at: string;
   deleted_at?: string;
 }
@@ -34,11 +35,15 @@ export interface PurchaseItem {
 
 export interface SupplierPayment {
   id: string;
-  purchase_id: string;
+  cafe_id: string;
+  purchase_id?: string | null;
   supplier_id: string;
   amount: number;
-  payment_date: string;
+  payment_method: string;
+  date: string;
+  reference_number?: string | null;
   notes?: string | null;
+  created_at: string;
   deleted_at?: string;
   updated_at?: string;
   version?: number;

@@ -6,6 +6,7 @@ export class SQLitePurchaseRepository implements IPurchaseRepository {
     const list = await window.electronAPI.db.findMany('purchases', { cafe_id: cafeId });
     return list
       .filter((p: any) => !p.deleted_at)
+      .map((p: any) => ({ ...p, amount_remaining: p.total_amount - (p.amount_paid || 0) }))
       .sort((a: any, b: any) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime())
       .reverse() as Purchase[];
   }
@@ -13,7 +14,7 @@ export class SQLitePurchaseRepository implements IPurchaseRepository {
   async getPurchaseById(id: string): Promise<Purchase | null> {
     const p = await window.electronAPI.db.findOne('purchases', id);
     if (!p || p.deleted_at) return null;
-    return p as Purchase;
+    return { ...p, amount_remaining: p.total_amount - (p.amount_paid || 0) } as Purchase;
   }
 
   async getPurchaseItems(purchaseId: string): Promise<PurchaseItem[]> {

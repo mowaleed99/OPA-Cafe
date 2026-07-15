@@ -33,7 +33,7 @@ function StatCard({
           <p className="text-2xl font-bold">{value}</p>
           {trend !== undefined && (
             <div className={`flex items-center text-xs font-medium mb-1 ${trend >= 0 ? 'text-emerald-500' : 'text-red-500'}`}>
-              {trend >= 0 ? <ArrowUpRight className="h-3 w-3 mr-0.5" /> : <ArrowDownRight className="h-3 w-3 mr-0.5" />}
+              {trend >= 0 ? <ArrowUpRight className="h-3 w-3 me-0.5" /> : <ArrowDownRight className="h-3 w-3 me-0.5" />}
               {Math.abs(trend).toFixed(1)}%
             </div>
           )}
@@ -200,7 +200,7 @@ export default function DashboardPage() {
                   <div className="space-y-3">
                     {stats.fastSellingProducts.map((p, i) => (
                       <div key={p.id} className="flex justify-between items-center text-sm">
-                        <span className="truncate pr-2"><span className="text-muted-foreground mr-2">{i+1}.</span>{p.name}</span>
+                        <span className="truncate pe-2"><span className="text-muted-foreground me-2">{i+1}.</span>{p.name}</span>
                         <span className="font-semibold">{p.quantity} {t('sold', 'sold')}</span>
                       </div>
                     ))}
@@ -219,7 +219,7 @@ export default function DashboardPage() {
                   <div className="space-y-3">
                     {stats.slowMovingProducts.map((p, i) => (
                       <div key={p.id} className="flex justify-between items-center text-sm">
-                        <span className="truncate pr-2"><span className="text-muted-foreground mr-2">{i+1}.</span>{p.name}</span>
+                        <span className="truncate pe-2"><span className="text-muted-foreground me-2">{i+1}.</span>{p.name}</span>
                         <span className="font-semibold text-muted-foreground">{p.quantity} {t('sold', 'sold')}</span>
                       </div>
                     ))}

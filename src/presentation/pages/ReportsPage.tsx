@@ -84,7 +84,7 @@ export default function ReportsPage() {
     }
 
     const filteredExpenses = analytics.expenses.filter(e => 
-      e.expense_date >= startStr && e.expense_date <= endStr
+      e.date >= startStr && e.date <= endStr
     );
 
     return { orders: filteredOrders, items: filteredItems, expenses: filteredExpenses };
@@ -276,10 +276,10 @@ export default function ReportsPage() {
 
         <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
           <TabsList className="grid w-full grid-cols-4 max-w-2xl bg-muted/50 p-1">
-            <TabsTrigger value="sales" className="data-[state=active]:bg-background data-[state=active]:shadow-sm"><TrendingUp className="w-4 h-4 mr-2" />Sales</TabsTrigger>
-            <TabsTrigger value="products" className="data-[state=active]:bg-background data-[state=active]:shadow-sm"><ShoppingBag className="w-4 h-4 mr-2" />Products</TabsTrigger>
-            <TabsTrigger value="expenses" className="data-[state=active]:bg-background data-[state=active]:shadow-sm"><PieChartIcon className="w-4 h-4 mr-2" />Expenses</TabsTrigger>
-            <TabsTrigger value="monthly" className="data-[state=active]:bg-background data-[state=active]:shadow-sm"><Receipt className="w-4 h-4 mr-2" />Monthly Closing</TabsTrigger>
+            <TabsTrigger value="sales" className="data-[state=active]:bg-background data-[state=active]:shadow-sm"><TrendingUp className="w-4 h-4 me-2" />{t('sales', 'Sales')}</TabsTrigger>
+            <TabsTrigger value="products" className="data-[state=active]:bg-background data-[state=active]:shadow-sm"><ShoppingBag className="w-4 h-4 me-2" />{t('products', 'Products')}</TabsTrigger>
+            <TabsTrigger value="expenses" className="data-[state=active]:bg-background data-[state=active]:shadow-sm"><PieChartIcon className="w-4 h-4 me-2" />{t('expenses', 'Expenses')}</TabsTrigger>
+            <TabsTrigger value="monthly" className="data-[state=active]:bg-background data-[state=active]:shadow-sm"><Receipt className="w-4 h-4 me-2" />{t('monthly_closing', 'Monthly Closing')}</TabsTrigger>
           </TabsList>
 
           {/* Shared Filters for top 3 tabs */}
@@ -292,41 +292,41 @@ export default function ReportsPage() {
                   value={dateRange}
                   onChange={(e) => setDateRange(e.target.value)}
                 >
-                  <option value="today">Today</option>
-                  <option value="this_week">This Week</option>
-                  <option value="this_month">This Month</option>
-                  <option value="custom">Custom Range</option>
+                  <option value="today">{t('filter_today', 'Today')}</option>
+                  <option value="this_week">{t('filter_this_week', 'This Week')}</option>
+                  <option value="this_month">{t('filter_this_month', 'This Month')}</option>
+                  <option value="custom">{t('filter_custom_range', 'Custom Range')}</option>
                 </select>
               </div>
 
               {dateRange === 'custom' && (
                 <div className="flex items-center gap-2">
                   <input type="date" value={customStart} onChange={e => setCustomStart(e.target.value)} className="h-8 text-sm rounded border px-2" />
-                  <span className="text-muted-foreground">to</span>
+                  <span className="text-muted-foreground">{t('filter_to', 'to')}</span>
                   <input type="date" value={customEnd} onChange={e => setCustomEnd(e.target.value)} className="h-8 text-sm rounded border px-2" />
                 </div>
               )}
 
-              <div className="flex items-center gap-2 border-l pl-4 ml-2">
+              <div className="flex items-center gap-2 border-s ps-4 ms-2">
                 <Filter className="h-4 w-4 text-muted-foreground" />
                 <select 
                   className="bg-transparent border-none text-sm font-medium focus:ring-0 cursor-pointer"
                   value={paymentFilter}
                   onChange={(e) => setPaymentFilter(e.target.value)}
                 >
-                  <option value="all">All Payments</option>
-                  <option value="cash">Cash</option>
-                  <option value="card">Card</option>
+                  <option value="all">{t('filter_all_payments', 'All Payments')}</option>
+                  <option value="cash">{t('filter_cash', 'Cash')}</option>
+                  <option value="card">{t('filter_card', 'Card')}</option>
                 </select>
               </div>
 
-              <div className="flex items-center gap-2 border-l pl-4 ml-2">
+              <div className="flex items-center gap-2 border-s ps-4 ms-2">
                 <select 
                   className="bg-transparent border-none text-sm font-medium focus:ring-0 cursor-pointer"
                   value={categoryFilter}
                   onChange={(e) => setCategoryFilter(e.target.value)}
                 >
-                  <option value="all">All Categories</option>
+                  <option value="all">{t('filter_all_categories', 'All Categories')}</option>
                   {analytics.categories.map(c => (
                     <option key={c.id} value={c.id}>{c.name}</option>
                   ))}
@@ -339,17 +339,17 @@ export default function ReportsPage() {
           <TabsContent value="sales" className="mt-6 space-y-6 animate-in fade-in slide-in-from-bottom-2 duration-300">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div className="p-6 bg-card border rounded-xl shadow-sm">
-                <p className="text-sm font-medium text-muted-foreground">Total Revenue</p>
+                <p className="text-sm font-medium text-muted-foreground">{t('total_revenue', 'Total Revenue')}</p>
                 <p className="text-3xl font-bold mt-2">{formatCurrency(metrics.totalRevenue)}</p>
               </div>
               <div className="p-6 bg-card border rounded-xl shadow-sm">
-                <p className="text-sm font-medium text-muted-foreground">Total Orders</p>
+                <p className="text-sm font-medium text-muted-foreground">{t('total_orders', 'Total Orders')}</p>
                 <p className="text-3xl font-bold mt-2">{metrics.totalOrders}</p>
               </div>
             </div>
             
             <div className="p-6 bg-card border rounded-xl shadow-sm h-[400px]">
-              <h3 className="font-semibold mb-6">Sales Trend</h3>
+              <h3 className="font-semibold mb-6">{t('sales_trend', 'Sales Trend')}</h3>
               {metrics.salesChartData.length > 0 ? (
                 <ResponsiveContainer width="100%" height="100%">
                   <LineChart data={metrics.salesChartData} margin={{ top: 5, right: 20, bottom: 5, left: 0 }}>
@@ -357,11 +357,11 @@ export default function ReportsPage() {
                     <XAxis dataKey="date" tick={{fontSize: 12}} tickLine={false} axisLine={false} dy={10} />
                     <YAxis tick={{fontSize: 12}} tickLine={false} axisLine={false} dx={-10} tickFormatter={(val) => `${val}`} />
                     <Tooltip cursor={{ stroke: 'var(--muted)', strokeWidth: 2 }} contentStyle={{ borderRadius: '8px' }} />
-                    <Line type="monotone" dataKey="total" name="Revenue" stroke="var(--primary)" strokeWidth={3} dot={{r:4}} activeDot={{r:6}} />
+                    <Line type="monotone" dataKey="total" name={t('revenue', 'Revenue')} stroke="var(--primary)" strokeWidth={3} dot={{r:4}} activeDot={{r:6}} />
                   </LineChart>
                 </ResponsiveContainer>
               ) : (
-                <div className="flex h-full items-center justify-center text-muted-foreground">No sales data for this period</div>
+                <div className="flex h-full items-center justify-center text-muted-foreground">{t('no_sales_data', 'No sales data for this period')}</div>
               )}
             </div>
           </TabsContent>
@@ -369,7 +369,7 @@ export default function ReportsPage() {
           {/* Tab 2: Products Performance */}
           <TabsContent value="products" className="mt-6 space-y-6 animate-in fade-in slide-in-from-bottom-2 duration-300">
             <div className="p-6 bg-card border rounded-xl shadow-sm h-[400px]">
-              <h3 className="font-semibold mb-6">Top 5 Products by Revenue</h3>
+              <h3 className="font-semibold mb-6">{t('top_5_products', 'Top 5 Products by Revenue')}</h3>
               {metrics.topProductsByRev.length > 0 ? (
                 <ResponsiveContainer width="100%" height="100%">
                   <BarChart data={metrics.topProductsByRev} layout="vertical" margin={{ top: 5, right: 30, left: 40, bottom: 5 }}>
@@ -377,7 +377,7 @@ export default function ReportsPage() {
                     <XAxis type="number" tick={{fontSize: 12}} tickLine={false} axisLine={false} />
                     <YAxis dataKey="name" type="category" tick={{fontSize: 12}} tickLine={false} axisLine={false} />
                     <Tooltip cursor={{ fill: 'var(--muted)' }} contentStyle={{ borderRadius: '8px' }} formatter={(val: number) => formatCurrency(val)} />
-                    <Bar dataKey="revenue" name="Revenue" fill="var(--primary)" radius={[0, 4, 4, 0]}>
+                    <Bar dataKey="revenue" name={t('revenue', 'Revenue')} fill="var(--primary)" radius={[0, 4, 4, 0]}>
                       {metrics.topProductsByRev.map((entry, index) => (
                         <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
                       ))}
@@ -385,7 +385,7 @@ export default function ReportsPage() {
                   </BarChart>
                 </ResponsiveContainer>
               ) : (
-                 <div className="flex h-full items-center justify-center text-muted-foreground">No product data for this period</div>
+                 <div className="flex h-full items-center justify-center text-muted-foreground">{t('no_product_data', 'No product data for this period')}</div>
               )}
             </div>
 
@@ -393,10 +393,10 @@ export default function ReportsPage() {
               <Table>
                 <TableHeader className="bg-muted/50">
                   <TableRow>
-                    <TableHead>Product</TableHead>
-                    <TableHead>Category</TableHead>
-                    <TableHead className="text-right">Quantity Sold</TableHead>
-                    <TableHead className="text-right">Revenue</TableHead>
+                    <TableHead>{t('product', 'Product')}</TableHead>
+                    <TableHead>{t('category', 'Category')}</TableHead>
+                    <TableHead className="text-right">{t('quantity_sold', 'Quantity Sold')}</TableHead>
+                    <TableHead className="text-right">{t('revenue', 'Revenue')}</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -412,7 +412,7 @@ export default function ReportsPage() {
                   ) : (
                     <TableRow>
                       <TableCell colSpan={4} className="h-24 text-center text-muted-foreground">
-                        No product sales found
+                        {t('no_product_sales', 'No product sales found')}
                       </TableCell>
                     </TableRow>
                   )}
@@ -425,12 +425,12 @@ export default function ReportsPage() {
           <TabsContent value="expenses" className="mt-6 space-y-6 animate-in fade-in slide-in-from-bottom-2 duration-300">
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
               <div className="md:col-span-1 p-6 bg-card border rounded-xl shadow-sm flex flex-col justify-center items-center text-center">
-                <p className="text-sm font-medium text-muted-foreground">Total Expenses</p>
+                <p className="text-sm font-medium text-muted-foreground">{t('total_expenses', 'Total Expenses')}</p>
                 <p className="text-4xl font-bold mt-2 text-red-500">{formatCurrency(metrics.totalExpenses)}</p>
               </div>
               
               <div className="md:col-span-2 p-6 bg-card border rounded-xl shadow-sm h-[300px]">
-                <h3 className="font-semibold mb-2">Expenses by Category</h3>
+                <h3 className="font-semibold mb-2">{t('expenses_by_category', 'Expenses by Category')}</h3>
                 {metrics.expenseChartData.length > 0 ? (
                   <ResponsiveContainer width="100%" height="100%">
                     <PieChart>
@@ -452,7 +452,7 @@ export default function ReportsPage() {
                     </PieChart>
                   </ResponsiveContainer>
                 ) : (
-                  <div className="flex h-full items-center justify-center text-muted-foreground">No expenses for this period</div>
+                  <div className="flex h-full items-center justify-center text-muted-foreground">{t('no_expenses_data', 'No expenses for this period')}</div>
                 )}
               </div>
             </div>
@@ -461,8 +461,8 @@ export default function ReportsPage() {
               <Table>
                 <TableHeader className="bg-muted/50">
                   <TableRow>
-                    <TableHead>Category</TableHead>
-                    <TableHead className="text-right">Total Amount</TableHead>
+                    <TableHead>{t('category', 'Category')}</TableHead>
+                    <TableHead className="text-right">{t('total_amount', 'Total Amount')}</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -476,7 +476,7 @@ export default function ReportsPage() {
                   ) : (
                     <TableRow>
                       <TableCell colSpan={2} className="h-24 text-center text-muted-foreground">
-                        No expenses found
+                        {t('no_expenses_found', 'No expenses found')}
                       </TableCell>
                     </TableRow>
                   )}
@@ -488,7 +488,7 @@ export default function ReportsPage() {
           {/* Tab 4: Legacy Monthly Closing */}
           <TabsContent value="monthly" className="mt-6 space-y-6 animate-in fade-in slide-in-from-bottom-2 duration-300">
              <div className="flex items-center gap-3 mb-6 p-4 bg-card border rounded-xl shadow-sm">
-                <span className="font-medium">Select Closing Month:</span>
+                <span className="font-medium">{t('select_closing_month', 'Select Closing Month:')}</span>
                 <input 
                   type="month" 
                   value={selectedMonth} 
@@ -522,8 +522,8 @@ export default function ReportsPage() {
                     </div>
                   </div>
                   <div className="text-sm text-muted-foreground bg-blue-500/10 p-4 rounded-lg border border-blue-500/20">
-                    <strong>Note:</strong> This report is generated strictly from Closed Shifts data for accounting purposes. 
-                    For real-time and custom date analytics, use the other tabs.
+                    <strong>{t('note', 'Note:')}</strong> {t('monthly_report_note_1', 'This report is generated strictly from Closed Shifts data for accounting purposes.')} 
+                    {t('monthly_report_note_2', 'For real-time and custom date analytics, use the other tabs.')}
                   </div>
                 </div>
               )}

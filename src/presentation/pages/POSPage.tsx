@@ -130,7 +130,7 @@ export default function POSPage() {
             {isOffline && (
               <span className="flex items-center gap-1.5 text-xs font-medium text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-500/10 px-2.5 py-1 rounded-full border border-amber-200 dark:border-amber-500/30">
                 <WifiOff size={12} />
-                Offline mode
+                {t('offline_mode', 'Offline mode')}
               </span>
             )}
           </div>
@@ -140,25 +140,25 @@ export default function POSPage() {
             className="flex items-center gap-1.5 text-xs font-medium text-muted-foreground hover:text-foreground transition-colors px-3 py-1.5 rounded-md hover:bg-muted"
           >
             <RefreshCw size={14} className={isLoading ? 'animate-spin' : ''} />
-            Refresh
+            {t('refresh', 'Refresh')}
           </button>
         </div>
 
         {/* Search & Category tabs */}
         <div className="px-6 pt-5 pb-3 shrink-0 flex flex-col gap-4">
           <div className="relative">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+            <Search className="absolute start-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
             <Input
               ref={searchInputRef}
               placeholder={t('search_products') + ' (Ctrl+F)'}
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="pl-9 pr-10 h-11 bg-card border-border shadow-sm w-full md:w-1/2 lg:w-1/3"
+              className="ps-9 pe-10 h-11 bg-card border-border shadow-sm w-full md:w-1/2 lg:w-1/3"
             />
             {searchQuery && (
               <button
                 onClick={() => setSearchQuery('')}
-                className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                className="absolute end-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
               >
                 <X className="h-4 w-4" />
               </button>

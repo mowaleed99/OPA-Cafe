@@ -95,10 +95,10 @@ export default function InventoryPage() {
         unit: formData.unit,
         cost: parseFloat(formData.cost) || 0,
         stock_quantity: finalQuantity,
-        low_stock_threshold: formData.low_stock_threshold ? parseFloat(formData.low_stock_threshold) : null,
-        minimum_stock: formData.minimum_stock ? parseInt(formData.minimum_stock, 10) : null,
+        low_stock_threshold: formData.low_stock_threshold ? parseFloat(formData.low_stock_threshold) : 0,
+        minimum_stock: formData.minimum_stock ? parseInt(formData.minimum_stock, 10) : 0,
         is_countable: formData.is_countable,
-        pieces_per_carton: formData.is_countable && formData.pieces_per_carton ? parseInt(formData.pieces_per_carton, 10) : null,
+        pieces_per_carton: formData.is_countable && formData.pieces_per_carton ? parseInt(formData.pieces_per_carton, 10) : 0,
       };
 
       if (editingItem) {

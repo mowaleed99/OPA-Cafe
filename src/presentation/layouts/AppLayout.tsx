@@ -39,7 +39,7 @@ const ownerNav = [
   { to: '/debts', icon: Banknote, labelKey: 'debts' },
   { to: '/closing', icon: BookOpen, labelKey: 'closing' },
   { to: '/reports', icon: LineChart, labelKey: 'reports' },
-  { to: '/expenses', icon: Receipt, labelKey: 'Expenses' },
+  { to: '/expenses', icon: Receipt, labelKey: 'expenses' },
   { to: '/invoices', icon: FileText, labelKey: 'invoices' },
   { to: '/audit-log', icon: ClipboardCheck, labelKey: 'audit_log' },
   { to: '/users', icon: Users, labelKey: 'users' },
@@ -129,29 +129,29 @@ export default function AppLayout() {
         {/* Sync Indicator */}
         <div className="px-3 py-3 border-t border-border flex flex-col gap-1 items-center md:items-start text-xs font-medium">
           {!isOnline ? (
-            <div className="flex items-center gap-2 text-muted-foreground w-full justify-center md:justify-start" title="Offline">
+            <div className="flex items-center gap-2 text-muted-foreground w-full justify-center md:justify-start" title={t('offline', 'Offline')}>
               <WifiOff className="h-4 w-4" />
-              <span className="hidden md:block">Offline</span>
+              <span className="hidden md:block">{t('offline', 'Offline')}</span>
             </div>
           ) : syncStatus?.isSyncing ? (
-            <div className="flex items-center gap-2 text-yellow-500 w-full justify-center md:justify-start" title="Syncing...">
+            <div className="flex items-center gap-2 text-yellow-500 w-full justify-center md:justify-start" title={t('syncing', 'Syncing...')}>
               <RefreshCw className="h-4 w-4 animate-spin" />
-              <span className="hidden md:block">Syncing...</span>
+              <span className="hidden md:block">{t('syncing', 'Syncing...')}</span>
             </div>
           ) : syncStatus?.failed > 0 ? (
-            <div className="flex items-center gap-2 text-red-500 w-full justify-center md:justify-start" title={`Sync Failed (${syncStatus.failed})`}>
+            <div className="flex items-center gap-2 text-red-500 w-full justify-center md:justify-start" title={`${t('sync_failed', 'Sync Failed')} (${syncStatus.failed})`}>
               <AlertCircle className="h-4 w-4" />
-              <span className="hidden md:block truncate">Sync Failed ({syncStatus.failed})</span>
+              <span className="hidden md:block truncate">{t('sync_failed', 'Sync Failed')} ({syncStatus.failed})</span>
             </div>
           ) : syncStatus?.pending > 0 ? (
-            <div className="flex items-center gap-2 text-yellow-500 w-full justify-center md:justify-start" title="Pending Sync">
+            <div className="flex items-center gap-2 text-yellow-500 w-full justify-center md:justify-start" title={t('pending', 'Pending')}>
               <RefreshCw className="h-4 w-4" />
-              <span className="hidden md:block">Pending ({syncStatus.pending})</span>
+              <span className="hidden md:block">{t('pending', 'Pending')} ({syncStatus.pending})</span>
             </div>
           ) : (
-            <div className="flex items-center gap-2 text-emerald-500 w-full justify-center md:justify-start" title="Synced">
+            <div className="flex items-center gap-2 text-emerald-500 w-full justify-center md:justify-start" title={t('synced', 'Synced')}>
               <CheckCircle2 className="h-4 w-4" />
-              <span className="hidden md:block">Synced</span>
+              <span className="hidden md:block">{t('synced', 'Synced')}</span>
             </div>
           )}
         </div>
@@ -163,7 +163,7 @@ export default function AppLayout() {
             className="flex items-center gap-3 w-full px-3 py-2.5 rounded-lg text-sm font-medium text-muted-foreground hover:bg-destructive/10 hover:text-destructive transition-colors"
           >
             <LogOut size={18} className="flex-shrink-0" />
-            <span className="hidden md:block">{t('logout')}</span>
+            <span className="hidden md:block">{t('sign_out', 'Sign Out')}</span>
           </button>
         </div>
       </aside>

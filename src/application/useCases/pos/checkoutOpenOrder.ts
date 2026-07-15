@@ -43,26 +43,29 @@ export async function checkoutOpenOrder(orderId: string, paymentMethod: PaymentM
   }
 
   // Discount Audit Log
+  const now = new Date().toISOString();
   const discountAmount = subtotal - order.total_amount;
   if (discountAmount > 0) {
-    const auditEntry: OrderAuditLog = {
+    const auditEntry = {
       id: crypto.randomUUID(),
       cafe_id: order.cafe_id,
-      order_id: orderId,
-      action_type: 'discount' as any,
-      initiated_by_user_id: userId || 'unknown',
-      initiated_by_name: userName || 'Unknown Cashier',
-      approved_by_owner_pin: false,
-      reason: `Discount applied during checkout: ${discountAmount}`,
-      order_total: order.total_amount,
-      created_at: new Date().toISOString(),
+      order_id: order.id,
+      action: 'discount',
+      performed_by: userName || 'Unknown Cashier',
+      timestamp: now,
+      reason: `Discount applied: ${discountAmount}`,
+      details: JSON.stringify({
+         initiated_by_user_id: userId || 'unknown',
+         approved_by_owner_pin: false,
+         order_total: order.total_amount
+      }),
+      created_at: now,
     };
     ops.push({ type: 'insert', table: 'order_audit_log', data: auditEntry });
     ops.push(buildSyncOperation('insert', 'order_audit_log', auditEntry as unknown as Record<string, unknown>));
   }
 
   // Deduct stock
-  const now = new Date().toISOString();
   
   for (const item of orderItems) {
     const product = await productRepository.getProductById(item.product_id);

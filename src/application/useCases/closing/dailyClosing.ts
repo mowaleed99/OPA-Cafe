@@ -107,7 +107,7 @@ export async function closingDay(cafeId: string, selectedDate: string = new Date
 
   // 4. Find all supplier payments (expenses) within the time window
   const allPayments = await purchaseRepository.getPayments(cafeId);
-  const shiftPayments = allPayments.filter(p => p.payment_date.startsWith(selectedDate));
+  const shiftPayments = allPayments.filter(p => (p.date || '').startsWith(selectedDate));
     
   const cafeSuppliers = await supplierRepository.getSuppliers(cafeId);
   const cafeSupplierIds = new Set(cafeSuppliers.map(s => s.id));
@@ -117,29 +117,56 @@ export async function closingDay(cafeId: string, selectedDate: string = new Date
 
   // 4b. Find other direct expenses
   const allDirectExpenses = await expenseRepository.getExpenses(cafeId);
-  const directExpenses = allDirectExpenses.filter(e => e.expense_date.startsWith(selectedDate));
+  const directExpenses = allDirectExpenses.filter(e => e.date.startsWith(selectedDate));
   const totalDirectExpenses = directExpenses.reduce((sum, e) => sum + e.amount, 0);
 
   const totalExpenses = purchaseExpenses + totalDirectExpenses;
 
+  let cashSales = 0;
+  let instapaySales = 0;
+  let vodafoneSales = 0;
+  
+  shiftOrders.forEach(o => {
+    if (o.payment_method === 'cash') cashSales += o.total_amount;
+    else if (o.payment_method === 'instapay') instapaySales += o.total_amount;
+    else if (o.payment_method === 'vodafone_cash') vodafoneSales += o.total_amount;
+  });
+
+  const closingNow = new Date().toISOString();
   const closing: DailyClosing = {
     id: closingId,
     cafe_id: cafeId,
     closing_date: selectedDate,
+    closed_at: closingNow,
+    closed_by: 'System',
     total_sales: totalSales,
     total_orders: shiftOrders.length,
+    cash_sales: cashSales,
+    instapay_sales: instapaySales,
+    vodafone_cash_sales: vodafoneSales,
     total_expenses: totalExpenses,
+    cash_in_drawer: cashSales,
+    expected_cash: cashSales,
+    difference: 0,
     created_at: existing ? existing.created_at : endTime,
   };
 
-  // 5. Build line items
-  const closingItems: DailyClosingItem[] = Object.entries(productTotals).map(([productId, agg]) => ({
-    id: crypto.randomUUID(),
-    daily_closing_id: closingId,
-    product_id: productId,
-    quantity_sold: agg.quantity,
-    total_revenue: agg.revenue,
-  }));
+  // 5. Build line items — enrich with product/category names for the schema
+  const allProductsForItems = await productRepository.getProducts(cafeId);
+  const allCategoriesForItems = await categoryRepository.getCategories(cafeId);
+  const closingItems: DailyClosingItem[] = Object.entries(productTotals).map(([productId, agg]) => {
+    const product = allProductsForItems.find(p => p.id === productId);
+    const category = product ? allCategoriesForItems.find(c => c.id === product.category_id) : null;
+    return {
+      id: crypto.randomUUID(),
+      daily_closing_id: closingId,
+      product_id: productId,
+      quantity_sold: agg.quantity,
+      total_sales: agg.revenue,
+      product_name: product?.name ?? 'Unknown',
+      category_name: category?.name ?? 'Unknown',
+    };
+  });
 
   const ops: TransactionOperation[] = [];
 
@@ -302,7 +329,7 @@ export async function closingDay(cafeId: string, selectedDate: string = new Date
 
 export async function getClosingPayments(cafeId: string, selectedDate: string) {
   const allPayments = await purchaseRepository.getPayments(cafeId);
-  const shiftPayments = allPayments.filter(p => p.payment_date.startsWith(selectedDate));
+  const shiftPayments = allPayments.filter(p => (p.date || '').startsWith(selectedDate));
     
   const cafeSuppliers = await supplierRepository.getSuppliers(cafeId);
   const cafeSupplierIds = new Set(cafeSuppliers.map(s => s.id));

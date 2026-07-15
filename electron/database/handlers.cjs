@@ -15,6 +15,7 @@ function setupHandlers() {
       'inventory_items': schema.inventoryItems,
       'stock_movements': schema.stockMovements,
       'dining_tables': schema.diningTables,
+      'tables': schema.diningTables,
       'orders': schema.orders,
       'order_items': schema.orderItems,
       'suppliers': schema.suppliers,
@@ -133,22 +134,22 @@ function setupHandlers() {
   });
   
   // Custom transaction endpoint since Drizzle transactions can't be easily serialized over IPC
-  ipcMain.handle('db:transaction', async (event, operations) => {
+  ipcMain.handle('db:transaction', (event, operations) => {
     try {
-      return await db.transaction(async (tx) => {
+      return db.transaction((tx) => {
         for (const op of operations) {
           const t = getTable(op.table);
           if (!t) throw new Error(`Table ${op.table} not found`);
           
           if (op.type === 'insert') {
-            await tx.insert(t).values(op.data).execute();
+            tx.insert(t).values(op.data).run();
           } else if (op.type === 'update') {
-            await tx.update(t).set(op.data).where(eq(t.id, op.id)).execute();
+            tx.update(t).set(op.data).where(eq(t.id, op.id)).run();
           } else if (op.type === 'delete') {
-            await tx.delete(t).where(eq(t.id, op.id)).execute();
+            tx.delete(t).where(eq(t.id, op.id)).run();
           } else if (op.type === 'insertMany') {
             if (op.data && op.data.length > 0) {
-              await tx.insert(t).values(op.data).execute();
+              tx.insert(t).values(op.data).run();
             }
           }
         }

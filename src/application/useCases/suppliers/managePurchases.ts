@@ -62,13 +62,17 @@ export async function createPurchase(params: CreatePurchaseParams): Promise<Purc
     amount_paid: 0,
     amount_remaining: totalAmount,
     payment_status: 'unpaid',
+    date: now,
     created_at: now,
   };
 
   const ops: TransactionOperation[] = [];
 
-  ops.push({ type: 'insert', table: 'purchases', data: purchase });
-  ops.push(buildSyncOperation('insert', 'purchases', purchase as unknown as Record<string, unknown>));
+  const dbPurchase = { ...purchase };
+  delete (dbPurchase as any).amount_remaining;
+
+  ops.push({ type: 'insert', table: 'purchases', data: dbPurchase });
+  ops.push(buildSyncOperation('insert', 'purchases', dbPurchase as unknown as Record<string, unknown>));
 
   if (purchaseItems.length > 0) {
     ops.push({ type: 'insertMany', table: 'purchase_items', data: purchaseItems });
@@ -101,7 +105,8 @@ export async function createPurchase(params: CreatePurchaseParams): Promise<Purc
 export async function recordPayment(
   purchase: Purchase,
   amount: number,
-  notes?: string
+  notes?: string,
+  paymentMethod: string = 'cash'
 ): Promise<{ purchase: Purchase; payment: SupplierPayment }> {
   if (amount <= 0) {
     throw new Error('Payment amount must be greater than zero');
@@ -118,18 +123,25 @@ export async function recordPayment(
     payment_status: newStatus,
   };
 
+  const now = new Date().toISOString();
   const payment: SupplierPayment = {
     id: crypto.randomUUID(),
+    cafe_id: purchase.cafe_id,
     purchase_id: purchase.id,
     supplier_id: purchase.supplier_id,
     amount,
-    payment_date: new Date().toISOString().split('T')[0],
+    payment_method: paymentMethod,
+    date: now.split('T')[0],
     notes: notes || null,
+    created_at: now,
   };
 
+  const dbPurchase = { ...updatedPurchase };
+  delete (dbPurchase as any).amount_remaining;
+
   const ops: TransactionOperation[] = [
-    { type: 'update', table: 'purchases', id: updatedPurchase.id, data: updatedPurchase },
-    buildSyncOperation('update', 'purchases', updatedPurchase as unknown as Record<string, unknown>),
+    { type: 'update', table: 'purchases', id: updatedPurchase.id, data: dbPurchase },
+    buildSyncOperation('update', 'purchases', dbPurchase as unknown as Record<string, unknown>),
     { type: 'insert', table: 'supplier_payments', data: payment },
     buildSyncOperation('insert', 'supplier_payments', payment as unknown as Record<string, unknown>)
   ];

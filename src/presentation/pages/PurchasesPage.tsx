@@ -140,7 +140,7 @@ function CreatePurchaseModal({
           inventoryItemId: l.inventoryItemId,
           itemName: inventoryItems.find(p => p.id === l.inventoryItemId)?.name || '',
           quantity: getFinalQuantity(l),
-          unitCost: parseFloat(l.unitCost),
+          unitCost: parseFloat(l.unitCost) || 0,
         })),
       };
       await createPurchase(params);
@@ -388,7 +388,7 @@ function PurchaseDetailPanel({
               {detail.payments.map(p => (
                 <div key={p.id} className="flex items-center justify-between px-4 py-2.5 text-sm">
                   <div>
-                    <p className="text-muted-foreground text-xs">{p.payment_date}</p>
+                    <p className="text-muted-foreground text-xs">{p.date}</p>
                     <p className="text-foreground">{p.notes || '—'}</p>
                   </div>
                   <span className="font-semibold text-emerald-600 dark:text-emerald-400">+{formatCurrency(p.amount)}</span>

@@ -62,7 +62,7 @@ export async function getMonthlyClosing(cafeId: string, monthPrefix: string): Pr
         aggregatedItems[item.product_id] = { quantity: 0, revenue: 0 };
       }
       aggregatedItems[item.product_id].quantity += item.quantity_sold;
-      aggregatedItems[item.product_id].revenue += item.total_revenue;
+      aggregatedItems[item.product_id].revenue += item.total_sales;
     }
   }
 
@@ -80,14 +80,14 @@ export async function getMonthlyClosing(cafeId: string, monthPrefix: string): Pr
   const cafeSupplierIds = new Set(cafeSuppliers.map(s => s.id));
   
   const allPayments = await purchaseRepository.getPayments(cafeId);
-  const monthPayments = allPayments.filter(p => p.payment_date.startsWith(monthPrefix));
+  const monthPayments = allPayments.filter(p => (p.date || '').startsWith(monthPrefix));
 
   const cafeShiftPayments = monthPayments.filter(p => cafeSupplierIds.has(p.supplier_id));
 
   total_cost_of_goods = cafeShiftPayments.reduce((sum, p) => sum + p.amount, 0);
 
   const allExpenses = await expenseRepository.getExpenses(cafeId);
-  const explicitExpenses = allExpenses.filter(e => e.expense_date.startsWith(monthPrefix));
+  const explicitExpenses = allExpenses.filter(e => e.date.startsWith(monthPrefix));
 
   total_explicit_expenses = explicitExpenses.reduce((sum, e) => sum + Number(e.amount), 0);
   

@@ -68,11 +68,11 @@ export async function getDashboardStats(cafeId: string): Promise<DashboardStats>
   const recentOrders = allOrders.filter(o => o.status === 'paid' && o.created_at >= thirtyDaysAgo);
   const totalSales30d = recentOrders.reduce((sum, o) => sum + o.total_amount, 0);
 
-  const recentExpenses = allExpenses.filter(e => e.expense_date >= thirtyDaysAgo);
+  const recentExpenses = allExpenses.filter(e => e.date >= thirtyDaysAgo);
   const totalExpenses = recentExpenses.reduce((sum, e) => sum + Number(e.amount), 0);
 
   const cafeSupplierIds = new Set(allSuppliers.map(s => s.id));
-  const recentPayments = allPayments.filter(p => p.payment_date && p.payment_date >= thirtyDaysAgo && cafeSupplierIds.has(p.supplier_id));
+  const recentPayments = allPayments.filter(p => p.date && p.date >= thirtyDaysAgo && cafeSupplierIds.has(p.supplier_id));
   const totalCOGS = recentPayments.reduce((sum, p) => sum + p.amount, 0);
 
   const estimatedProfit = totalSales30d - totalExpenses - totalCOGS;

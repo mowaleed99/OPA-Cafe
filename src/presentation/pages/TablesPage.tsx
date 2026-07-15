@@ -24,6 +24,14 @@ export default function TablesPage() {
   const handleAddTable = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!currentCafeId || !newTableName.trim()) return;
+
+    // Check for duplicate table name
+    const exists = tables?.some(t => t.name_or_number.toLowerCase() === newTableName.trim().toLowerCase());
+    if (exists) {
+      alert(t('table_name_exists'));
+      return;
+    }
+
     await addTable(currentCafeId, newTableName.trim());
     setNewTableName('');
     setIsAdding(false);

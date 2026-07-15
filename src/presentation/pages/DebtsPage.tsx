@@ -199,7 +199,7 @@ function PurchaseDetailPanel({
             <div className="divide-y border rounded-md">
               {detail.payments.map(p => (
                 <div key={p.id} className="flex justify-between px-3 py-2 text-sm">
-                  <span className="text-muted-foreground">{p.payment_date}</span>
+                  <span className="text-muted-foreground">{p.date}</span>
                   <span>{p.notes || '—'}</span>
                   <span className="font-medium text-green-600">+{formatCurrency(p.amount)}</span>
                 </div>

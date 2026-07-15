@@ -60,6 +60,9 @@ function initDb() {
     console.error('Failed to create pre-migration backup', e);
   }
 
+  // Run Drizzle migrations first so that base tables exist
+  migrate(_drizzleDb, { migrationsFolder });
+
   // Phase 9 Safe Migrations for sync tracking
   try {
     // Add last_error to sync_queue if it doesn't exist
@@ -107,9 +110,45 @@ function initDb() {
   addColumnSafe('settings', 'receipt_copies', 'INTEGER DEFAULT 1');
   addColumnSafe('settings', 'report_default_output', "TEXT DEFAULT 'thermal'");
   addColumnSafe('settings', 'receipt_template_config', 'TEXT');
-
-  migrate(_drizzleDb, { migrationsFolder });
   
+  // Phase 11 Missing columns
+  addColumnSafe('inventory_items', 'cost_per_unit', 'REAL DEFAULT 0');
+  addColumnSafe('inventory_items', 'sku', 'TEXT');
+  addColumnSafe('stock_movements', 'reason', 'TEXT');
+  addColumnSafe('settings', 'auto_backup_frequency', 'TEXT');
+
+  // Phase 12 — Schema alignment with Supabase
+  // purchases
+  addColumnSafe('purchases', 'date', 'TEXT');
+
+  // supplier_payments
+  addColumnSafe('supplier_payments', 'cafe_id', 'TEXT');
+  addColumnSafe('supplier_payments', 'payment_method', 'TEXT');
+  addColumnSafe('supplier_payments', 'date', 'TEXT');
+  addColumnSafe('supplier_payments', 'reference_number', 'TEXT');
+
+  // daily_closings
+  addColumnSafe('daily_closings', 'closed_at', 'TEXT');
+  addColumnSafe('daily_closings', 'closed_by', 'TEXT');
+  addColumnSafe('daily_closings', 'cash_sales', 'REAL DEFAULT 0');
+  addColumnSafe('daily_closings', 'instapay_sales', 'REAL DEFAULT 0');
+  addColumnSafe('daily_closings', 'vodafone_cash_sales', 'REAL DEFAULT 0');
+  addColumnSafe('daily_closings', 'cash_in_drawer', 'REAL DEFAULT 0');
+  addColumnSafe('daily_closings', 'expected_cash', 'REAL DEFAULT 0');
+  addColumnSafe('daily_closings', 'difference', 'REAL DEFAULT 0');
+
+  // daily_closing_items
+  addColumnSafe('daily_closing_items', 'category_name', 'TEXT');
+  addColumnSafe('daily_closing_items', 'product_name', 'TEXT');
+  addColumnSafe('daily_closing_items', 'total_sales', 'REAL DEFAULT 0');
+
+  // order_audit_log
+  addColumnSafe('order_audit_log', 'action', 'TEXT');
+  addColumnSafe('order_audit_log', 'performed_by', 'TEXT');
+  addColumnSafe('order_audit_log', 'timestamp', 'TEXT');
+  addColumnSafe('order_audit_log', 'details', 'TEXT');
+  addColumnSafe('order_audit_log', 'reason', 'TEXT');
+
   return _drizzleDb;
 }
 

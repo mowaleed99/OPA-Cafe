@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuthStore } from '../../application/store/useAuthStore';
 import { Loader2, Eye, EyeOff } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 
 export default function LoginPage() {
   const [email, setEmail] = useState('');
@@ -11,6 +12,7 @@ export default function LoginPage() {
   const [showPassword, setShowPassword] = useState(false);
   const { signIn } = useAuthStore();
   const navigate = useNavigate();
+  const { t } = useTranslation();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -47,10 +49,10 @@ export default function LoginPage() {
         </div>
         <div>
           <h2 className="text-2xl font-bold tracking-tight text-[#4A3728]">
-            Welcome to OPA
+            {t('welcome', 'Welcome to OPA')}
           </h2>
           <p className="text-[#8B7355] text-sm mt-1">
-            Please enter your details to sign in.
+            {t('sign_in_desc', 'Please enter your details to sign in.')}
           </p>
         </div>
       </div>
@@ -65,8 +67,8 @@ export default function LoginPage() {
       {/* Form */}
       <form onSubmit={handleSubmit} className="space-y-5">
         <div className="space-y-1.5">
-          <label htmlFor="email" className="block text-sm font-medium text-[#4A3728] ml-1">
-            Email Address
+          <label htmlFor="email" className="block text-sm font-medium text-[#4A3728] ms-1">
+            {t('email_address', 'Email Address')}
           </label>
           <input
             id="email"
@@ -81,9 +83,9 @@ export default function LoginPage() {
         </div>
 
         <div className="space-y-1.5">
-          <div className="flex items-center justify-between ml-1">
+          <div className="flex items-center justify-between ms-1">
             <label htmlFor="password" className="block text-sm font-medium text-[#4A3728]">
-              Password
+              {t('password', 'Password')}
             </label>
           </div>
           <div className="relative">
@@ -115,7 +117,7 @@ export default function LoginPage() {
           {isLoading ? (
             <Loader2 size={20} className="animate-spin text-white/80" />
           ) : (
-            'Sign In'
+            t('sign_in', 'Sign In')
           )}
         </button>
       </form>
@@ -123,7 +125,7 @@ export default function LoginPage() {
       {/* Footer text */}
       <div className="pt-2 text-center">
         <p className="text-xs text-[#A89F91]">
-          Powered by O P A Cafe Point of Sale
+          {t('powered_by', 'Powered by O P A Cafe Point of Sale')}
         </p>
       </div>
     </div>

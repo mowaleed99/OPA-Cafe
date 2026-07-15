@@ -65,16 +65,19 @@ export async function voidOrder({
   const updatedOrder = { ...order, status: 'voided' as const };
 
   // 5. Create audit log entry
-  const auditEntry: OrderAuditLog = {
+  const auditEntry = {
     id: crypto.randomUUID(),
     cafe_id: cafeId,
     order_id: orderId,
-    action_type: actionType,
-    initiated_by_user_id: initiatedByUser.id,
-    initiated_by_name: initiatedByUser.name ?? initiatedByUser.email ?? initiatedByUser.id,
-    approved_by_owner_pin: true,
-    reason: reason || null,
-    order_total: order.total_amount,
+    action: actionType,
+    performed_by: initiatedByUser.name || 'Unknown User',
+    timestamp: now,
+    reason: reason,
+    details: JSON.stringify({
+       initiated_by_user_id: initiatedByUser.id || 'unknown',
+       approved_by_owner_pin: true,
+       order_total: order.total_amount
+    }),
     created_at: now,
   };
 
