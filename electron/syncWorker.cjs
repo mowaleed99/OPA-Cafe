@@ -64,6 +64,20 @@ function toSupabasePayload(tableName, payload) {
     // Older deployed databases use action_type, while the local model uses
     // action. The migration keeps both columns available during the upgrade.
     normalized.action_type ??= normalized.action;
+
+    // The deployed audit table also stores the initiating user separately.
+    // Local records keep it inside the JSON `details` field, so unpack it for
+    // both newly queued and legacy failed records.
+    if (!normalized.initiated_by_user_id && normalized.details) {
+      try {
+        const details = typeof normalized.details === 'string'
+          ? JSON.parse(normalized.details)
+          : normalized.details;
+        normalized.initiated_by_user_id = details?.initiated_by_user_id;
+      } catch {
+        // The database will retain the item with a useful error if details is malformed.
+      }
+    }
   }
 
   return normalized;

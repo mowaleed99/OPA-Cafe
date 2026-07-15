@@ -2,7 +2,10 @@ const { app, BrowserWindow, ipcMain, dialog, Tray, Menu, shell } = require('elec
 const path = require('path');
 const fs = require('fs');
 
-const isDev = process.env.NODE_ENV === 'development';
+// `npm run dev:electron` does not set NODE_ENV for the Electron process.
+// Electron's own packaging flag reliably distinguishes the Vite development
+// server from the installed application.
+const isDev = !app.isPackaged;
 let tray = null;
 let mainWindow = null;
 
