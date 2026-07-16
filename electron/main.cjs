@@ -89,7 +89,7 @@ app.whenReady().then(() => {
   setupHandlers();
 
   // Start background sync worker
-  const { startSyncWorker, processSyncQueue, getSyncStatus, setSyncSession } = require('./syncWorker.cjs');
+  const { startSyncWorker, processSyncQueue, getSyncStatus, setSyncSession, resetSyncState } = require('./syncWorker.cjs');
   startSyncWorker();
 
   createWindow();
@@ -166,6 +166,17 @@ app.whenReady().then(() => {
 
   ipcMain.handle('sync:getStatus', () => {
     return getSyncStatus();
+  });
+
+  ipcMain.handle('sync:reset', async () => {
+    try {
+      const count = await resetSyncState();
+      await processSyncQueue();
+      return { success: true, count };
+    } catch (err) {
+      console.error('Reset sync error:', err);
+      return { success: false, error: err.message };
+    }
   });
 
   // Credential store — uses Electron safeStorage (OS keychain encryption)

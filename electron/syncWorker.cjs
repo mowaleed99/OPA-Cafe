@@ -53,6 +53,20 @@ async function setSyncSession(session) {
   hasAuthenticatedSession = true;
   didLogMissingSession = false;
   logSync(`Authenticated Supabase session received for user ${userData.user.email || userData.user.id}. Processing queued changes.`);
+
+  // When the worker first authenticates (or re-authenticates after a schema
+  // fix), give every failed queue item a fresh chance by resetting retries.
+  try {
+    const db = getDb();
+    await db.update(schema.syncQueue)
+      .set({ status: 'pending', retry_count: 0 })
+      .where(eq(schema.syncQueue.status, 'failed'))
+      .execute();
+    lastAttemptMap.clear();
+  } catch (resetErr) {
+    logSync(`Warning: could not reset failed queue items: ${resetErr.message}`);
+  }
+
   return true;
 }
 
@@ -386,15 +400,19 @@ async function processSyncQueue() {
         syncStatusState.synced += 1;
         logSync(`Successfully synced item: ${item.action} on ${supabaseTable} (ID: ${payload.id || 'unknown'})`);
       } catch (err) {
+        const isFkViolation = err.message && err.message.includes('violates foreign key constraint');
         logSync(`Failed syncing ${item.action} on ${item.table_name} # ${item.record_id || 'unknown'}: ${err.message}`);
-        const nextRetry = item.retry_count + 1;
+
+        // FK violations mean the parent record hasn't synced yet. Don't count
+        // these as real retries — the item will succeed once its parent uploads.
+        const nextRetry = isFkViolation ? item.retry_count : item.retry_count + 1;
         await db.update(schema.syncQueue).set({ 
              status: 'failed',
              retry_count: nextRetry,
              last_error: err.message
         }).where(eq(schema.syncQueue.id, item.id)).execute();
         
-        if (nextRetry > 4) {
+        if (!isFkViolation && nextRetry > 4) {
            logSync(`Max retries reached for item ${item.id}. Keeping in queue as failed.`);
         }
       }
@@ -418,4 +436,31 @@ function getSyncStatus() {
   return syncStatusState;
 }
 
-module.exports = { startSyncWorker, processSyncQueue, getSyncStatus, setSyncSession };
+async function resetSyncState() {
+  logSync('Resetting all sync state — clearing queue and marking all local records as pending.');
+  const db = getDb();
+
+  // 1. Clear the entire sync queue
+  await db.delete(schema.syncQueue).execute();
+  lastAttemptMap.clear();
+
+  // 2. Reset sync_status on every local table back to 'pending'
+  for (const [tableName, table] of Object.entries(LOCAL_SYNC_TABLES)) {
+    try {
+      await db.update(table).set({ sync_status: 'pending' }).execute();
+    } catch (e) {
+      logSync(`Warning: could not reset sync_status on ${tableName}: ${e.message}`);
+    }
+  }
+
+  // 3. Re-materialize all records into the queue
+  const count = await materializePendingLocalRecords(db);
+  logSync(`Sync state reset complete. ${count} record(s) queued for upload.`);
+
+  syncStatusState.synced = 0;
+  syncStatusState.failed = 0;
+  await updateCounts(db);
+  return count;
+}
+
+module.exports = { startSyncWorker, processSyncQueue, getSyncStatus, setSyncSession, resetSyncState };
