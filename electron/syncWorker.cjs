@@ -9,7 +9,7 @@ const { app, BrowserWindow } = require('electron');
 
 const supabaseUrl = process.env.VITE_SUPABASE_URL || '';
 const supabaseAnonKey = process.env.VITE_SUPABASE_ANON_KEY || '';
-const supabase = createClient(supabaseUrl, supabaseAnonKey);
+let supabase = createClient(supabaseUrl, supabaseAnonKey);
 
 // The worker runs in Electron's main process, so it does not share the
 // renderer's Supabase session automatically.  Without this session every
@@ -18,37 +18,30 @@ let hasAuthenticatedSession = false;
 let didLogMissingSession = false;
 
 async function setSyncSession(session) {
-  if (!session?.accessToken || !session?.refreshToken) {
+  if (!session?.accessToken) {
     // Null/empty session = user signed out. Clear worker auth.
     hasAuthenticatedSession = false;
+    supabase = createClient(supabaseUrl, supabaseAnonKey);
     return false;
   }
 
   const tokenPrefix = session.accessToken.substring(0, 12);
-  logSync(`Attempting setSession with token prefix: ${tokenPrefix}...`);
-
-  const { error } = await supabase.auth.setSession({
-    access_token: session.accessToken,
-    refresh_token: session.refreshToken,
-  });
-  if (error) {
-    // A renderer can retain an expired session in localStorage. Log the
-    // rejection but do NOT call signOut() — a valid token may arrive
-    // moments later from an onAuthStateChange race.
-    hasAuthenticatedSession = false;
-    didLogMissingSession = false;
-    logSync(`Rejected invalid Supabase session: ${error.message}`);
-    return false;
-  }
+  logSync(`Received access token with prefix: ${tokenPrefix}...`);
 
   // Verify the token is actually usable against Supabase's API.
-  const { data: userData, error: userError } = await supabase.auth.getUser();
+  const { data: userData, error: userError } = await supabase.auth.getUser(session.accessToken);
   if (userError || !userData?.user) {
     hasAuthenticatedSession = false;
     didLogMissingSession = false;
-    logSync(`Session set but getUser() failed: ${userError?.message || 'no user returned'}`);
+    logSync(`Rejected invalid or expired token: ${userError?.message || 'no user returned'}`);
     return false;
   }
+
+  // Create a stateless client that permanently injects this token into headers
+  supabase = createClient(supabaseUrl, supabaseAnonKey, {
+    auth: { persistSession: false, autoRefreshToken: false },
+    global: { headers: { Authorization: `Bearer ${session.accessToken}` } }
+  });
 
   hasAuthenticatedSession = true;
   didLogMissingSession = false;
