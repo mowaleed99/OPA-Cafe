@@ -108,14 +108,32 @@ export class AuthService {
         return { error: null, session: data.session, appUser: cloudUser };
       }
 
-      const localUser = await authRepository.findByEmail(email);
+      let localUser = await authRepository.findByEmail(email);
 
       if (!localUser) {
-        return { error: 'Invalid login credentials. User not found locally.', session: null, appUser: null };
-      }
-
-      if (!localUser.local_password_hash) {
-        return { error: 'Offline login is not set up. Please connect to the internet to sync credentials.', session: null, appUser: null };
+        // User not found locally. If online, try fetching them from the Cloud!
+        if (typeof window !== 'undefined' && navigator.onLine) {
+          const { data, error } = await supabase.auth.signInWithPassword({ email, password });
+          if (error || !data.session) {
+            return { error: 'Invalid login credentials.', session: null, appUser: null };
+          }
+          // Cloud auth succeeded! Fetch their cloud profile.
+          const cloudUser = await this.getCloudAppUser(data.session.user.id);
+          if (!cloudUser) {
+            await supabase.auth.signOut();
+            return { error: 'Your account is not assigned to an OPA Cafe profile.', session: null, appUser: null };
+          }
+          // Auto-heal local database: insert the missing user with their password hash!
+          const newHash = bcrypt.hashSync(password, 10);
+          cloudUser.local_password_hash = newHash;
+          await authRepository.insertUser(cloudUser);
+          localUser = cloudUser;
+          
+          // Sign out immediately because the main flow below will sign them back in
+          await supabase.auth.signOut();
+        } else {
+          return { error: 'Invalid login credentials. User not found locally (offline mode).', session: null, appUser: null };
+        }
       }
 
       let isValid = false;
