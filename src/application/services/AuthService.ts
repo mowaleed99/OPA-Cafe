@@ -118,10 +118,32 @@ export class AuthService {
         return { error: 'Offline login is not set up. Please connect to the internet to sync credentials.', session: null, appUser: null };
       }
 
-      const isValid = bcrypt.compareSync(password, localUser.local_password_hash);
+      let isValid = false;
+      if (localUser.local_password_hash) {
+        isValid = bcrypt.compareSync(password, localUser.local_password_hash);
+      }
       
       if (!isValid) {
-        return { error: 'Invalid login credentials.', session: null, appUser: null };
+        // If local hash fails (or is missing), it might be because the password was updated
+        // remotely (e.g. via setup script or another device). Let's attempt cloud auth if online.
+        if (typeof window !== 'undefined' && navigator.onLine) {
+          const { data, error } = await supabase.auth.signInWithPassword({ email, password });
+          if (error || !data.session) {
+            return { error: 'Invalid login credentials.', session: null, appUser: null };
+          }
+          // Cloud auth succeeded! The user changed their password remotely.
+          // Let's auto-heal the local database to keep them in sync.
+          const newHash = bcrypt.hashSync(password, 10);
+          await authRepository.updateUser(localUser.id, { local_password_hash: newHash });
+          localUser.local_password_hash = newHash;
+          isValid = true;
+          
+          // Sign out immediately because the main flow below will sign them back in
+          // to establish the proper cloudSession variable for sync sharing.
+          await supabase.auth.signOut();
+        } else {
+          return { error: 'Invalid login credentials (offline mode).', session: null, appUser: null };
+        }
       }
 
       const localSession = {
