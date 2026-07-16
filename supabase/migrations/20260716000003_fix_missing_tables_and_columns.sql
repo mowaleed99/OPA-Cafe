@@ -76,6 +76,10 @@ ALTER TABLE public.daily_closings
   ADD COLUMN IF NOT EXISTS notes TEXT,
   ADD COLUMN IF NOT EXISTS created_at TIMESTAMPTZ DEFAULT now();
 
+-- daily_closing_items: ensure created_at is present if table existed without it
+ALTER TABLE public.daily_closing_items
+  ADD COLUMN IF NOT EXISTS created_at TIMESTAMPTZ DEFAULT now();
+
 -- tables: ensure created_at is visible (it's in the initial schema but
 -- PostgREST may not have it cached after adding many columns)
 ALTER TABLE public.tables

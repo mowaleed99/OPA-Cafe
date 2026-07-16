@@ -221,6 +221,22 @@ async function processSyncQueue() {
       return;
     }
     
+    // Track failed parent IDs during this run (and preload existing failed parent IDs)
+    const failedParentIds = new Set();
+    const existingFailedParents = await db.select({ record_id: schema.syncQueue.record_id, payload: schema.syncQueue.payload })
+      .from(schema.syncQueue)
+      .where(eq(schema.syncQueue.status, 'failed'))
+      .execute();
+    for (const fp of existingFailedParents) {
+      if (['orders', 'daily_closings', 'purchases'].includes(fp.table_name)) {
+        if (fp.record_id) failedParentIds.add(fp.record_id);
+        try {
+          const p = typeof fp.payload === 'string' ? JSON.parse(fp.payload) : fp.payload;
+          if (p?.id) failedParentIds.add(p.id);
+        } catch {}
+      }
+    }
+
     for (const item of pendingItems) {
       if (!item.id) continue;
       
@@ -235,13 +251,20 @@ async function processSyncQueue() {
         }
       }
       
+      const queuedPayload = typeof item.payload === 'string' ? JSON.parse(item.payload) : item.payload;
+      
+      // Check parent-child dependencies: skip children if parent failed to sync
+      const parentId = queuedPayload?.order_id || queuedPayload?.daily_closing_id || queuedPayload?.purchase_id;
+      if (parentId && failedParentIds.has(parentId)) {
+        continue; // Skip without consuming retries until parent recovers
+      }
+
       lastAttemptMap.set(item.id, Date.now());
       
       try {
         await db.update(schema.syncQueue).set({ status: 'syncing' }).where(eq(schema.syncQueue.id, item.id)).execute();
         
         const supabaseTable = toSupabaseName(item.table_name);
-        const queuedPayload = typeof item.payload === 'string' ? JSON.parse(item.payload) : item.payload;
         const payload = toSupabasePayload(supabaseTable, queuedPayload);
         
         const { conflictDetected, remoteData, resolution } = await SyncConflictResolver.detectAndResolveConflict({
@@ -253,19 +276,36 @@ async function processSyncQueue() {
           logSync
         });
         
-        if (item.action === 'insert') {
-          const { error } = await supabase.from(supabaseTable).upsert(payload, { onConflict: 'id' });
-          if (error) throw error;
-        } else if (item.action === 'update') {
-          if (resolution === 'local_wins' || !conflictDetected) {
-            const { id, ...updatePayload } = payload;
-            const { error } = await supabase.from(supabaseTable).update(updatePayload).eq('id', payload.id);
+        const performAction = async (targetPayload) => {
+          if (item.action === 'insert') {
+            const { error } = await supabase.from(supabaseTable).upsert(targetPayload, { onConflict: 'id' });
             if (error) throw error;
+          } else if (item.action === 'update') {
+            if (resolution === 'local_wins' || !conflictDetected) {
+              const { id, ...updatePayload } = targetPayload;
+              const { error } = await supabase.from(supabaseTable).update(updatePayload).eq('id', targetPayload.id);
+              if (error) throw error;
+            }
+          } else if (item.action === 'delete') {
+            if (resolution === 'local_wins' || !conflictDetected) {
+              const { error } = await supabase.from(supabaseTable).delete().eq('id', targetPayload.id);
+              if (error) throw error;
+            }
           }
-        } else if (item.action === 'delete') {
-          if (resolution === 'local_wins' || !conflictDetected) {
-            const { error } = await supabase.from(supabaseTable).delete().eq('id', payload.id);
-            if (error) throw error;
+        };
+
+        try {
+          await performAction(payload);
+        } catch (opError) {
+          // Auto-recovery: If PostgREST cache lacks a specific column, strip it and retry
+          const match = /Could not find the '([^']+)' column of '([^']+)' in the schema cache/i.exec(opError?.message || '');
+          if (match && match[1] && payload[match[1]] !== undefined) {
+            const missingCol = match[1];
+            logSync(`Stripped missing schema column "${missingCol}" from payload for ${supabaseTable} and retrying...`);
+            delete payload[missingCol];
+            await performAction(payload);
+          } else {
+            throw opError;
           }
         }
         
@@ -282,6 +322,10 @@ async function processSyncQueue() {
         logSync(`Successfully synced item: ${item.action} on ${supabaseTable} (ID: ${payload.id || 'unknown'})`);
       } catch (err) {
         logSync(`Failed syncing ${item.action} on ${item.table_name} # ${item.record_id || 'unknown'}: ${err.message}`);
+
+        if (['orders', 'daily_closings', 'purchases'].includes(item.table_name)) {
+          failedParentIds.add(item.record_id || queuedPayload?.id);
+        }
 
         const nextRetry = item.retry_count + 1;
         await db.update(schema.syncQueue).set({ 
