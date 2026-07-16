@@ -400,19 +400,16 @@ async function processSyncQueue() {
         syncStatusState.synced += 1;
         logSync(`Successfully synced item: ${item.action} on ${supabaseTable} (ID: ${payload.id || 'unknown'})`);
       } catch (err) {
-        const isFkViolation = err.message && err.message.includes('violates foreign key constraint');
         logSync(`Failed syncing ${item.action} on ${item.table_name} # ${item.record_id || 'unknown'}: ${err.message}`);
 
-        // FK violations mean the parent record hasn't synced yet. Don't count
-        // these as real retries — the item will succeed once its parent uploads.
-        const nextRetry = isFkViolation ? item.retry_count : item.retry_count + 1;
+        const nextRetry = item.retry_count + 1;
         await db.update(schema.syncQueue).set({ 
              status: 'failed',
              retry_count: nextRetry,
              last_error: err.message
         }).where(eq(schema.syncQueue.id, item.id)).execute();
         
-        if (!isFkViolation && nextRetry > 4) {
+        if (nextRetry > 4) {
            logSync(`Max retries reached for item ${item.id}. Keeping in queue as failed.`);
         }
       }
