@@ -189,6 +189,12 @@ export const useAuthStore = create<AuthState>((set, get) => ({
 
       await shareSyncSession(data.session);
 
+      // Store credentials securely so the app can auto-authenticate to
+      // Supabase on restart without requiring the user to sign in again.
+      if (window.electronAPI?.storeCredentials) {
+        window.electronAPI.storeCredentials({ email, password }).catch(() => {});
+      }
+
       return { error: null };
     } catch (err: any) {
       console.error('Local sign in error:', err);
@@ -199,6 +205,9 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   signOut: async () => {
     await shareSyncSession(null);
     await supabase.auth.signOut();
+    if (window.electronAPI?.clearStoredCredentials) {
+      window.electronAPI.clearStoredCredentials().catch(() => {});
+    }
     localStorage.removeItem('offline_user_id');
     set({ session: null, appUser: null });
   },
@@ -264,18 +273,28 @@ export const useAuthStore = create<AuthState>((set, get) => ({
 
           // The cloud session was already attempted above via
           // getFreshCloudSession().  If it failed (e.g. expired refresh token)
-          // but we DO have a cloud session that the worker hasn't received yet,
-          // retry sharing it now.  This covers the common case where the
-          // Supabase client refreshed internally between getSession() and here.
-          if (!cloudSession) {
-            getFreshCloudSession()
-              .then((retried) => {
-                if (retried) {
-                  console.info('[Auth] Cloud session recovered after auto-restore — forwarding to worker.');
-                  return shareSyncSession(retried);
+          // but we have stored credentials and internet, sign in automatically
+          // so the worker gets a real Supabase JWT without the user re-entering
+          // their password.
+          if (!cloudSession && navigator.onLine && window.electronAPI?.getStoredCredentials) {
+            window.electronAPI.getStoredCredentials()
+              .then(async (creds: { email: string; password: string } | null) => {
+                if (!creds) return;
+                console.info('[Auth] Auto-authenticating to Supabase with stored credentials...');
+                const { data, error } = await supabase.auth.signInWithPassword({
+                  email: creds.email,
+                  password: creds.password,
+                });
+                if (error || !data.session) {
+                  console.warn('[Auth] Auto cloud sign-in failed:', error?.message);
+                  return;
                 }
+                console.info('[Auth] Auto cloud sign-in succeeded — forwarding session to worker.');
+                await shareSyncSession(data.session);
               })
-              .catch((err) => console.warn('[Auth] Background cloud session retry failed:', err));
+              .catch((err: unknown) => console.warn('[Auth] Auto cloud sign-in error:', err));
+          } else if (cloudSession) {
+            // Cloud session was refreshed successfully — already shared above.
           }
         } else {
           set({ session: null, appUser: null, isLoading: false });

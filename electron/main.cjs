@@ -1,4 +1,4 @@
-const { app, BrowserWindow, ipcMain, dialog, Tray, Menu, shell } = require('electron');
+const { app, BrowserWindow, ipcMain, dialog, Tray, Menu, shell, safeStorage } = require('electron');
 const path = require('path');
 const fs = require('fs');
 
@@ -166,6 +166,43 @@ app.whenReady().then(() => {
 
   ipcMain.handle('sync:getStatus', () => {
     return getSyncStatus();
+  });
+
+  // Credential store — uses Electron safeStorage (OS keychain encryption)
+  const credPath = path.join(app.getPath('userData'), '.sync_cred');
+
+  ipcMain.handle('auth:storeCredentials', async (event, { email, password }) => {
+    try {
+      if (!safeStorage.isEncryptionAvailable()) return { success: false };
+      const encrypted = safeStorage.encryptString(JSON.stringify({ email, password }));
+      fs.writeFileSync(credPath, encrypted);
+      return { success: true };
+    } catch (e) {
+      console.error('[Auth] Failed to store credentials:', e);
+      return { success: false };
+    }
+  });
+
+  ipcMain.handle('auth:getStoredCredentials', async () => {
+    try {
+      if (!safeStorage.isEncryptionAvailable()) return null;
+      if (!fs.existsSync(credPath)) return null;
+      const encrypted = fs.readFileSync(credPath);
+      const decrypted = safeStorage.decryptString(encrypted);
+      return JSON.parse(decrypted);
+    } catch (e) {
+      console.error('[Auth] Failed to read stored credentials:', e);
+      return null;
+    }
+  });
+
+  ipcMain.handle('auth:clearStoredCredentials', async () => {
+    try {
+      if (fs.existsSync(credPath)) fs.unlinkSync(credPath);
+      return { success: true };
+    } catch (e) {
+      return { success: false };
+    }
   });
 
   // Printer Handlers

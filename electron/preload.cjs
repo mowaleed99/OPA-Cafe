@@ -26,5 +26,8 @@ contextBridge.exposeInMainWorld('electronAPI', {
   },
   getPrinters: () => ipcRenderer.invoke('printer:getPrinters'),
   printHtml: (html, options) => ipcRenderer.invoke('printer:printHtml', html, options),
-  exportPdf: (html, options) => ipcRenderer.invoke('printer:exportPdf', html, options)
+  exportPdf: (html, options) => ipcRenderer.invoke('printer:exportPdf', html, options),
+  storeCredentials: (creds) => ipcRenderer.invoke('auth:storeCredentials', creds),
+  getStoredCredentials: () => ipcRenderer.invoke('auth:getStoredCredentials'),
+  clearStoredCredentials: () => ipcRenderer.invoke('auth:clearStoredCredentials')
 });
