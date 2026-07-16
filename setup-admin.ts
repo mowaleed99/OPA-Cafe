@@ -7,8 +7,8 @@ const supabaseKey = process.env.VITE_SUPABASE_ANON_KEY!;
 const supabase = createClient(supabaseUrl, supabaseKey);
 
 async function setupAdmin() {
-  const email = 'ebrahimnagy2026@opa.com';
-  const password = 'nagy@Ebrahim2026';
+  const email = 'Ebrahimnagy2026@opa.com';
+  const password = 'nagy@2026';
   
   console.log('Signing up admin...');
   const { data: authData, error: authError } = await supabase.auth.signUp({
