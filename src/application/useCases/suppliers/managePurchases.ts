@@ -1,4 +1,4 @@
-import { buildSyncOperation, enqueueSync } from '../../sync/syncQueue';
+import { buildSyncOperation, createSyncableOperation, triggerBackgroundSync } from '../../sync/syncQueue';
 import { purchaseRepository, inventoryRepository } from '../../../infrastructure/repositories/index';
 import { executeTransaction, TransactionOperation } from '../../../infrastructure/database/transaction';
 import type { Purchase, PurchaseItem, SupplierPayment } from '../../../domain/entities/supplier';
@@ -86,18 +86,13 @@ export async function createPurchase(params: CreatePurchaseParams): Promise<Purc
           ...inventoryItem,
           stock_quantity: inventoryItem.stock_quantity + item.quantity
         };
-        ops.push({ type: 'update', table: 'inventory_items', id: updatedItem.id, data: updatedItem });
-        ops.push(buildSyncOperation('update', 'inventory_items', updatedItem as unknown as Record<string, unknown>));
+        ops.push(...createSyncableOperation('update', 'inventory_items', updatedItem as unknown as Record<string, unknown>, updatedItem.id));
       }
     }
   }
 
   await executeTransaction(ops);
-  
-  // Trigger background sync processing if online
-  if (navigator.onLine && window.electronAPI) {
-    window.electronAPI.triggerSync();
-  }
+  triggerBackgroundSync();
 
   return purchase;
 }
@@ -142,15 +137,11 @@ export async function recordPayment(
   const ops: TransactionOperation[] = [
     { type: 'update', table: 'purchases', id: updatedPurchase.id, data: dbPurchase },
     buildSyncOperation('update', 'purchases', updatedPurchase as unknown as Record<string, unknown>),
-    { type: 'insert', table: 'supplier_payments', data: payment },
-    buildSyncOperation('insert', 'supplier_payments', payment as unknown as Record<string, unknown>)
+    ...createSyncableOperation('insert', 'supplier_payments', payment as unknown as Record<string, unknown>)
   ];
 
   await executeTransaction(ops);
-
-  if (navigator.onLine && window.electronAPI) {
-    window.electronAPI.triggerSync();
-  }
+  triggerBackgroundSync();
 
   return { purchase: updatedPurchase, payment };
 }

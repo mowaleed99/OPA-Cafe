@@ -1,7 +1,7 @@
-import { createRepository } from '../../../infrastructure/repositories/RepositoryFactory';
+import { categoryRepository, productRepository, inventoryRepository, orderRepository } from '../../../infrastructure/repositories/index';
 import type { Category } from '../../../domain/entities/category';
 import type { Product } from '../../../domain/entities/product';
-import type { InventoryItem } from '../../../domain/entities/inventory';
+import type { DiningTable } from '../../../domain/entities/table';
 
 export interface POSData {
   categories: Category[];
@@ -10,14 +10,10 @@ export interface POSData {
 }
 
 export async function loadPOSData(cafeId: string): Promise<POSData> {
-  const catRepo = createRepository<Category>('categories');
-  const prodRepo = createRepository<Product>('products');
-  const invRepo = createRepository<InventoryItem>('inventory_items');
-
   const [allCategories, allProducts, inventoryItems] = await Promise.all([
-    catRepo.findMany({ cafe_id: cafeId }),
-    prodRepo.findMany({ cafe_id: cafeId }),
-    invRepo.findMany({ cafe_id: cafeId })
+    categoryRepository.getCategories(cafeId),
+    productRepository.getProducts(cafeId),
+    inventoryRepository.getInventoryItems(cafeId)
   ]);
 
   const categories = allCategories
@@ -32,9 +28,13 @@ export async function loadPOSData(cafeId: string): Promise<POSData> {
   for (const item of inventoryItems) {
     inventoryMap[item.id] = {
       stock_quantity: item.stock_quantity,
-      minimum_stock: item.minimum_stock || 0,
+      minimum_stock: item.low_stock_threshold || 0,
     };
   }
 
   return { categories, products, inventoryMap };
+}
+
+export async function loadTablePOSInfo(tableId: string): Promise<DiningTable | null> {
+  return await orderRepository.getTableById(tableId);
 }

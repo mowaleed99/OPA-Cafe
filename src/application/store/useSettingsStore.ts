@@ -28,6 +28,7 @@ interface SettingsState {
   setCashierPermissions: (permissions: string[]) => void;
   setOwnerPinHash: (hash: string | null) => void;
   loadSettings: (settings: Partial<SettingsState>) => void;
+  updateSettings: (cafeId: string, updates: any) => Promise<void> | void;
   setPrintSettings: (settings: Partial<Pick<SettingsState, 'defaultPrinter' | 'paperSize' | 'autoPrintReceipts' | 'receiptCopies' | 'reportDefaultOutput' | 'receiptTemplateConfig'>>) => void;
 }
 
@@ -59,6 +60,9 @@ export const useSettingsStore = create<SettingsState>()((set) => ({
   setCashierPermissions: (permissions) => set({ cashierPermissions: permissions }),
   setOwnerPinHash: (hash) => set({ ownerPinHash: hash }),
   loadSettings: (settings) => set((state) => ({ ...state, ...settings })),
+  updateSettings: (cafeId, updates) => {
+    import('../useCases/settings/manageSettings').then(m => m.updateSettings(cafeId, updates));
+  },
   setPrintSettings: (settings) => set((state) => ({ ...state, ...settings })),
 }));
 

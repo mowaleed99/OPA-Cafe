@@ -1,7 +1,15 @@
-import { buildSyncOperation } from '../../sync/syncQueue';
+import { buildSyncOperation, createSyncableOperation, triggerBackgroundSync } from '../../sync/syncQueue';
 import { closingRepository, orderRepository, supplierRepository, purchaseRepository, productRepository, categoryRepository, expenseRepository, inventoryRepository } from '../../../infrastructure/repositories/index';
 import { executeTransaction, TransactionOperation } from '../../../infrastructure/database/transaction';
+import { Money } from '../../../domain/entities/money';
+import { OrderCalculator } from '../../../domain/services/orderCalculator';
 import type { DailyClosing, DailyClosingItem } from '../../../domain/entities/daily_closing';
+import type { Order } from '../../../domain/entities/order';
+import type { Product } from '../../../domain/entities/product';
+import type { Category } from '../../../domain/entities/category';
+import type { SupplierPayment } from '../../../domain/entities/supplier';
+import type { Expense } from '../../../domain/entities/expense';
+import type { InventoryItem } from '../../../domain/entities/inventory';
 
 export async function getDailyClosings(cafeId: string): Promise<DailyClosing[]> {
   return await closingRepository.getClosings(cafeId);
@@ -19,6 +27,14 @@ export async function getClosingByDate(cafeId: string, date: string): Promise<Da
 export async function getTodayClosing(cafeId: string): Promise<DailyClosing | undefined> {
   const today = new Date().toISOString().split('T')[0];
   return getClosingByDate(cafeId, today);
+}
+
+export async function getClosingProducts(cafeId: string): Promise<Product[]> {
+  return await productRepository.getProducts(cafeId);
+}
+
+export async function getClosingCategories(cafeId: string): Promise<Category[]> {
+  return await categoryRepository.getCategories(cafeId);
 }
 
 export interface ClosingReport {
@@ -56,17 +72,10 @@ export interface ClosingReport {
   };
 }
 
-export async function closingDay(cafeId: string, selectedDate: string = new Date().toISOString().split('T')[0]): Promise<ClosingReport> {
-  // Check for existing duplicate and update it if necessary
-  const existing = await getClosingByDate(cafeId, selectedDate);
-  const closingId = existing ? existing.id : crypto.randomUUID();
-
-  // Determine time window for this closing
+// ── Helper: Time Window Determination ─────────────────────────────────────────
+async function determineShiftTimeWindow(cafeId: string, existing: DailyClosing | undefined, endTime: string): Promise<string> {
   let startTime = '1970-01-01T00:00:00.000Z';
-  let endTime = new Date().toISOString();
-
   const allClosings = await closingRepository.getClosings(cafeId);
-  // sort ascending by closed_at for time window logic
   allClosings.sort((a, b) => new Date(a.closed_at).getTime() - new Date(b.closed_at).getTime());
 
   if (existing) {
@@ -74,38 +83,37 @@ export async function closingDay(cafeId: string, selectedDate: string = new Date
     if (currentIndex > 0) {
       startTime = allClosings[currentIndex - 1].closed_at;
     }
-    endTime = existing.closed_at;
-  } else {
-    if (allClosings.length > 0) {
-      startTime = allClosings[allClosings.length - 1].closed_at;
-    }
+  } else if (allClosings.length > 0) {
+    startTime = allClosings[allClosings.length - 1].closed_at;
   }
+  return startTime;
+}
 
-  // 1. Find all paid orders within the time window
-  const allOrders = await orderRepository.getOrders(cafeId);
-  const shiftOrders = allOrders.filter(o => o.status === 'paid' && o.created_at > startTime && o.created_at <= endTime);
+// ── Helper: Calculate Shift Orders & Product Totals ───────────────────────────
+async function computeShiftOrdersAndRevenues(cafeId: string, startTime: string, endTime: string) {
+  const ordersInRange = await orderRepository.getOrdersByDateRange(cafeId, startTime, endTime);
+  const shiftOrders = ordersInRange.filter(o => o.status === 'paid');
 
-  if (shiftOrders.length === 0 && !existing) {
-    throw new Error(`No paid orders found since the last closing to close for ${selectedDate}.`);
-  }
+  const orderIds = shiftOrders.map(o => o.id);
+  const totalSales = shiftOrders.reduce((sum, o) => Money.add(sum, o.total_amount), 0);
 
-  const orderIds = new Set(shiftOrders.map(o => o.id));
-  const totalSales = shiftOrders.reduce((sum, o) => sum + o.total_amount, 0);
+  const allItems = await orderRepository.getOrderItemsByOrderIds(orderIds);
+  const productTotals = OrderCalculator.aggregateByProduct(allItems);
 
-  // 2. Get all order items for those orders
-  const productTotals: Record<string, { quantity: number; revenue: number }> = {};
-  for (const orderId of orderIds) {
-    const items = await orderRepository.getOrderItems(orderId);
-    for (const item of items) {
-      if (!productTotals[item.product_id]) {
-        productTotals[item.product_id] = { quantity: 0, revenue: 0 };
-      }
-      productTotals[item.product_id].quantity += item.quantity;
-      productTotals[item.product_id].revenue += item.subtotal;
-    }
-  }
+  let cashSales = 0;
+  let instapaySales = 0;
+  let vodafoneSales = 0;
+  shiftOrders.forEach(o => {
+    if (o.payment_method === 'cash') cashSales = Money.add(cashSales, o.total_amount);
+    else if (o.payment_method === 'instapay') instapaySales = Money.add(instapaySales, o.total_amount);
+    else if (o.payment_method === 'vodafone_cash') vodafoneSales = Money.add(vodafoneSales, o.total_amount);
+  });
 
-  // 4. Find all supplier payments (expenses) within the time window
+  return { shiftOrders, totalSales, productTotals, cashSales, instapaySales, vodafoneSales };
+}
+
+// ── Helper: Calculate Shift Expenses & Supplier Payments ─────────────────────
+async function computeShiftExpenses(cafeId: string, selectedDate: string) {
   const allPayments = await purchaseRepository.getPayments(cafeId);
   const shiftPayments = allPayments.filter(p => (p.date || '').startsWith(selectedDate));
     
@@ -115,46 +123,20 @@ export async function closingDay(cafeId: string, selectedDate: string = new Date
   const cafeShiftPayments = shiftPayments.filter(p => cafeSupplierIds.has(p.supplier_id));
   const purchaseExpenses = cafeShiftPayments.reduce((sum, p) => sum + p.amount, 0);
 
-  // 4b. Find other direct expenses
   const allDirectExpenses = await expenseRepository.getExpenses(cafeId);
   const directExpenses = allDirectExpenses.filter(e => e.date.startsWith(selectedDate));
   const totalDirectExpenses = directExpenses.reduce((sum, e) => sum + e.amount, 0);
 
   const totalExpenses = purchaseExpenses + totalDirectExpenses;
+  return { cafeSuppliers, cafeShiftPayments, purchaseExpenses, directExpenses, totalExpenses };
+}
 
-  let cashSales = 0;
-  let instapaySales = 0;
-  let vodafoneSales = 0;
-  
-  shiftOrders.forEach(o => {
-    if (o.payment_method === 'cash') cashSales += o.total_amount;
-    else if (o.payment_method === 'instapay') instapaySales += o.total_amount;
-    else if (o.payment_method === 'vodafone_cash') vodafoneSales += o.total_amount;
-  });
-
-  const closingNow = new Date().toISOString();
-  const closing: DailyClosing = {
-    id: closingId,
-    cafe_id: cafeId,
-    closing_date: selectedDate,
-    closed_at: closingNow,
-    closed_by: 'System',
-    total_sales: totalSales,
-    total_orders: shiftOrders.length,
-    cash_sales: cashSales,
-    instapay_sales: instapaySales,
-    vodafone_cash_sales: vodafoneSales,
-    total_expenses: totalExpenses,
-    cash_in_drawer: cashSales,
-    expected_cash: cashSales,
-    difference: 0,
-    created_at: existing ? existing.created_at : endTime,
-  };
-
-  // 5. Build line items — enrich with product/category names for the schema
+// ── Helper: Build Line Items ──────────────────────────────────────────────────
+async function buildDailyClosingItems(cafeId: string, closingId: string, productTotals: Record<string, { quantity: number; revenue: number }>): Promise<DailyClosingItem[]> {
   const allProductsForItems = await productRepository.getProducts(cafeId);
   const allCategoriesForItems = await categoryRepository.getCategories(cafeId);
-  const closingItems: DailyClosingItem[] = Object.entries(productTotals).map(([productId, agg]) => {
+  
+  return Object.entries(productTotals).map(([productId, agg]) => {
     const product = allProductsForItems.find(p => p.id === productId);
     const category = product ? allCategoriesForItems.find(c => c.id === product.category_id) : null;
     return {
@@ -167,18 +149,18 @@ export async function closingDay(cafeId: string, selectedDate: string = new Date
       category_name: category?.name ?? 'Unknown',
     };
   });
+}
 
+// ── Helper: Persist Closing & Sync ────────────────────────────────────────────
+async function persistDailyClosing(existing: DailyClosing | undefined, closing: DailyClosing, closingItems: DailyClosingItem[]): Promise<void> {
   const ops: TransactionOperation[] = [];
 
-  // 6. Write to DB and sync
   if (existing) {
-    ops.push({ type: 'update', table: 'daily_closings', id: closingId, data: closing });
-    ops.push(buildSyncOperation('update', 'daily_closings', closing as unknown as Record<string, unknown>));
+    ops.push(...createSyncableOperation('update', 'daily_closings', closing as unknown as Record<string, unknown>, closing.id));
 
-    const oldItems = await closingRepository.getClosingItems(closingId);
+    const oldItems = await closingRepository.getClosingItems(closing.id);
     for (const oldItem of oldItems) {
-      ops.push({ type: 'delete', table: 'daily_closing_items', id: oldItem.id });
-      ops.push(buildSyncOperation('delete', 'daily_closing_items', { id: oldItem.id }));
+      ops.push(...createSyncableOperation('delete', 'daily_closing_items', { id: oldItem.id }, oldItem.id));
     }
     
     if (closingItems.length > 0) {
@@ -188,8 +170,7 @@ export async function closingDay(cafeId: string, selectedDate: string = new Date
       }
     }
   } else {
-    ops.push({ type: 'insert', table: 'daily_closings', data: closing });
-    ops.push(buildSyncOperation('insert', 'daily_closings', closing as unknown as Record<string, unknown>));
+    ops.push(...createSyncableOperation('insert', 'daily_closings', closing as unknown as Record<string, unknown>));
 
     if (closingItems.length > 0) {
       ops.push({ type: 'insertMany', table: 'daily_closing_items', data: closingItems });
@@ -200,20 +181,29 @@ export async function closingDay(cafeId: string, selectedDate: string = new Date
   }
 
   await executeTransaction(ops);
+  triggerBackgroundSync();
+}
 
-  if (navigator.onLine && window.electronAPI) {
-    window.electronAPI.triggerSync();
-  }
-
-  const enrichedPayments = cafeShiftPayments.map(p => {
-    const supplier = cafeSuppliers.find(s => s.id === p.supplier_id);
-    return {
-      ...p,
-      supplierName: supplier ? supplier.name : 'Unknown Supplier',
-    };
-  });
-
-  // Calculate detailed metrics for Phase 10a
+// ── Helper: Compute UI Reporting Metrics ──────────────────────────────────────
+async function computeClosingMetrics({
+  cafeId,
+  shiftOrders,
+  totalSales,
+  productTotals,
+  totalExpenses,
+  directExpenses,
+  cafeShiftPayments,
+  purchaseExpenses,
+}: {
+  cafeId: string;
+  shiftOrders: Order[];
+  totalSales: number;
+  productTotals: Record<string, { quantity: number; revenue: number }>;
+  totalExpenses: number;
+  directExpenses: Expense[];
+  cafeShiftPayments: SupplierPayment[];
+  purchaseExpenses: number;
+}) {
   const allProducts = await productRepository.getProducts(cafeId);
   const allCategories = await categoryRepository.getCategories(cafeId);
   const allInventory = await inventoryRepository.getInventoryItems(cafeId);
@@ -296,34 +286,75 @@ export async function closingDay(cafeId: string, selectedDate: string = new Date
   const outOfStockCount = allInventory.filter(p => (p.stock_quantity || 0) <= 0).length;
 
   return {
+    totalSales,
+    totalOrders: shiftOrders.length,
+    averageOrderValue: shiftOrders.length > 0 ? totalSales / shiftOrders.length : 0,
+    totalItemsSold,
+    paymentMethods,
+    topProducts,
+    slowProducts,
+    categories,
+    expensesByCategory,
+    expenseCount: directExpenses.length + cafeShiftPayments.length,
+    profit: { revenue: totalSales, cogs, expenses: totalExpenses, netProfit, profitMargin },
+    inventory: { currentValue: inventoryCurrentValue, lowStockCount, outOfStockCount }
+  };
+}
+
+// ── Main Use Case: closingDay ─────────────────────────────────────────────────
+export async function closingDay(cafeId: string, selectedDate: string = new Date().toISOString().split('T')[0]): Promise<ClosingReport> {
+  const existing = await getClosingByDate(cafeId, selectedDate);
+  const closingId = existing ? existing.id : crypto.randomUUID();
+  const endTime = existing ? existing.closed_at : new Date().toISOString();
+
+  const startTime = await determineShiftTimeWindow(cafeId, existing, endTime);
+  const { shiftOrders, totalSales, productTotals, cashSales, instapaySales, vodafoneSales } =
+    await computeShiftOrdersAndRevenues(cafeId, startTime, endTime);
+
+  if (shiftOrders.length === 0 && !existing) {
+    throw new Error(`No paid orders found since the last closing to close for ${selectedDate}.`);
+  }
+
+  const { cafeSuppliers, cafeShiftPayments, purchaseExpenses, directExpenses, totalExpenses } =
+    await computeShiftExpenses(cafeId, selectedDate);
+
+  const closingNow = new Date().toISOString();
+  const closing: DailyClosing = {
+    id: closingId,
+    cafe_id: cafeId,
+    closing_date: selectedDate,
+    closed_at: closingNow,
+    closed_by: 'System',
+    total_sales: totalSales,
+    total_orders: shiftOrders.length,
+    cash_sales: cashSales,
+    instapay_sales: instapaySales,
+    vodafone_cash_sales: vodafoneSales,
+    total_expenses: totalExpenses,
+    cash_in_drawer: cashSales,
+    expected_cash: cashSales,
+    difference: 0,
+    created_at: existing ? existing.created_at : endTime,
+  };
+
+  const closingItems = await buildDailyClosingItems(cafeId, closingId, productTotals);
+  await persistDailyClosing(existing, closing, closingItems);
+
+  const enrichedPayments = cafeShiftPayments.map(p => ({
+    ...p,
+    supplierName: cafeSuppliers.find(s => s.id === p.supplier_id)?.name ?? 'Unknown Supplier',
+  }));
+
+  const metrics = await computeClosingMetrics({
+    cafeId, shiftOrders, totalSales, productTotals, totalExpenses, directExpenses, cafeShiftPayments, purchaseExpenses
+  });
+
+  return {
     closing,
     items: closingItems,
     expenses: totalExpenses,
     payments: enrichedPayments,
-    metrics: {
-      totalSales,
-      totalOrders: shiftOrders.length,
-      averageOrderValue: shiftOrders.length > 0 ? totalSales / shiftOrders.length : 0,
-      totalItemsSold,
-      paymentMethods,
-      topProducts,
-      slowProducts,
-      categories,
-      expensesByCategory,
-      expenseCount: directExpenses.length + cafeShiftPayments.length,
-      profit: {
-        revenue: totalSales,
-        cogs,
-        expenses: totalExpenses,
-        netProfit,
-        profitMargin
-      },
-      inventory: {
-        currentValue: inventoryCurrentValue,
-        lowStockCount,
-        outOfStockCount
-      }
-    }
+    metrics,
   };
 }
 
@@ -344,4 +375,3 @@ export async function getClosingPayments(cafeId: string, selectedDate: string) {
     };
   });
 }
-

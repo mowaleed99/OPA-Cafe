@@ -1,9 +1,11 @@
-import { buildSyncOperation } from '../../sync/syncQueue';
+import { buildSyncOperation, createSyncableOperation, triggerBackgroundSync } from '../../sync/syncQueue';
 import { orderRepository, productRepository, inventoryRepository } from '../../../infrastructure/repositories/index';
 import { executeTransaction, TransactionOperation } from '../../../infrastructure/database/transaction';
 import type { PaymentMethod } from '../../../domain/entities/order';
 import type { StockMovement } from '../../../domain/entities/stock_movement';
 import type { OrderAuditLog } from '../../../domain/entities/order_audit_log';
+import { OrderStockService } from '../../../domain/services/OrderStockService';
+import { normalizePaymentMethodForSupabase } from '../../../domain/entities/paymentMethod';
 
 export async function checkoutOpenOrder(orderId: string, paymentMethod: PaymentMethod, userId?: string, userName?: string): Promise<void> {
   const order = await orderRepository.getOrderById(orderId);
@@ -23,23 +25,18 @@ export async function checkoutOpenOrder(orderId: string, paymentMethod: PaymentM
   }
 
   // Map invalid payment methods to 'other' for Supabase CHECK constraint
-  let supabasePaymentMethod = paymentMethod;
-  if (supabasePaymentMethod && !['cash', 'card', 'other'].includes(supabasePaymentMethod)) {
-    supabasePaymentMethod = 'other' as PaymentMethod;
-  }
+  const supabasePaymentMethod = normalizePaymentMethodForSupabase(paymentMethod);
 
   const ops: TransactionOperation[] = [];
 
   // Update order status to paid
   const orderUpdate = { status: 'paid' as const, payment_method: supabasePaymentMethod };
-  ops.push({ type: 'update', table: 'orders', id: orderId, data: orderUpdate });
-  ops.push(buildSyncOperation('update', 'orders', { id: orderId, cafe_id: order.cafe_id, ...orderUpdate }));
+  ops.push(...createSyncableOperation('update', 'orders', { id: orderId, cafe_id: order.cafe_id, ...orderUpdate }, orderId));
 
   // Update table status to available
   if (order.table_id) {
     const tableUpdate = { status: 'available' as const, current_order_id: null };
-    ops.push({ type: 'update', table: 'tables', id: order.table_id, data: tableUpdate });
-    ops.push(buildSyncOperation('update', 'tables', { id: order.table_id, cafe_id: order.cafe_id, ...tableUpdate }));
+    ops.push(...createSyncableOperation('update', 'tables', { id: order.table_id, cafe_id: order.cafe_id, ...tableUpdate }, order.table_id));
   }
 
   // Discount Audit Log
@@ -61,43 +58,20 @@ export async function checkoutOpenOrder(orderId: string, paymentMethod: PaymentM
       }),
       created_at: now,
     };
-    ops.push({ type: 'insert', table: 'order_audit_log', data: auditEntry });
-    ops.push(buildSyncOperation('insert', 'order_audit_log', auditEntry as unknown as Record<string, unknown>));
+    ops.push(...createSyncableOperation('insert', 'order_audit_log', auditEntry as unknown as Record<string, unknown>));
   }
 
   // Deduct stock
-  
-  for (const item of orderItems) {
-    const product = await productRepository.getProductById(item.product_id);
-    if (!product || !product.track_stock || !product.inventory_item_id) continue;
-
-    const inventoryItem = await inventoryRepository.findOne(product.inventory_item_id);
-    if (!inventoryItem) continue;
-
-    const newQuantity = inventoryItem.stock_quantity - item.quantity;
-    const updatedItem = { ...inventoryItem, stock_quantity: newQuantity };
-    
-    ops.push({ type: 'update', table: 'inventory_items', id: inventoryItem.id, data: updatedItem });
-    ops.push(buildSyncOperation('update', 'inventory_items', updatedItem as unknown as Record<string, unknown>));
-
-    const movementId = crypto.randomUUID();
-    const movement: StockMovement = {
-      id: movementId,
-      cafe_id: order.cafe_id,
-      inventory_item_id: inventoryItem.id,
-      type: 'out',
-      quantity: item.quantity,
-      reason: `Sale - Order ${orderId.split('-')[0]}`,
-      created_at: now
-    };
-    
-    ops.push({ type: 'insert', table: 'stock_movements', data: movement });
-    ops.push(buildSyncOperation('insert', 'stock_movements', movement as unknown as Record<string, unknown>));
-  }
+  const stockOps = await OrderStockService.generateDeductionOperations(
+    orderId,
+    order.cafe_id,
+    orderItems,
+    productRepository,
+    inventoryRepository,
+    now
+  );
+  ops.push(...stockOps);
 
   await executeTransaction(ops);
-
-  if (navigator.onLine && window.electronAPI) {
-    window.electronAPI.triggerSync();
-  }
+  triggerBackgroundSync();
 }

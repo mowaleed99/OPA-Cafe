@@ -9,6 +9,7 @@ function toSupabaseName(localName: string): string {
 }
 
 import { createRepository } from '../../infrastructure/repositories/RepositoryFactory';
+import type { TransactionOperation } from '../../infrastructure/database/transaction';
 
 function getDeviceId(): string {
   let deviceId = localStorage.getItem('device_id');
@@ -57,6 +58,36 @@ export function buildSyncOperation(
   };
 }
 
+export function triggerBackgroundSync(): void {
+  if (typeof navigator !== 'undefined' && navigator.onLine) {
+    if (window.electronAPI) {
+      window.electronAPI.triggerSync();
+    } else {
+      setTimeout(() => {
+        processSyncQueue().catch(console.error);
+      }, 100);
+    }
+  }
+}
+
+export function createSyncableOperation<T extends Record<string, unknown>>(
+  action: 'insert' | 'update' | 'delete',
+  table: string,
+  data: T,
+  id?: string
+): TransactionOperation[] {
+  const ops: TransactionOperation[] = [];
+  if (action === 'insert') {
+    ops.push({ type: 'insert', table, data });
+  } else if (action === 'update' && id) {
+    ops.push({ type: 'update', table, id, data });
+  } else if (action === 'delete' && id) {
+    ops.push({ type: 'delete', table, id });
+  }
+  ops.push(buildSyncOperation(action, table, data));
+  return ops;
+}
+
 // ── Enqueue ────────────────────────────────────────────────────────────────
 // Writes to SQLite first, then adds the action to the queue.
 export async function enqueueSync(
@@ -68,15 +99,7 @@ export async function enqueueSync(
   const syncOp = buildSyncOperation(action, table, payload);
   await repo.insert(syncOp.data);
 
-  if (navigator.onLine) {
-    if (window.electronAPI) {
-      window.electronAPI.triggerSync();
-    } else {
-      setTimeout(() => {
-        processSyncQueue().catch(console.error);
-      }, 100);
-    }
-  }
+  triggerBackgroundSync();
 }
 
 // ── Process queue (Web Fallback) ──────────────────────────────────────────

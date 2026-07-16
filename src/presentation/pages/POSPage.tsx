@@ -1,18 +1,15 @@
 import { useEffect, useState, useCallback, useRef } from 'react';
 import { RefreshCw, WifiOff, Search, X } from 'lucide-react';
 import { useSearchParams } from 'react-router-dom';
-import { createRepository } from '../../infrastructure/repositories/RepositoryFactory';
-const tableRepository = createRepository<DiningTable>('dining_tables');
 import { loadTableOrder } from '../../application/useCases/pos/loadTableOrder';
 import { useAuthStore } from '../../application/store/useAuthStore';
 import { useTranslation } from 'react-i18next';
 import { useCartStore } from '../../application/store/useCartStore';
-import { loadPOSData, type POSData } from '../../application/useCases/pos/loadPOSData';
+import { loadPOSData, loadTablePOSInfo, type POSData } from '../../application/useCases/pos/loadPOSData';
 import CategoryTabs from '../features/pos/CategoryTabs';
 import ProductGrid from '../features/pos/ProductGrid';
 import CartPanel from '../features/pos/CartPanel';
 import type { Product } from '../../domain/entities/product';
-import type { DiningTable } from '../../domain/entities/table';
 import { Input } from '../components/ui/input';
 
 export default function POSPage() {
@@ -41,7 +38,7 @@ export default function POSPage() {
       // Handle Table Mode
       if (tableId) {
         setTableId(tableId);
-        const table = await tableRepository.findOne(tableId);
+        const table = await loadTablePOSInfo(tableId);
         if (table) {
           setTableName(table.name_or_number);
           if (table.status === 'occupied' && table.current_order_id) {

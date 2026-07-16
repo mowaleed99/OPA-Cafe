@@ -8,7 +8,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   listBackups: () => ipcRenderer.invoke('backup:list'),
   restoreBackup: (filename) => ipcRenderer.invoke('backup:restore', filename),
   db: {
-    findMany: (table, where) => ipcRenderer.invoke('db:findMany', { table, where }),
+    findMany: (table, where, options = {}) => ipcRenderer.invoke('db:findMany', { table, where, ...options }),
     findOne: (table, id) => ipcRenderer.invoke('db:findOne', { table, id }),
     insert: (table, data) => ipcRenderer.invoke('db:insert', { table, data }),
     insertMany: (table, data) => ipcRenderer.invoke('db:insertMany', { table, data }),

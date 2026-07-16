@@ -5,8 +5,10 @@ import { DiningTable } from '../entities/table';
 export interface IOrderRepository {
   // Orders
   getOrders(cafeId: string): Promise<Order[]>;
+  getOrdersByDateRange(cafeId: string, startTime: string, endTime: string): Promise<Order[]>;
   getOrderById(id: string): Promise<Order | null>;
   getOrderItems(orderId: string): Promise<OrderItem[]>;
+  getOrderItemsByOrderIds(orderIds: string[]): Promise<OrderItem[]>;
   getAllOrderItems(): Promise<OrderItem[]>;
   
   // Tables

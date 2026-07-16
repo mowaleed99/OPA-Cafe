@@ -1,4 +1,5 @@
 import { orderRepository, closingRepository, inventoryRepository, productRepository, expenseRepository, purchaseRepository, supplierRepository } from '../../../infrastructure/repositories/index';
+import { Money } from '../../../domain/entities/money';
 import type { DailyClosing } from '../../../domain/entities/daily_closing';
 import type { InventoryItem } from '../../../domain/entities/inventory';
 
@@ -29,8 +30,7 @@ export async function getDashboardStats(cafeId: string): Promise<DashboardStats>
   const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
 
   const [
-    allOrders,
-    allOrderItems,
+    recentOrders,
     allProducts,
     allExpenses,
     allPayments,
@@ -38,8 +38,7 @@ export async function getDashboardStats(cafeId: string): Promise<DashboardStats>
     allInventory,
     allSuppliers
   ] = await Promise.all([
-    orderRepository.getOrders(cafeId),
-    orderRepository.getAllOrderItems(),
+    orderRepository.getOrdersByDateRange(cafeId, `${thirtyDaysAgo}T00:00:00.000Z`, `${today}T23:59:59.999Z`),
     productRepository.getProducts(cafeId),
     expenseRepository.getExpenses(cafeId),
     purchaseRepository.getPayments(cafeId),
@@ -49,38 +48,37 @@ export async function getDashboardStats(cafeId: string): Promise<DashboardStats>
   ]);
 
   // --- Sales Intelligence ---
-  const todayOrdersArr = allOrders.filter(o => o.status === 'paid' && o.created_at.startsWith(today));
-  const yesterdayOrdersArr = allOrders.filter(o => o.status === 'paid' && o.created_at.startsWith(yesterday));
+  const todayOrdersArr = recentOrders.filter(o => o.status === 'paid' && o.created_at.startsWith(today));
+  const yesterdayOrdersArr = recentOrders.filter(o => o.status === 'paid' && o.created_at.startsWith(yesterday));
 
-  const todaySales = todayOrdersArr.reduce((sum, o) => sum + o.total_amount, 0);
-  const yesterdaySales = yesterdayOrdersArr.reduce((sum, o) => sum + o.total_amount, 0);
+  const todaySales = todayOrdersArr.reduce((sum, o) => Money.add(sum, o.total_amount), 0);
+  const yesterdaySales = yesterdayOrdersArr.reduce((sum, o) => Money.add(sum, o.total_amount), 0);
   const todayOrderCount = todayOrdersArr.length;
-  const todayAverageOrder = todayOrderCount > 0 ? todaySales / todayOrderCount : 0;
+  const todayAverageOrder = todayOrderCount > 0 ? Money.round(todaySales / todayOrderCount) : 0;
   
   let salesComparisonPct = 0;
   if (yesterdaySales > 0) {
-    salesComparisonPct = ((todaySales - yesterdaySales) / yesterdaySales) * 100;
+    salesComparisonPct = Money.round(((todaySales - yesterdaySales) / yesterdaySales) * 100);
   } else if (todaySales > 0) {
     salesComparisonPct = 100;
   }
 
   // --- Profit Intelligence (Last 30 Days as reference for estimated profit) ---
-  const recentOrders = allOrders.filter(o => o.status === 'paid' && o.created_at >= thirtyDaysAgo);
-  const totalSales30d = recentOrders.reduce((sum, o) => sum + o.total_amount, 0);
+  const totalSales30d = recentOrders.filter(o => o.status === 'paid').reduce((sum, o) => Money.add(sum, o.total_amount), 0);
 
   const recentExpenses = allExpenses.filter(e => e.date >= thirtyDaysAgo);
-  const totalExpenses = recentExpenses.reduce((sum, e) => sum + Number(e.amount), 0);
+  const totalExpenses = recentExpenses.reduce((sum, e) => Money.add(sum, Number(e.amount)), 0);
 
   const cafeSupplierIds = new Set(allSuppliers.map(s => s.id));
   const recentPayments = allPayments.filter(p => p.date && p.date >= thirtyDaysAgo && cafeSupplierIds.has(p.supplier_id));
-  const totalCOGS = recentPayments.reduce((sum, p) => sum + p.amount, 0);
+  const totalCOGS = recentPayments.reduce((sum, p) => Money.add(sum, p.amount), 0);
 
-  const estimatedProfit = totalSales30d - totalExpenses - totalCOGS;
-  const profitMarginPct = totalSales30d > 0 ? (estimatedProfit / totalSales30d) * 100 : 0;
+  const estimatedProfit = Money.subtract(totalSales30d, Money.add(totalExpenses, totalCOGS));
+  const profitMarginPct = totalSales30d > 0 ? Money.round((estimatedProfit / totalSales30d) * 100) : 0;
 
   // --- Product Intelligence (Last 30 Days) ---
-  const recentOrderIds = new Set(recentOrders.map(o => o.id));
-  const recentOrderItems = allOrderItems.filter(item => recentOrderIds.has(item.order_id));
+  const recentOrderIds = recentOrders.filter(o => o.status === 'paid').map(o => o.id);
+  const recentOrderItems = await orderRepository.getOrderItemsByOrderIds(recentOrderIds);
 
   const productQtyMap: Record<string, number> = {};
   allProducts.forEach(p => productQtyMap[p.id] = 0); 
@@ -110,7 +108,7 @@ export async function getDashboardStats(cafeId: string): Promise<DashboardStats>
     .filter(c => c.closing_date >= weekAgo)
     .sort((a, b) => a.closing_date.localeCompare(b.closing_date));
 
-  const weekSales = recentClosings.reduce((sum, c) => sum + c.total_sales, 0);
+  const weekSales = recentClosings.reduce((sum, c) => Money.add(sum, c.total_sales), 0);
 
   const lowStockItems = allInventory
     .filter(item => item.low_stock_threshold !== null && item.stock_quantity <= item.low_stock_threshold)

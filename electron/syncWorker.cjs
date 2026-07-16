@@ -70,33 +70,20 @@ async function setSyncSession(session) {
   return true;
 }
 
-const LOCAL_TO_SUPABASE = {
-  dining_tables: 'tables',
-};
+const SyncRegistry = require('./sync/SyncRegistry.cjs');
+const SyncPayloadAdapter = require('./sync/SyncPayloadAdapter.cjs');
+const SyncConflictResolver = require('./sync/SyncConflictResolver.cjs');
+
+const LOCAL_TO_SUPABASE = SyncRegistry.LOCAL_TO_SUPABASE;
+const LOCAL_SYNC_TABLES = SyncRegistry.LOCAL_SYNC_TABLES;
+const toSupabaseName = SyncRegistry.toSupabaseName;
+const toSupabasePayload = SyncPayloadAdapter.toSupabasePayload;
+const getTablePriority = SyncRegistry.getTablePriority;
 
 // Records created before the queue was introduced remain in SQLite with a
 // pending (or absent, for older databases) sync status.  Materialize those
 // records into the normal queue once an authenticated worker is available.
 // Subsequent changes continue to use the regular queue as before.
-const LOCAL_SYNC_TABLES = {
-  categories: schema.categories,
-  products: schema.products,
-  inventory_items: schema.inventoryItems,
-  stock_movements: schema.stockMovements,
-  dining_tables: schema.diningTables,
-  orders: schema.orders,
-  order_items: schema.orderItems,
-  suppliers: schema.suppliers,
-  purchases: schema.purchases,
-  purchase_items: schema.purchaseItems,
-  supplier_payments: schema.supplierPayments,
-  expenses: schema.expenses,
-  daily_closings: schema.dailyClosings,
-  daily_closing_items: schema.dailyClosingItems,
-  settings: schema.settings,
-  order_audit_log: schema.orderAuditLog,
-};
-
 async function materializePendingLocalRecords(db) {
   const existing = await db.select({ id: schema.syncQueue.id })
     .from(schema.syncQueue)
@@ -130,89 +117,6 @@ async function materializePendingLocalRecords(db) {
     logSync(`Queued ${operations.length} existing local record(s) for cloud recovery.`);
   }
   return operations.length;
-}
-
-function toSupabaseName(localName) {
-  return LOCAL_TO_SUPABASE[localName] ?? localName;
-}
-
-// SQLite and the cloud schema evolved independently for a short period. Keep
-// this adapter in the worker so records already persisted in the offline queue
-// can be repaired as well as newly created records.
-function toSupabasePayload(tableName, payload) {
-  const normalized = { ...payload };
-
-  if (tableName === 'expenses') {
-    normalized.expense_date ??= normalized.date;
-    delete normalized.date;
-  }
-
-  if (tableName === 'purchases') {
-    normalized.amount_remaining ??= Math.max(
-      0,
-      Number(normalized.total_amount || 0) - Number(normalized.amount_paid || 0)
-    );
-  }
-
-  if (tableName === 'order_audit_log') {
-    // Older deployed databases use action_type, while the local model uses
-    // action. The migration keeps both columns available during the upgrade.
-    normalized.action_type ??= normalized.action;
-
-    // The deployed audit table also stores the initiating user separately.
-    // Local records keep it inside the JSON `details` field, so unpack it for
-    // both newly queued and legacy failed records.
-    if (normalized.details) {
-      try {
-        const details = typeof normalized.details === 'string'
-          ? JSON.parse(normalized.details)
-          : normalized.details;
-        normalized.initiated_by_user_id ??= details?.initiated_by_user_id;
-        normalized.initiated_by_name ??= details?.initiated_by_name;
-        normalized.order_total ??= details?.order_total;
-        normalized.approved_by_owner_pin ??= details?.approved_by_owner_pin;
-      } catch {
-        // The database will retain the item with a useful error if details is malformed.
-      }
-    }
-    normalized.initiated_by_name ??= normalized.performed_by;
-  }
-
-  return normalized;
-}
-
-function getTablePriority(item) {
-  const tablePriority = {
-    app_users: 0,
-    categories: 1,
-    inventory_items: 1,
-    suppliers: 1,
-    tables: 1,
-    dining_tables: 1,
-    products: 2,
-    orders: 2,
-    purchases: 2,
-    settings: 2,
-    order_items: 3,
-    purchase_items: 3,
-    supplier_payments: 3,
-    stock_movements: 3,
-    daily_closing_items: 3,
-    order_audit_log: 3,
-  };
-
-  // A table can reference its current order. Process that update only after
-  // the order exists in Supabase, preventing a transient foreign-key failure.
-  if ((item.table_name === 'tables' || item.table_name === 'dining_tables') && item.action !== 'delete') {
-    try {
-      const payload = typeof item.payload === 'string' ? JSON.parse(item.payload) : item.payload;
-      if (payload?.current_order_id) return 3;
-    } catch {
-      // Let normal processing record malformed queue items as failures.
-    }
-  }
-
-  return tablePriority[item.table_name] ?? 2;
 }
 
 // ----------------------------------------------------
@@ -340,37 +244,14 @@ async function processSyncQueue() {
         const queuedPayload = typeof item.payload === 'string' ? JSON.parse(item.payload) : item.payload;
         const payload = toSupabasePayload(supabaseTable, queuedPayload);
         
-        let conflictDetected = false;
-        let remoteData = null;
-        let resolution = 'local_wins';
-
-        // Conflict Detection
-        if (item.action === 'update' || item.action === 'delete') {
-          const { data } = await supabase.from(supabaseTable).select('*').eq('id', payload.id).single();
-          if (data) {
-            remoteData = data;
-            const remoteDate = new Date(remoteData.updated_at || remoteData.created_at || 0).getTime();
-            const localDate = new Date(payload.updated_at || payload.created_at || 0).getTime();
-            
-            if (remoteDate > localDate && remoteData.device_id !== payload.device_id) {
-              conflictDetected = true;
-              resolution = 'local_wins';
-            }
-          }
-        }
-
-        if (conflictDetected && remoteData) {
-          await db.insert(schema.syncConflicts).values({
-            id: require('crypto').randomUUID(),
-            entity_name: supabaseTable,
-            entity_id: payload.id,
-            local_version: payload.version || 1,
-            remote_version: remoteData.version || 1,
-            resolution: resolution,
-            created_at: new Date().toISOString()
-          }).execute();
-          logSync(`Conflict detected and resolved for ${supabaseTable} ID ${payload.id}. Resolution: ${resolution}`);
-        }
+        const { conflictDetected, remoteData, resolution } = await SyncConflictResolver.detectAndResolveConflict({
+          db,
+          supabase,
+          supabaseTable,
+          payload,
+          action: item.action,
+          logSync
+        });
         
         if (item.action === 'insert') {
           const { error } = await supabase.from(supabaseTable).upsert(payload, { onConflict: 'id' });

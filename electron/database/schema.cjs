@@ -187,6 +187,7 @@ const dailyClosings = sqliteTable('daily_closings', {
   expected_cash: real('expected_cash').notNull(),
   difference: real('difference').notNull(),
   notes: text('notes'),
+  created_at: text('created_at'),
   ...syncFields
 });
 
@@ -198,6 +199,7 @@ const dailyClosingItems = sqliteTable('daily_closing_items', {
   total_sales: real('total_sales').notNull(),
   category_name: text('category_name').notNull(),
   product_name: text('product_name').notNull(),
+  created_at: text('created_at'),
   ...syncFields
 });
 

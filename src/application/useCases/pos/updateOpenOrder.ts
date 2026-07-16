@@ -1,4 +1,4 @@
-import { buildSyncOperation } from '../../sync/syncQueue';
+import { buildSyncOperation, createSyncableOperation, triggerBackgroundSync } from '../../sync/syncQueue';
 import { orderRepository } from '../../../infrastructure/repositories/index';
 import { executeTransaction, TransactionOperation } from '../../../infrastructure/database/transaction';
 import type { CartItem } from '../../store/useCartStore';
@@ -31,14 +31,12 @@ export async function updateOpenOrder(orderId: string, items: CartItem[], total:
   const ops: TransactionOperation[] = [];
 
   // Update order total
-  ops.push({ type: 'update', table: 'orders', id: orderId, data: { total_amount: total } });
-  ops.push(buildSyncOperation('update', 'orders', { id: orderId, cafe_id: order.cafe_id, total_amount: total }));
+  ops.push(...createSyncableOperation('update', 'orders', { id: orderId, cafe_id: order.cafe_id, total_amount: total }, orderId));
 
   // Delete existing items
   const existingItems = await orderRepository.getOrderItems(orderId);
   for (const existingItem of existingItems) {
-    ops.push({ type: 'delete', table: 'order_items', id: existingItem.id });
-    ops.push(buildSyncOperation('delete', 'order_items', { id: existingItem.id }));
+    ops.push(...createSyncableOperation('delete', 'order_items', { id: existingItem.id }, existingItem.id));
   }
 
   // Insert new items
@@ -50,8 +48,5 @@ export async function updateOpenOrder(orderId: string, items: CartItem[], total:
   }
 
   await executeTransaction(ops);
-
-  if (navigator.onLine && window.electronAPI) {
-    window.electronAPI.triggerSync();
-  }
+  triggerBackgroundSync();
 }

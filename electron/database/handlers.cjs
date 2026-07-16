@@ -1,7 +1,7 @@
 const { ipcMain } = require('electron');
 const { getDb } = require('./db.cjs');
 const schema = require('./schema.cjs');
-const { eq, isNull, and } = require('drizzle-orm');
+const { eq, ne, gt, gte, lt, lte, inArray, isNull, and, asc, desc } = require('drizzle-orm');
 
 function setupHandlers() {
   const db = getDb();
@@ -32,7 +32,7 @@ function setupHandlers() {
     return tableMap[tableName];
   };
 
-  ipcMain.handle('db:findMany', async (event, { table, where }) => {
+  ipcMain.handle('db:findMany', async (event, { table, where, options, orderBy, limit, offset }) => {
     try {
       const t = getTable(table);
       if (!t) throw new Error(`Table ${table} not found`);
@@ -46,12 +46,46 @@ function setupHandlers() {
 
       if (where) {
         for (const [key, value] of Object.entries(where)) {
-          if (t[key]) conditions.push(eq(t[key], value));
+          if (!t[key]) continue;
+          if (value !== null && typeof value === 'object' && !Array.isArray(value)) {
+            for (const [op, opValue] of Object.entries(value)) {
+              if (op === '$eq') conditions.push(eq(t[key], opValue));
+              else if (op === '$ne') conditions.push(ne(t[key], opValue));
+              else if (op === '$gt') conditions.push(gt(t[key], opValue));
+              else if (op === '$gte') conditions.push(gte(t[key], opValue));
+              else if (op === '$lt') conditions.push(lt(t[key], opValue));
+              else if (op === '$lte') conditions.push(lte(t[key], opValue));
+              else if (op === '$in' && Array.isArray(opValue) && opValue.length > 0) conditions.push(inArray(t[key], opValue));
+            }
+          } else if (Array.isArray(value) && value.length > 0) {
+            conditions.push(inArray(t[key], value));
+          } else if (value !== undefined) {
+            conditions.push(eq(t[key], value));
+          }
         }
       }
       
       if (conditions.length > 0) {
         query = query.where(and(...conditions));
+      }
+      
+      const finalOrderBy = orderBy || options?.orderBy;
+      if (finalOrderBy && finalOrderBy.column && t[finalOrderBy.column]) {
+        if (finalOrderBy.direction === 'desc') {
+          query = query.orderBy(desc(t[finalOrderBy.column]));
+        } else {
+          query = query.orderBy(asc(t[finalOrderBy.column]));
+        }
+      }
+
+      const finalLimit = typeof limit === 'number' ? limit : (typeof options?.limit === 'number' ? options.limit : undefined);
+      if (typeof finalLimit === 'number' && finalLimit > 0) {
+        query = query.limit(finalLimit);
+      }
+
+      const finalOffset = typeof offset === 'number' ? offset : (typeof options?.offset === 'number' ? options.offset : undefined);
+      if (typeof finalOffset === 'number' && finalOffset >= 0) {
+        query = query.offset(finalOffset);
       }
       
       return await query.execute();

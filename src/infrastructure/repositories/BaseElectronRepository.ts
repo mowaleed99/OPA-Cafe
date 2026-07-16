@@ -1,41 +1,38 @@
 import { IRepository } from '../../domain/repositories/IRepository';
-
-declare global {
-  interface Window {
-    electronAPI?: any;
-  }
-}
+import type { IDatabaseDriver } from '../database/IDatabaseDriver';
+import { defaultDatabaseDriver } from '../database/ElectronIpcDatabaseDriver';
 
 export class BaseElectronRepository<T> implements IRepository<T> {
-  constructor(protected tableName: string) {}
+  protected dbDriver: IDatabaseDriver;
 
-  async findMany(where?: Partial<T>): Promise<T[]> {
-    if (!window.electronAPI) throw new Error('electronAPI is not available');
-    return window.electronAPI.db.findMany(this.tableName, where);
+  constructor(protected tableName: string, dbDriver?: IDatabaseDriver) {
+    this.dbDriver = dbDriver || defaultDatabaseDriver;
+  }
+
+  async findMany(
+    where?: Partial<T> | Record<string, any>,
+    options?: { orderBy?: { column: string; direction: 'asc' | 'desc' }; limit?: number; offset?: number }
+  ): Promise<T[]> {
+    return this.dbDriver.findMany(this.tableName, where, options);
   }
 
   async findOne(id: string): Promise<T | null> {
-    if (!window.electronAPI) throw new Error('electronAPI is not available');
-    return window.electronAPI.db.findOne(this.tableName, id);
+    return this.dbDriver.findOne(this.tableName, id);
   }
 
   async insert(data: T): Promise<void> {
-    if (!window.electronAPI) throw new Error('electronAPI is not available');
-    await window.electronAPI.db.insert(this.tableName, data);
+    await this.dbDriver.insert(this.tableName, data);
   }
 
   async insertMany(data: T[]): Promise<void> {
-    if (!window.electronAPI) throw new Error('electronAPI is not available');
-    await window.electronAPI.db.insertMany(this.tableName, data);
+    await this.dbDriver.insertMany(this.tableName, data);
   }
 
   async update(id: string, data: Partial<T>): Promise<void> {
-    if (!window.electronAPI) throw new Error('electronAPI is not available');
-    await window.electronAPI.db.update(this.tableName, id, data);
+    await this.dbDriver.update(this.tableName, id, data);
   }
 
   async delete(id: string): Promise<void> {
-    if (!window.electronAPI) throw new Error('electronAPI is not available');
-    await window.electronAPI.db.delete(this.tableName, id);
+    await this.dbDriver.delete(this.tableName, id);
   }
 }

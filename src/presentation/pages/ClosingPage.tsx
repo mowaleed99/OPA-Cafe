@@ -11,11 +11,12 @@ import {
   getDailyClosingItems,
   getClosingByDate,
   getClosingPayments,
+  getClosingProducts,
+  getClosingCategories,
   type ClosingReport,
 } from '../../application/useCases/closing/dailyClosing';
 import type { DailyClosing } from '../../domain/entities/daily_closing';
 import type { Product } from '../../domain/entities/product';
-import { productRepository, categoryRepository } from '../../infrastructure/repositories/index';
 import { useCurrency } from '../../application/utils/useCurrency';
 import { exportPdfReport } from '../../application/useCases/printing/exportPdf';
 import { printReport as thermalPrintReport } from '../../application/useCases/printing/printReport';
@@ -50,8 +51,8 @@ export default function ClosingPage() {
     const [allClosings, targetClosing, prods, cats] = await Promise.all([
       getDailyClosings(cafeId),
       getClosingByDate(cafeId, selectedDate),
-      productRepository.getProducts(cafeId || ''),
-      categoryRepository.getCategories(cafeId || ''),
+      getClosingProducts(cafeId || ''),
+      getClosingCategories(cafeId || ''),
     ]);
     
     // We can't reliably count today's unclosed orders easily for "needsUpdate" without running the full logic,

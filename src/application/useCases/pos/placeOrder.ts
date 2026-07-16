@@ -1,10 +1,12 @@
-import { buildSyncOperation } from '../../sync/syncQueue';
+import { buildSyncOperation, createSyncableOperation, triggerBackgroundSync } from '../../sync/syncQueue';
 import { orderRepository, productRepository, inventoryRepository } from '../../../infrastructure/repositories/index';
 import type { OrderAuditLog } from '../../../domain/entities/order_audit_log';
 import { executeTransaction, TransactionOperation } from '../../../infrastructure/database/transaction';
 import type { CartItem } from '../../store/useCartStore';
 import type { Order, OrderItem, PaymentMethod, OrderStatus, OrderType } from '../../../domain/entities/order';
 import type { StockMovement } from '../../../domain/entities/stock_movement';
+import { OrderStockService } from '../../../domain/services/OrderStockService';
+import { normalizePaymentMethodForSupabase } from '../../../domain/entities/paymentMethod';
 
 export interface PlaceOrderParams {
   cafeId: string;
@@ -41,10 +43,7 @@ export async function placeOrder(params: PlaceOrderParams): Promise<PlaceOrderRe
   const status = params.status || 'paid';
   const orderType = params.orderType || (params.tableId ? 'dine_in' : 'takeaway');
 
-  let supabasePaymentMethod = params.paymentMethod || null;
-  if (supabasePaymentMethod && !['cash', 'card', 'other'].includes(supabasePaymentMethod)) {
-    supabasePaymentMethod = 'other' as PaymentMethod;
-  }
+  const supabasePaymentMethod = normalizePaymentMethodForSupabase(params.paymentMethod);
 
   const order: Order = {
     id: orderId,
@@ -69,8 +68,7 @@ export async function placeOrder(params: PlaceOrderParams): Promise<PlaceOrderRe
   const ops: TransactionOperation[] = [];
 
   // Order
-  ops.push({ type: 'insert', table: 'orders', data: order });
-  ops.push(buildSyncOperation('insert', 'orders', order as unknown as Record<string, unknown>));
+  ops.push(...createSyncableOperation('insert', 'orders', order as unknown as Record<string, unknown>));
 
   // Order Items
   if (orderItems.length > 0) {
@@ -98,53 +96,30 @@ export async function placeOrder(params: PlaceOrderParams): Promise<PlaceOrderRe
       }),
       created_at: now,
     };
-    ops.push({ type: 'insert', table: 'order_audit_log', data: auditEntry });
-    ops.push(buildSyncOperation('insert', 'order_audit_log', auditEntry as unknown as Record<string, unknown>));
+    ops.push(...createSyncableOperation('insert', 'order_audit_log', auditEntry as unknown as Record<string, unknown>));
   }
 
   // Table
   if (params.tableId && status === 'open') {
     const tableUpdate = { status: 'occupied' as const, current_order_id: orderId };
-    ops.push({ type: 'update', table: 'tables', id: params.tableId, data: tableUpdate });
-    ops.push(buildSyncOperation('update', 'tables', { id: params.tableId, cafe_id: params.cafeId, ...tableUpdate }));
+    ops.push(...createSyncableOperation('update', 'tables', { id: params.tableId, cafe_id: params.cafeId, ...tableUpdate }, params.tableId));
   }
 
   // Inventory Stock Update & Stock Movements
   if (status === 'paid') {
-    for (const item of orderItems) {
-      const product = await productRepository.getProductById(item.product_id);
-      if (!product || !product.track_stock || !product.inventory_item_id) continue;
-
-      const inventoryItem = await inventoryRepository.findOne(product.inventory_item_id);
-      if (!inventoryItem) continue;
-
-      const newQuantity = inventoryItem.stock_quantity - item.quantity;
-      const updatedItem = { ...inventoryItem, stock_quantity: newQuantity };
-      
-      ops.push({ type: 'update', table: 'inventory_items', id: inventoryItem.id, data: updatedItem });
-      ops.push(buildSyncOperation('update', 'inventory_items', updatedItem as unknown as Record<string, unknown>));
-
-      const movementId = crypto.randomUUID();
-      const movement: StockMovement = {
-        id: movementId,
-        cafe_id: params.cafeId,
-        inventory_item_id: inventoryItem.id,
-        type: 'out',
-        quantity: item.quantity,
-        reason: `Sale - Order ${orderId.split('-')[0]}`,
-        created_at: now
-      };
-      
-      ops.push({ type: 'insert', table: 'stock_movements', data: movement });
-      ops.push(buildSyncOperation('insert', 'stock_movements', movement as unknown as Record<string, unknown>));
-    }
+    const stockOps = await OrderStockService.generateDeductionOperations(
+      orderId,
+      params.cafeId,
+      orderItems,
+      productRepository,
+      inventoryRepository,
+      now
+    );
+    ops.push(...stockOps);
   }
 
   await executeTransaction(ops);
-
-  if (navigator.onLine && window.electronAPI) {
-    window.electronAPI.triggerSync();
-  }
+  triggerBackgroundSync();
 
   return { orderId };
 }

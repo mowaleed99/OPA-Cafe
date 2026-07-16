@@ -1,4 +1,5 @@
 import { closingRepository, supplierRepository, purchaseRepository, expenseRepository, productRepository, categoryRepository, orderRepository } from '../../../infrastructure/repositories/index';
+import { Money } from '../../../domain/entities/money';
 import type { DailyClosing } from '../../../domain/entities/daily_closing';
 import type { Expense } from '../../../domain/entities/expense';
 
@@ -32,10 +33,7 @@ export interface MonthlyClosingReport {
 }
 
 export async function getMonthlyClosing(cafeId: string, monthPrefix: string): Promise<MonthlyClosingReport> {
-  const allClosings = await closingRepository.getClosings(cafeId);
-  const closings = allClosings
-    .filter(c => c.closing_date.startsWith(monthPrefix))
-    .sort((a, b) => a.closing_date.localeCompare(b.closing_date));
+  const closings = await closingRepository.getClosingsByDatePrefix(cafeId, monthPrefix);
     
   let total_sales = 0;
   let total_orders = 0;
@@ -136,8 +134,8 @@ export async function getMonthlyClosing(cafeId: string, monthPrefix: string): Pr
   const profitPercentage = total_sales > 0 ? (netProfit / total_sales) * 100 : 0;
 
   // Cashier Performance (extracting from orders in the month)
-  const allOrders = await orderRepository.getOrders(cafeId);
-  const monthOrders = allOrders.filter(o => o.created_at.startsWith(monthPrefix) && o.status === 'paid');
+  const monthOrdersInRange = await orderRepository.getOrdersByDateRange(cafeId, `${monthPrefix}-01T00:00:00.000Z`, `${monthPrefix}-31T23:59:59.999Z`);
+  const monthOrders = monthOrdersInRange.filter(o => o.status === 'paid');
   
   const cashierMap: Record<string, { cashierName: string; orders: number; sales: number; discounts: number }> = {};
   for (const o of monthOrders) {
