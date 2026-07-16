@@ -75,6 +75,8 @@ function toSupabasePayload(tableName, payload) {
           : normalized.details;
         normalized.initiated_by_user_id ??= details?.initiated_by_user_id;
         normalized.initiated_by_name ??= details?.initiated_by_name;
+        normalized.order_total ??= details?.order_total;
+        normalized.approved_by_owner_pin ??= details?.approved_by_owner_pin;
       } catch {
         // The database will retain the item with a useful error if details is malformed.
       }

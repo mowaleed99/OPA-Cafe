@@ -1,6 +1,7 @@
 const { contextBridge, ipcRenderer } = require('electron');
 
 contextBridge.exposeInMainWorld('electronAPI', {
+  isElectron: true,
   showSaveDialog: (options) => ipcRenderer.invoke('dialog:showSaveDialog', options),
   saveBackup: (filePath, data) => ipcRenderer.invoke('file:saveBackup', filePath, data),
   createBackup: (filename) => ipcRenderer.invoke('backup:create', filename),

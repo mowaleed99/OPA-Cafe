@@ -22,7 +22,7 @@ interface AuthState {
 const DEFAULT_CAFE_ID = '00000000-0000-0000-0000-000000000000';
 
 function isElectron(): boolean {
-  return typeof window !== 'undefined' && Boolean(window.electronAPI);
+  return typeof window !== 'undefined' && window.electronAPI?.isElectron === true;
 }
 
 async function getCloudAppUser(userId: string): Promise<AppUser | null> {
