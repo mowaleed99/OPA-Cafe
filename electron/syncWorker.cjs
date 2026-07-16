@@ -21,7 +21,6 @@ async function setSyncSession(session) {
   if (!session?.accessToken || !session?.refreshToken) {
     await supabase.auth.signOut().catch(() => {});
     hasAuthenticatedSession = false;
-    didLogMissingSession = false;
     return false;
   }
 
@@ -40,6 +39,7 @@ async function setSyncSession(session) {
   }
   hasAuthenticatedSession = true;
   didLogMissingSession = false;
+  logSync('Authenticated Supabase session received. Processing queued changes.');
   return true;
 }
 

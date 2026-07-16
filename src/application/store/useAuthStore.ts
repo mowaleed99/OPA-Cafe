@@ -131,7 +131,17 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       // Keep local login available offline, but hand a real Supabase session to
       // the main-process worker whenever the credentials are valid online.
       // RLS protects cloud data, so the worker must never sync as `anon`.
-      const { data } = await supabase.auth.signInWithPassword({ email, password });
+      const { data, error: cloudError } = await supabase.auth.signInWithPassword({ email, password });
+      if (cloudError || !data.session) {
+        // A local password can be valid while the cloud account is missing or
+        // has a different password. Do not pretend that sync is available.
+        if (!navigator.onLine) {
+          console.info('[Auth] Offline local sign-in succeeded; cloud sync will wait for a connection.');
+          return { error: null };
+        }
+        return { error: cloudError?.message || 'Supabase sign-in did not return a session.' };
+      }
+
       await shareSyncSession(data.session);
 
       return { error: null };
