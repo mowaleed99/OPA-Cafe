@@ -28,15 +28,6 @@ async function setSyncSession(session) {
   const tokenPrefix = session.accessToken.substring(0, 12);
   logSync(`Received access token with prefix: ${tokenPrefix}...`);
 
-  // Verify the token is actually usable against Supabase's API.
-  const { data: userData, error: userError } = await supabase.auth.getUser(session.accessToken);
-  if (userError || !userData?.user) {
-    hasAuthenticatedSession = false;
-    didLogMissingSession = false;
-    logSync(`Rejected invalid or expired token: ${userError?.message || 'no user returned'}`);
-    return false;
-  }
-
   // Create a stateless client that permanently injects this token into headers
   supabase = createClient(supabaseUrl, supabaseAnonKey, {
     auth: { persistSession: false, autoRefreshToken: false },
@@ -45,7 +36,7 @@ async function setSyncSession(session) {
 
   hasAuthenticatedSession = true;
   didLogMissingSession = false;
-  logSync(`Authenticated Supabase session received for user ${userData.user.email || userData.user.id}. Processing queued changes.`);
+  logSync(`Authenticated Supabase session received. Processing queued changes.`);
 
   // When the worker first authenticates (or re-authenticates after a schema
   // fix), give every failed queue item a fresh chance by resetting retries.
