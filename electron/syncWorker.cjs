@@ -19,19 +19,28 @@ let didLogMissingSession = false;
 
 async function setSyncSession(session) {
   if (!session?.accessToken || !session?.refreshToken) {
-    await supabase.auth.signOut();
+    await supabase.auth.signOut().catch(() => {});
     hasAuthenticatedSession = false;
     didLogMissingSession = false;
-    return;
+    return false;
   }
 
   const { error } = await supabase.auth.setSession({
     access_token: session.accessToken,
     refresh_token: session.refreshToken,
   });
-  if (error) throw error;
+  if (error) {
+    // A renderer can retain an expired session in localStorage. Do not let an
+    // invalid token crash IPC or repeatedly spam the terminal.
+    await supabase.auth.signOut().catch(() => {});
+    hasAuthenticatedSession = false;
+    didLogMissingSession = false;
+    logSync(`Rejected invalid Supabase session: ${error.message}`);
+    return false;
+  }
   hasAuthenticatedSession = true;
   didLogMissingSession = false;
+  return true;
 }
 
 const LOCAL_TO_SUPABASE = {

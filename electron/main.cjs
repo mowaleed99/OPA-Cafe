@@ -159,9 +159,9 @@ app.whenReady().then(() => {
   });
 
   ipcMain.handle('sync:setSession', async (event, session) => {
-    await setSyncSession(session);
-    if (session?.accessToken) await processSyncQueue();
-    return { success: true };
+    const accepted = await setSyncSession(session);
+    if (accepted) await processSyncQueue();
+    return { success: accepted };
   });
 
   ipcMain.handle('sync:getStatus', () => {

@@ -39,10 +39,17 @@ async function getCloudAppUser(userId: string): Promise<AppUser | null> {
 async function shareSyncSession(session: Session | null): Promise<void> {
   if (!window.electronAPI?.setSyncSession) return;
 
-  await window.electronAPI.setSyncSession(session ? {
+  const result = await window.electronAPI.setSyncSession(session ? {
     accessToken: session.access_token,
     refreshToken: session.refresh_token,
   } : null);
+
+  // The Electron worker validates the session against Supabase. If a token
+  // persisted by the renderer is stale, clear it here so it is not submitted
+  // again on every auth-state event.
+  if (session && result?.success === false) {
+    await supabase.auth.signOut();
+  }
 }
 
 // Supabase refreshes access tokens in the renderer. Forward every auth state
