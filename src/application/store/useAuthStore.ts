@@ -49,11 +49,12 @@ async function shareSyncSession(session: Session | null): Promise<void> {
     refreshToken: session.refresh_token,
   } : null);
 
-  // The Electron worker validates the session against Supabase. If a token
-  // persisted by the renderer is stale, clear it here so it is not submitted
-  // again on every auth-state event.
+  // The Electron worker validates the session against Supabase.  If the
+  // token was rejected, log it but do NOT call signOut() — destroying the
+  // stored refresh token prevents a subsequent refreshSession() from
+  // recovering the session automatically.
   if (session && result?.success === false) {
-    await supabase.auth.signOut();
+    console.warn('[Auth] Sync worker rejected the forwarded session. It will retry on next auth event.');
   }
 }
 
@@ -68,8 +69,10 @@ async function getFreshCloudSession(): Promise<Session | null> {
 
   const { data, error } = await supabase.auth.refreshSession();
   if (error || !data.session) {
+    // Do NOT call signOut() here — it permanently destroys the stored
+    // refresh token.  The next explicit signIn() will create a brand-new
+    // session anyway, and a later online event may still succeed.
     console.warn('[Auth] Stored Supabase session could not be refreshed:', error?.message);
-    await supabase.auth.signOut();
     return null;
   }
 
@@ -78,7 +81,13 @@ async function getFreshCloudSession(): Promise<Session | null> {
 
 // Supabase refreshes access tokens in the renderer. Forward every auth state
 // change so the Electron main-process worker never keeps an expired token.
-supabase.auth.onAuthStateChange((_event, session) => {
+// BUT skip the INITIAL_SESSION event — it often carries a stale token that the
+// worker will reject, which then races with the valid session from initialize().
+supabase.auth.onAuthStateChange((event, session) => {
+  if (event === 'INITIAL_SESSION') {
+    // initialize() handles the first session explicitly with refreshSession().
+    return;
+  }
   void shareSyncSession(session);
 });
 
@@ -252,6 +261,22 @@ export const useAuthStore = create<AuthState>((set, get) => ({
             }
           } as Session;
           set({ session: mockSession, appUser: localUser, isLoading: false });
+
+          // The cloud session was already attempted above via
+          // getFreshCloudSession().  If it failed (e.g. expired refresh token)
+          // but we DO have a cloud session that the worker hasn't received yet,
+          // retry sharing it now.  This covers the common case where the
+          // Supabase client refreshed internally between getSession() and here.
+          if (!cloudSession) {
+            getFreshCloudSession()
+              .then((retried) => {
+                if (retried) {
+                  console.info('[Auth] Cloud session recovered after auto-restore — forwarding to worker.');
+                  return shareSyncSession(retried);
+                }
+              })
+              .catch((err) => console.warn('[Auth] Background cloud session retry failed:', err));
+          }
         } else {
           set({ session: null, appUser: null, isLoading: false });
         }

@@ -19,27 +19,40 @@ let didLogMissingSession = false;
 
 async function setSyncSession(session) {
   if (!session?.accessToken || !session?.refreshToken) {
-    await supabase.auth.signOut().catch(() => {});
+    // Null/empty session = user signed out. Clear worker auth.
     hasAuthenticatedSession = false;
     return false;
   }
+
+  const tokenPrefix = session.accessToken.substring(0, 12);
+  logSync(`Attempting setSession with token prefix: ${tokenPrefix}...`);
 
   const { error } = await supabase.auth.setSession({
     access_token: session.accessToken,
     refresh_token: session.refreshToken,
   });
   if (error) {
-    // A renderer can retain an expired session in localStorage. Do not let an
-    // invalid token crash IPC or repeatedly spam the terminal.
-    await supabase.auth.signOut().catch(() => {});
+    // A renderer can retain an expired session in localStorage. Log the
+    // rejection but do NOT call signOut() — a valid token may arrive
+    // moments later from an onAuthStateChange race.
     hasAuthenticatedSession = false;
     didLogMissingSession = false;
     logSync(`Rejected invalid Supabase session: ${error.message}`);
     return false;
   }
+
+  // Verify the token is actually usable against Supabase's API.
+  const { data: userData, error: userError } = await supabase.auth.getUser();
+  if (userError || !userData?.user) {
+    hasAuthenticatedSession = false;
+    didLogMissingSession = false;
+    logSync(`Session set but getUser() failed: ${userError?.message || 'no user returned'}`);
+    return false;
+  }
+
   hasAuthenticatedSession = true;
   didLogMissingSession = false;
-  logSync('Authenticated Supabase session received. Processing queued changes.');
+  logSync(`Authenticated Supabase session received for user ${userData.user.email || userData.user.id}. Processing queued changes.`);
   return true;
 }
 
