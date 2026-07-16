@@ -39,6 +39,11 @@ async function getCloudAppUser(userId: string): Promise<AppUser | null> {
 async function shareSyncSession(session: Session | null): Promise<void> {
   if (!window.electronAPI?.setSyncSession) return;
 
+  // Never forward the in-memory token used for an offline-only login.  It is
+  // useful to the UI, but it is not a Supabase JWT and would make the worker
+  // discard an otherwise valid cloud session.
+  if (session?.access_token === 'local_offline_token') return;
+
   const result = await window.electronAPI.setSyncSession(session ? {
     accessToken: session.access_token,
     refreshToken: session.refresh_token,
@@ -52,11 +57,42 @@ async function shareSyncSession(session: Session | null): Promise<void> {
   }
 }
 
+/**
+ * Obtain a fresh cloud session before handing it to Electron. `getSession()`
+ * only reads browser storage, so after a long desktop restart it can return
+ * an expired access token even though its refresh token is still valid.
+ */
+async function getFreshCloudSession(): Promise<Session | null> {
+  const { data: { session } } = await supabase.auth.getSession();
+  if (!session) return null;
+
+  const { data, error } = await supabase.auth.refreshSession();
+  if (error || !data.session) {
+    console.warn('[Auth] Stored Supabase session could not be refreshed:', error?.message);
+    await supabase.auth.signOut();
+    return null;
+  }
+
+  return data.session;
+}
+
 // Supabase refreshes access tokens in the renderer. Forward every auth state
 // change so the Electron main-process worker never keeps an expired token.
 supabase.auth.onAuthStateChange((_event, session) => {
   void shareSyncSession(session);
 });
+
+// The renderer can regain network access while an offline user remains
+// logged in locally. Refresh and forward the cloud session at that point so
+// the worker can drain its preserved queue without waiting for another app
+// restart.
+if (typeof window !== 'undefined') {
+  window.addEventListener('online', () => {
+    void getFreshCloudSession().then(shareSyncSession).catch((error) => {
+      console.warn('[Auth] Unable to restore cloud session after reconnect:', error);
+    });
+  });
+}
 
 export const useAuthStore = create<AuthState>((set, get) => ({
   session: null,
@@ -163,7 +199,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     try {
       // Restore a persisted Supabase session before the worker starts flushing
       // queued work after an Electron restart.
-      const { data: { session: cloudSession } } = await supabase.auth.getSession();
+      const cloudSession = await getFreshCloudSession();
       await shareSyncSession(cloudSession);
 
       // Browser sessions use Supabase directly; never call Electron-only
