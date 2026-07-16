@@ -2,7 +2,7 @@ require('dotenv').config({ path: require('path').join(__dirname, '../.env') });
 const { createClient } = require('@supabase/supabase-js');
 const { getDb } = require('./database/db.cjs');
 const schema = require('./database/schema.cjs');
-const { eq, inArray } = require('drizzle-orm');
+const { eq, inArray, isNull, or } = require('drizzle-orm');
 const fs = require('fs');
 const path = require('path');
 const { app, BrowserWindow } = require('electron');
@@ -46,6 +46,64 @@ async function setSyncSession(session) {
 const LOCAL_TO_SUPABASE = {
   dining_tables: 'tables',
 };
+
+// Records created before the queue was introduced remain in SQLite with a
+// pending (or absent, for older databases) sync status.  Materialize those
+// records into the normal queue once an authenticated worker is available.
+// Subsequent changes continue to use the regular queue as before.
+const LOCAL_SYNC_TABLES = {
+  categories: schema.categories,
+  products: schema.products,
+  inventory_items: schema.inventoryItems,
+  stock_movements: schema.stockMovements,
+  dining_tables: schema.diningTables,
+  orders: schema.orders,
+  order_items: schema.orderItems,
+  suppliers: schema.suppliers,
+  purchases: schema.purchases,
+  purchase_items: schema.purchaseItems,
+  supplier_payments: schema.supplierPayments,
+  expenses: schema.expenses,
+  daily_closings: schema.dailyClosings,
+  daily_closing_items: schema.dailyClosingItems,
+  settings: schema.settings,
+  order_audit_log: schema.orderAuditLog,
+};
+
+async function materializePendingLocalRecords(db) {
+  const existing = await db.select({ id: schema.syncQueue.id })
+    .from(schema.syncQueue)
+    .where(inArray(schema.syncQueue.status, ['pending', 'failed', 'syncing']))
+    .execute();
+  if (existing.length > 0) return 0;
+
+  const operations = [];
+  for (const [tableName, table] of Object.entries(LOCAL_SYNC_TABLES)) {
+    const records = await db.select()
+      .from(table)
+      .where(or(eq(table.sync_status, 'pending'), isNull(table.sync_status)))
+      .execute();
+
+    for (const record of records) {
+      operations.push({
+        id: require('crypto').randomUUID(),
+        action: 'insert',
+        table_name: tableName,
+        payload: JSON.stringify(record),
+        status: 'pending',
+        retry_count: 0,
+        created_at: new Date().toISOString(),
+        record_id: record.id,
+      });
+    }
+  }
+
+  if (operations.length > 0) {
+    await db.insert(schema.syncQueue).values(operations).execute();
+    logSync(`Queued ${operations.length} existing local record(s) for cloud recovery.`);
+  }
+  return operations.length;
+}
 
 function toSupabaseName(localName) {
   return LOCAL_TO_SUPABASE[localName] ?? localName;
@@ -202,10 +260,21 @@ async function processSyncQueue() {
   const db = getDb();
   
   try {
-    const pendingItems = await db.select()
+    let pendingItems = await db.select()
       .from(schema.syncQueue)
       .where(inArray(schema.syncQueue.status, ['pending', 'failed']))
       .execute();
+
+    // A queue can be empty even when this device contains historical records
+    // that were saved before queue writes existed. Add those records here,
+    // after authentication, so they use the same RLS-protected upload path.
+    if (pendingItems.length === 0) {
+      await materializePendingLocalRecords(db);
+      pendingItems = await db.select()
+        .from(schema.syncQueue)
+        .where(inArray(schema.syncQueue.status, ['pending', 'failed']))
+        .execute();
+    }
       
     // Insert parents before dependants. This also lets old failed work recover
     // after its missing parent record has been uploaded.
@@ -293,6 +362,13 @@ async function processSyncQueue() {
         }
         
         await db.delete(schema.syncQueue).where(eq(schema.syncQueue.id, item.id)).execute();
+        const localTable = LOCAL_SYNC_TABLES[item.table_name];
+        if (localTable && payload.id) {
+          await db.update(localTable)
+            .set({ sync_status: 'synced' })
+            .where(eq(localTable.id, payload.id))
+            .execute();
+        }
         lastAttemptMap.delete(item.id);
         syncStatusState.synced += 1;
         logSync(`Successfully synced item: ${item.action} on ${supabaseTable} (ID: ${payload.id || 'unknown'})`);
