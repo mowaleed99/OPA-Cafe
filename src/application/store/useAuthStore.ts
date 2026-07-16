@@ -21,6 +21,21 @@ interface AuthState {
 
 const DEFAULT_CAFE_ID = '00000000-0000-0000-0000-000000000000';
 
+function isElectron(): boolean {
+  return typeof window !== 'undefined' && Boolean(window.electronAPI);
+}
+
+async function getCloudAppUser(userId: string): Promise<AppUser | null> {
+  const { data, error } = await supabase
+    .from('app_users')
+    .select('*')
+    .eq('id', userId)
+    .maybeSingle();
+
+  if (error) throw error;
+  return data as AppUser | null;
+}
+
 async function shareSyncSession(session: Session | null): Promise<void> {
   if (!window.electronAPI?.setSyncSession) return;
 
@@ -55,6 +70,22 @@ export const useAuthStore = create<AuthState>((set, get) => ({
 
   signIn: async (email, password) => {
     try {
+      // The Vercel deployment runs in a browser and has no Electron IPC or
+      // local SQLite database. Authenticate it directly with Supabase.
+      if (!isElectron()) {
+        const { data, error } = await supabase.auth.signInWithPassword({ email, password });
+        if (error || !data.session) return { error: error?.message || 'Unable to start a Supabase session.' };
+
+        const cloudUser = await getCloudAppUser(data.session.user.id);
+        if (!cloudUser) {
+          await supabase.auth.signOut();
+          return { error: 'Your account is not assigned to an OPA Cafe profile.' };
+        }
+
+        set({ session: data.session, appUser: cloudUser });
+        return { error: null };
+      }
+
       const localUser = await authRepository.findByEmail(email);
 
       if (!localUser) {
@@ -117,6 +148,14 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       // queued work after an Electron restart.
       const { data: { session: cloudSession } } = await supabase.auth.getSession();
       await shareSyncSession(cloudSession);
+
+      // Browser sessions use Supabase directly; never call Electron-only
+      // repositories from the Vercel deployment.
+      if (!isElectron()) {
+        const cloudUser = cloudSession ? await getCloudAppUser(cloudSession.user.id) : null;
+        set({ session: cloudSession, appUser: cloudUser, isLoading: false });
+        return;
+      }
 
       // 1. Owner Bootstrap Check
       const count = await authRepository.countUsers();

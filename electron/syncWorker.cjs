@@ -68,16 +68,18 @@ function toSupabasePayload(tableName, payload) {
     // The deployed audit table also stores the initiating user separately.
     // Local records keep it inside the JSON `details` field, so unpack it for
     // both newly queued and legacy failed records.
-    if (!normalized.initiated_by_user_id && normalized.details) {
+    if (normalized.details) {
       try {
         const details = typeof normalized.details === 'string'
           ? JSON.parse(normalized.details)
           : normalized.details;
-        normalized.initiated_by_user_id = details?.initiated_by_user_id;
+        normalized.initiated_by_user_id ??= details?.initiated_by_user_id;
+        normalized.initiated_by_name ??= details?.initiated_by_name;
       } catch {
         // The database will retain the item with a useful error if details is malformed.
       }
     }
+    normalized.initiated_by_name ??= normalized.performed_by;
   }
 
   return normalized;
