@@ -19,6 +19,14 @@ function cloudPayload(table: string, value: Record<string, unknown>): Record<str
     delete payload.date;
   }
 
+  if (table === 'settings' && typeof payload.cashier_permissions === 'string') {
+    try {
+      payload.cashier_permissions = JSON.parse(payload.cashier_permissions);
+    } catch {
+      // The API will report invalid JSON instead of silently changing it.
+    }
+  }
+
   if (table === 'order_audit_log') {
     let details: Record<string, unknown> = {};
     if (payload.details) {
