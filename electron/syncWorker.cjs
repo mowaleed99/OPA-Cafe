@@ -207,7 +207,11 @@ async function processSyncQueue() {
     
     // Track failed parent IDs during this run (and preload existing failed parent IDs)
     const failedParentIds = new Set();
-    const existingFailedParents = await db.select({ record_id: schema.syncQueue.record_id, payload: schema.syncQueue.payload })
+    const existingFailedParents = await db.select({ 
+      record_id: schema.syncQueue.record_id, 
+      payload: schema.syncQueue.payload,
+      table_name: schema.syncQueue.table_name 
+    })
       .from(schema.syncQueue)
       .where(eq(schema.syncQueue.status, 'failed'))
       .execute();
