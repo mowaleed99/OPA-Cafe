@@ -70,7 +70,9 @@ export function PrintingTab({
           }}
         >
           <SelectTrigger className="w-48 bg-background">
-            <SelectValue />
+            <SelectValue>
+              {paperSize || '80mm'}
+            </SelectValue>
           </SelectTrigger>
           <SelectContent>
             <SelectItem value="80mm">80mm</SelectItem>
@@ -143,7 +145,9 @@ export function PrintingTab({
           }}
         >
           <SelectTrigger className="w-48 bg-background">
-            <SelectValue />
+            <SelectValue>
+              {reportDefaultOutput === 'pdf' ? t('pdf_file') : t('thermal_printer')}
+            </SelectValue>
           </SelectTrigger>
           <SelectContent>
             <SelectItem value="thermal">{t('thermal_printer')}</SelectItem>
