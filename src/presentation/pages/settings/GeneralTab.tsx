@@ -1,10 +1,10 @@
 import React from 'react';
 import { Store, Globe } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
-import { useSettingsStore } from '../../../application/store/useSettingsStore';
 import { Input } from '../../components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../../components/ui/select';
 import { SettingRow, SectionCard } from './SettingsShared';
+import { updateSettings } from '../../../application/useCases/settings/manageSettings';
 
 interface GeneralTabProps {
   cafeId: string | null;
@@ -26,7 +26,6 @@ export function GeneralTab({
   setCurrency,
 }: GeneralTabProps) {
   const { t } = useTranslation();
-  const updateSettings = useSettingsStore(state => state.updateSettings);
 
   return (
     <>

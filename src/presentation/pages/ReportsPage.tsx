@@ -70,7 +70,7 @@ export default function ReportsPage() {
           const filePath = await exportPdfReport('monthly', legacyReport, `MonthlyClosing_${legacyReport.month}.pdf`);
           addToast(`PDF saved to: ${filePath}`, 'success');
         } else {
-          await thermalPrintReport('monthly', legacyReport);
+          await thermalPrintReport('monthly', legacyReport, t('monthly_report'));
         }
       } catch (e) {
         console.error('Failed to print', e);

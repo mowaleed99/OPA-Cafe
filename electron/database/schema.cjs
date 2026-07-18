@@ -54,6 +54,9 @@ const inventoryItems = sqliteTable('inventory_items', {
   stock_quantity: real('stock_quantity').notNull().default(0),
   low_stock_threshold: real('low_stock_threshold').notNull().default(10),
   cost_per_unit: real('cost_per_unit').notNull().default(0),
+  is_countable: integer('is_countable', { mode: 'boolean' }).default(false),
+  pieces_per_carton: integer('pieces_per_carton'),
+  minimum_stock: integer('minimum_stock'),
   created_at: text('created_at'),
   ...syncFields
 });
@@ -187,7 +190,6 @@ const dailyClosings = sqliteTable('daily_closings', {
   expected_cash: real('expected_cash').notNull(),
   difference: real('difference').notNull(),
   notes: text('notes'),
-  created_at: text('created_at'),
   ...syncFields
 });
 
@@ -199,7 +201,6 @@ const dailyClosingItems = sqliteTable('daily_closing_items', {
   total_sales: real('total_sales').notNull(),
   category_name: text('category_name').notNull(),
   product_name: text('product_name').notNull(),
-  created_at: text('created_at'),
   ...syncFields
 });
 

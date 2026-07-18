@@ -12,7 +12,7 @@ export interface PurchaseWithItems {
 export interface CreatePurchaseParams {
   cafeId: string;
   supplierId: string;
-  items: Array<{ inventoryItemId: string; itemName?: string; quantity: number; unitCost: number }>;
+  items: Array<{ inventoryItemId: string; itemName?: string; quantity: number; unitCost: number; subtotal: number }>;
 }
 
 export async function getPurchases(cafeId: string): Promise<Purchase[]> {
@@ -48,7 +48,7 @@ export async function createPurchase(params: CreatePurchaseParams): Promise<Purc
       item_name: item.itemName,
       quantity: item.quantity,
       unit_cost: item.unitCost,
-      subtotal: item.quantity * item.unitCost,
+      subtotal: item.subtotal,
     };
   });
 
@@ -79,12 +79,22 @@ export async function createPurchase(params: CreatePurchaseParams): Promise<Purc
     for (const item of purchaseItems) {
       ops.push(buildSyncOperation('insert', 'purchase_items', item as unknown as Record<string, unknown>));
       
-      // Update inventory stock
+      // Update inventory stock and calculate new weighted average cost
       const inventoryItem = await inventoryRepository.findOne(item.inventory_item_id);
       if (inventoryItem) {
+        const oldQty = inventoryItem.stock_quantity;
+        const oldCost = inventoryItem.cost_per_unit || 0;
+        const newQty = oldQty + item.quantity;
+        
+        let newCost = oldCost;
+        if (newQty > 0) {
+          newCost = ((oldQty * oldCost) + item.subtotal) / newQty;
+        }
+
         const updatedItem = {
           ...inventoryItem,
-          stock_quantity: inventoryItem.stock_quantity + item.quantity
+          stock_quantity: newQty,
+          cost_per_unit: newCost
         };
         ops.push(...createSyncableOperation('update', 'inventory_items', updatedItem as unknown as Record<string, unknown>, updatedItem.id));
       }

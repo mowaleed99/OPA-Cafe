@@ -52,40 +52,18 @@ export default function AppLayout() {
   const navigate = useNavigate();
   const { t } = useTranslation();
   
-  const [isOnline, setIsOnline] = useState(navigator.onLine);
-  const [syncStatus, setSyncStatus] = useState<{ pending: number; synced: number; failed: number; isSyncing: boolean } | null>(null);
 
-  useEffect(() => {
-    const handleOnline = () => setIsOnline(true);
-    const handleOffline = () => setIsOnline(false);
-    window.addEventListener('online', handleOnline);
-    window.addEventListener('offline', handleOffline);
+  const hasPermission = (labelKey: string) => {
+    if (labelKey === 'pos' || labelKey === 'tables') return true;
+    if (labelKey === 'expenses') return (cashierPermissions || []).includes('reports');
+    if (labelKey === 'invoices') return (cashierPermissions || []).includes('invoices_sales') || (cashierPermissions || []).includes('invoices_supplier');
+    return (cashierPermissions || []).includes(labelKey);
+  };
 
-    if (window.electronAPI?.getSyncStatus) {
-      window.electronAPI.getSyncStatus().then(setSyncStatus);
-    }
-    
-    let cleanup = () => {};
-    if (window.electronAPI?.onSyncStatus) {
-      cleanup = window.electronAPI.onSyncStatus((status) => {
-        setSyncStatus(status);
-      });
-    }
-
-    return () => {
-      window.removeEventListener('online', handleOnline);
-      window.removeEventListener('offline', handleOffline);
-      cleanup();
-    };
-  }, []);
-  
   const navItems = isOwner() 
     ? ownerNav 
-    : ownerNav.filter(item => 
-        item.labelKey === 'pos' || 
-        item.labelKey === 'tables' || 
-        (cashierPermissions || []).includes(item.labelKey)
-      ).filter(item => 
+    : ownerNav.filter(item => hasPermission(item.labelKey))
+      .filter(item => 
         item.labelKey !== 'users' && 
         item.labelKey !== 'settings' &&
         item.labelKey !== 'audit_log'
@@ -126,35 +104,7 @@ export default function AppLayout() {
           ))}
         </nav>
 
-        {/* Sync Indicator */}
-        <div className="px-3 py-3 border-t border-border flex flex-col gap-1 items-center md:items-start text-xs font-medium">
-          {!isOnline ? (
-            <div className="flex items-center gap-2 text-muted-foreground w-full justify-center md:justify-start" title={t('offline', 'Offline')}>
-              <WifiOff className="h-4 w-4" />
-              <span className="hidden md:block">{t('offline', 'Offline')}</span>
-            </div>
-          ) : syncStatus?.isSyncing ? (
-            <div className="flex items-center gap-2 text-yellow-500 w-full justify-center md:justify-start" title={t('syncing', 'Syncing...')}>
-              <RefreshCw className="h-4 w-4 animate-spin" />
-              <span className="hidden md:block">{t('syncing', 'Syncing...')}</span>
-            </div>
-          ) : syncStatus?.failed > 0 ? (
-            <div className="flex items-center gap-2 text-red-500 w-full justify-center md:justify-start" title={`${t('sync_failed', 'Sync Failed')} (${syncStatus.failed})`}>
-              <AlertCircle className="h-4 w-4" />
-              <span className="hidden md:block truncate">{t('sync_failed', 'Sync Failed')} ({syncStatus.failed})</span>
-            </div>
-          ) : syncStatus?.pending > 0 ? (
-            <div className="flex items-center gap-2 text-yellow-500 w-full justify-center md:justify-start" title={t('pending', 'Pending')}>
-              <RefreshCw className="h-4 w-4" />
-              <span className="hidden md:block">{t('pending', 'Pending')} ({syncStatus.pending})</span>
-            </div>
-          ) : (
-            <div className="flex items-center gap-2 text-emerald-500 w-full justify-center md:justify-start" title={t('synced', 'Synced')}>
-              <CheckCircle2 className="h-4 w-4" />
-              <span className="hidden md:block">{t('synced', 'Synced')}</span>
-            </div>
-          )}
-        </div>
+
 
         {/* Sign out */}
         <div className="p-2 border-t border-border">

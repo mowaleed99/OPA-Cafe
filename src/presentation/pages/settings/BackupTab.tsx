@@ -46,23 +46,6 @@ export function BackupTab({
           {backupMessage.text}
         </div>
       )}
-      <SectionCard title={t('cloud_sync', 'Cloud Synchronization')} icon={Cloud}>
-        <div className="py-5 flex items-start gap-5">
-          <div className="w-12 h-12 rounded-xl bg-indigo-100 dark:bg-indigo-900/30 flex items-center justify-center shrink-0">
-            <Cloud size={22} className="text-indigo-600 dark:text-indigo-400" />
-          </div>
-          <div className="flex-1">
-            <h4 className="font-semibold text-sm text-foreground mb-1">{t('sync_now', 'Sync Now')}</h4>
-            <p className="text-xs text-muted-foreground leading-relaxed mb-4">
-              {t('sync_now_desc', 'Manually trigger background synchronization with the cloud server.')}
-            </p>
-            <Button onClick={handleSyncNow} disabled={isSyncingNow} className="flex items-center gap-2" variant="outline">
-              <RefreshCw size={14} className={isSyncingNow ? "animate-spin" : ""} />
-              {isSyncingNow ? t('syncing', 'Syncing...') : t('sync_now_btn', 'Sync Now')}
-            </Button>
-          </div>
-        </div>
-      </SectionCard>
 
       <SectionCard title={t('export_section')} icon={Download}>
         <div className="py-5 flex items-start gap-5">

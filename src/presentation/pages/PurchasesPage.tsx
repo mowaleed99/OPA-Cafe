@@ -123,9 +123,18 @@ function CreatePurchaseModal({
     return parseFloat(l.quantity) || 0;
   };
 
-  const total = lines.reduce((sum, l) => {
-    return sum + getFinalQuantity(l) * (parseFloat(l.unitCost) || 0);
-  }, 0);
+  const getSubtotal = (l: PurchaseLineItem) => {
+    if (l.isCountable) {
+      const cartonPrice = parseFloat(l.unitCost) || 0;
+      const ppc = parseInt(l.piecesPerCarton) || 1;
+      const c = parseInt(l.cartons) || 0;
+      const lp = parseInt(l.loosePieces) || 0;
+      return (c * cartonPrice) + (lp * (cartonPrice / ppc));
+    }
+    return getFinalQuantity(l) * (parseFloat(l.unitCost) || 0);
+  };
+
+  const total = lines.reduce((sum, l) => sum + getSubtotal(l), 0);
 
   const canSave = supplierId && lines.every(l => l.inventoryItemId && getFinalQuantity(l) > 0 && l.unitCost);
 
@@ -136,12 +145,18 @@ function CreatePurchaseModal({
       const params: CreatePurchaseParams = {
         cafeId,
         supplierId,
-        items: lines.map(l => ({
-          inventoryItemId: l.inventoryItemId,
-          itemName: inventoryItems.find(p => p.id === l.inventoryItemId)?.name || '',
-          quantity: getFinalQuantity(l),
-          unitCost: parseFloat(l.unitCost) || 0,
-        })),
+        items: lines.map(l => {
+          const finalQty = getFinalQuantity(l);
+          const subtotal = getSubtotal(l);
+          const unitCost = finalQty > 0 ? subtotal / finalQty : 0;
+          return {
+            inventoryItemId: l.inventoryItemId,
+            itemName: inventoryItems.find(p => p.id === l.inventoryItemId)?.name || '',
+            quantity: finalQty,
+            unitCost,
+            subtotal,
+          };
+        }),
       };
       await createPurchase(params);
       onCreated();
@@ -215,7 +230,7 @@ function CreatePurchaseModal({
                     <Input
                       type="number"
                       className="w-24 h-9 text-sm text-center"
-                      placeholder={t('unit_cost')}
+                      placeholder={line.isCountable ? t('carton_price', 'Carton Price') : t('unit_cost')}
                       value={line.unitCost}
                       onChange={e => updateLine(i, 'unitCost', e.target.value)}
                       min="0"

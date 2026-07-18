@@ -6,7 +6,7 @@ import type { CartItem } from '../../store/useCartStore';
 import type { Order, OrderItem, PaymentMethod, OrderStatus, OrderType } from '../../../domain/entities/order';
 import type { StockMovement } from '../../../domain/entities/stock_movement';
 import { OrderStockService } from '../../../domain/services/OrderStockService';
-import { normalizePaymentMethodForSupabase } from '../../../domain/entities/paymentMethod';
+import { normalizePaymentMethod } from '../../../domain/entities/paymentMethod';
 
 export interface PlaceOrderParams {
   cafeId: string;
@@ -43,7 +43,7 @@ export async function placeOrder(params: PlaceOrderParams): Promise<PlaceOrderRe
   const status = params.status || 'paid';
   const orderType = params.orderType || (params.tableId ? 'dine_in' : 'takeaway');
 
-  const supabasePaymentMethod = normalizePaymentMethodForSupabase(params.paymentMethod);
+  const normalizedPaymentMethod = normalizePaymentMethod(params.paymentMethod);
 
   const order: Order = {
     id: orderId,
@@ -51,7 +51,7 @@ export async function placeOrder(params: PlaceOrderParams): Promise<PlaceOrderRe
     table_id: params.tableId || null,
     order_type: orderType,
     status: status,
-    payment_method: supabasePaymentMethod,
+    payment_method: normalizedPaymentMethod,
     total_amount: params.total,
     created_at: now,
   };

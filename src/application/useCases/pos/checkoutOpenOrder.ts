@@ -5,7 +5,7 @@ import type { PaymentMethod } from '../../../domain/entities/order';
 import type { StockMovement } from '../../../domain/entities/stock_movement';
 import type { OrderAuditLog } from '../../../domain/entities/order_audit_log';
 import { OrderStockService } from '../../../domain/services/OrderStockService';
-import { normalizePaymentMethodForSupabase } from '../../../domain/entities/paymentMethod';
+import { normalizePaymentMethod } from '../../../domain/entities/paymentMethod';
 
 export async function checkoutOpenOrder(orderId: string, paymentMethod: PaymentMethod, userId?: string, userName?: string): Promise<void> {
   const order = await orderRepository.getOrderById(orderId);
@@ -24,13 +24,12 @@ export async function checkoutOpenOrder(orderId: string, paymentMethod: PaymentM
     throw new Error('Total cannot exceed subtotal (invalid discount)');
   }
 
-  // Map invalid payment methods to 'other' for Supabase CHECK constraint
-  const supabasePaymentMethod = normalizePaymentMethodForSupabase(paymentMethod);
+  const normalizedPaymentMethod = normalizePaymentMethod(paymentMethod);
 
   const ops: TransactionOperation[] = [];
 
   // Update order status to paid
-  const orderUpdate = { status: 'paid' as const, payment_method: supabasePaymentMethod };
+  const orderUpdate = { status: 'paid' as const, payment_method: normalizedPaymentMethod };
   ops.push(...createSyncableOperation('update', 'orders', { id: orderId, cafe_id: order.cafe_id, ...orderUpdate }, orderId));
 
   // Update table status to available

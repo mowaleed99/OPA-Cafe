@@ -16,6 +16,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
     delete: (table, id) => ipcRenderer.invoke('db:delete', { table, id }),
     transaction: (operations) => ipcRenderer.invoke('db:transaction', operations)
   },
+  clearData: (cafeId, type) => ipcRenderer.invoke('db:clearData', { cafeId, type }),
   triggerSync: () => ipcRenderer.invoke('sync:trigger'),
   resetSync: () => ipcRenderer.invoke('sync:reset'),
   setSyncSession: (session) => ipcRenderer.invoke('sync:setSession', session),

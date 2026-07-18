@@ -1,10 +1,10 @@
 import React from 'react';
 import { Printer } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
-import { useSettingsStore } from '../../../application/store/useSettingsStore';
 import { Input } from '../../components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../../components/ui/select';
 import { SettingRow, SectionCard } from './SettingsShared';
+import { updateSettings } from '../../../application/useCases/settings/manageSettings';
 
 interface PrintingTabProps {
   cafeId: string | null;
@@ -30,7 +30,6 @@ export function PrintingTab({
   setPrintSettings,
 }: PrintingTabProps) {
   const { t } = useTranslation();
-  const updateSettings = useSettingsStore(state => state.updateSettings);
 
   return (
     <SectionCard title={t('tab_printing')} icon={Printer}>

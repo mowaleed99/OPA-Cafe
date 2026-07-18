@@ -21,10 +21,8 @@ export async function updateInventoryItem(item: InventoryItem): Promise<void> {
   await enqueueSync('update', 'inventory_items', item as unknown as Record<string, unknown>);
 }
 
-export async function deleteInventoryItem(id: string): Promise<void> {
-  // Use generic query via productRepository to find if any products link to this inventory item
-  const allProducts = await productRepository.getProducts(null as any); // get all to check
-  // Better: we need a fast way, but for now we filter locally
+export async function deleteInventoryItem(id: string, cafeId: string): Promise<void> {
+  const allProducts = await productRepository.getProducts(cafeId);
   const linkedProducts = allProducts.filter(p => p.inventory_item_id === id);
   
   if (linkedProducts.length > 0) {

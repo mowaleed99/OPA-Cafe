@@ -20,11 +20,18 @@ export default function LoginPage() {
     setIsLoading(true);
 
     try {
-      const { error } = await signIn(email, password);
+      // Add a 10-second timeout in case IPC hangs
+      const timeoutPromise = new Promise<never>((_, reject) => {
+        setTimeout(() => reject(new Error('Sign in request timed out. Please check the backend connection.')), 10000);
+      });
+
+      const { error } = await Promise.race([
+        signIn(email, password),
+        timeoutPromise
+      ]);
 
       if (error) {
         setError(error);
-        setIsLoading(false);
         return;
       }
 
@@ -32,6 +39,7 @@ export default function LoginPage() {
     } catch (err: any) {
       console.error('Sign in error:', err);
       setError(err.message || 'An unexpected error occurred during sign in');
+    } finally {
       setIsLoading(false);
     }
   };

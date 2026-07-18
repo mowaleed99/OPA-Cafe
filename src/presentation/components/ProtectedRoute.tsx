@@ -5,8 +5,8 @@ import { useSettingsStore } from '../../application/store/useSettingsStore';
 interface ProtectedRouteProps {
   /** If provided, only users with this role can access the route. */
   requiredRole?: 'owner' | 'cashier';
-  /** If provided, cashiers must have this permission key to access. */
-  requiredPermission?: string;
+  /** If provided, cashiers must have at least one of these permission keys to access. */
+  requiredPermission?: string | string[];
 }
 
 export default function ProtectedRoute({ requiredRole, requiredPermission }: ProtectedRouteProps) {
@@ -32,7 +32,10 @@ export default function ProtectedRoute({ requiredRole, requiredPermission }: Pro
 
   // Check custom cashier permissions
   if (requiredPermission && appUser.role === 'cashier') {
-    if (!(cashierPermissions || []).includes(requiredPermission)) {
+    const permissionsToCheck = Array.isArray(requiredPermission) ? requiredPermission : [requiredPermission];
+    const hasPermission = permissionsToCheck.some(p => (cashierPermissions || []).includes(p));
+    
+    if (!hasPermission) {
       return <Navigate to="/pos" replace />;
     }
   }

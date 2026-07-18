@@ -80,17 +80,16 @@ function createTray() {
   });
 }
 
-app.whenReady().then(() => {
+app.whenReady().then(async () => {
   // Initialize SQLite database
   const { initDb } = require('./database/db.cjs');
-  initDb();
+  await initDb();
 
   const { setupHandlers } = require('./database/handlers.cjs');
   setupHandlers();
 
-  // Start background sync worker
-  const { startSyncWorker, processSyncQueue, getSyncStatus, setSyncSession, resetSyncState } = require('./syncWorker.cjs');
-  startSyncWorker();
+  // Start background sync worker (Disabled for offline-first mode)
+
 
   createWindow();
   createTray();
@@ -149,34 +148,19 @@ app.whenReady().then(() => {
 
   // IPC Handlers
   ipcMain.handle('sync:trigger', async () => {
-    try {
-      await processSyncQueue();
-      return { success: true };
-    } catch (err) {
-      console.error('Trigger sync error:', err);
-      return { success: false, error: err.message };
-    }
+    return { success: true };
   });
 
   ipcMain.handle('sync:setSession', async (event, session) => {
-    const accepted = await setSyncSession(session);
-    if (accepted) await processSyncQueue();
-    return { success: accepted };
+    return { success: true };
   });
 
   ipcMain.handle('sync:getStatus', () => {
-    return getSyncStatus();
+    return { pendingCount: 0, status: 'idle', lastError: null };
   });
 
   ipcMain.handle('sync:reset', async () => {
-    try {
-      const count = await resetSyncState();
-      await processSyncQueue();
-      return { success: true, count };
-    } catch (err) {
-      console.error('Reset sync error:', err);
-      return { success: false, error: err.message };
-    }
+    return { success: true, count: 0 };
   });
 
   // Credential store — uses Electron safeStorage (OS keychain encryption)

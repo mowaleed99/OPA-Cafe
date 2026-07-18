@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import type { Session } from '@supabase/supabase-js';
+
 import type { AppUser } from '../../domain/entities/user';
 import { AuthService } from '../services/AuthService';
 

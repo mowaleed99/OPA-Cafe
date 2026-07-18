@@ -5,9 +5,9 @@ import {
   Truck, ClipboardList, Banknote, BookOpen, LineChart, FileText
 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
-import { useSettingsStore } from '../../../application/store/useSettingsStore';
 import { Button } from '../../components/ui/button';
 import { SettingRow, SectionCard } from './SettingsShared';
+import { updateSettings } from '../../../application/useCases/settings/manageSettings';
 
 interface AccountTabProps {
   appUser: any;
@@ -65,7 +65,6 @@ interface RolesTabProps {
 
 export function RolesTab({ cafeId, cashierPermissions, setCashierPermissions }: RolesTabProps) {
   const { t } = useTranslation();
-  const updateSettings = useSettingsStore(state => state.updateSettings);
 
   return (
     <SectionCard title={t('cashier_permissions')} icon={Key}>

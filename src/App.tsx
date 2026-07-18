@@ -2,8 +2,7 @@ import { useState, useEffect } from 'react';
 import { HashRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { useAuthStore } from './application/store/useAuthStore';
 import { useSettingsStore } from './application/store/useSettingsStore';
-import { processSyncQueue } from './application/sync/syncQueue';
-
+// Removed processSyncQueue import as sync is disabled for offline-first mode
 import { fetchSettings } from './application/useCases/settings/manageSettings';
 import { useTranslation } from 'react-i18next';
 import { RefreshCw } from 'lucide-react';
@@ -61,13 +60,7 @@ export default function App() {
     async function initSync() {
       if (!appUser?.cafe_id) return;
       
-      try {
-        // Offline-first sync pulls data down only if DB is empty, otherwise we rely on syncWorker.
-      } catch (err) {
-        console.warn('Background sync failed:', err);
-      }
-
-      // Real-time sync removed for SQLite-first Electron mode
+      // Offline-first only relies on local database. No cloud sync required.
       fetchSettings(appUser.cafe_id);
     }
     
@@ -128,7 +121,7 @@ export default function App() {
             </Route>
 
             {/* Invoices — owner always sees both tabs; cashier sees sales tab if permitted */}
-            <Route element={<ProtectedRoute requiredPermission="invoices_sales" />}>
+            <Route element={<ProtectedRoute requiredPermission={['invoices_sales', 'invoices_supplier']} />}>
               <Route path="/invoices" element={<InvoicesPage />} />
             </Route>
           </Route>

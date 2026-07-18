@@ -57,7 +57,7 @@ export default function InventoryPage() {
       setFormData({
         name: item.name,
         unit: item.unit,
-        cost: item.cost.toString(),
+        cost: item.cost_per_unit.toString(),
         stock_quantity: item.stock_quantity.toString(),
         cartons,
         loose_pieces,
@@ -93,7 +93,7 @@ export default function InventoryPage() {
       const payload = {
         name: formData.name,
         unit: formData.unit,
-        cost: parseFloat(formData.cost) || 0,
+        cost_per_unit: parseFloat(formData.cost) || 0,
         stock_quantity: finalQuantity,
         low_stock_threshold: formData.low_stock_threshold ? parseFloat(formData.low_stock_threshold) : 0,
         minimum_stock: formData.minimum_stock ? parseInt(formData.minimum_stock, 10) : 0,
@@ -190,7 +190,7 @@ export default function InventoryPage() {
                     </div>
                   </TableCell>
                   <TableCell>{item.unit}</TableCell>
-                  <TableCell>{formatCurrency(item.cost)}</TableCell>
+                  <TableCell>{formatCurrency(item.cost_per_unit)}</TableCell>
                   <TableCell>
                     <div className="flex gap-1">
                       <Button variant="ghost" size="icon" onClick={() => setAdjustingStockItem(item)} title={t('adjust_stock')}>
@@ -321,10 +321,14 @@ export default function InventoryPage() {
         isOpen={!!deletingItemId}
         onClose={() => setDeletingItemId(null)}
         onConfirm={async () => {
-          if (deletingItemId) {
-            await deleteInventoryItem(deletingItemId);
-            setDeletingItemId(null);
-            await load();
+          if (deletingItemId && cafeId) {
+            try {
+              await deleteInventoryItem(deletingItemId, cafeId);
+              setDeletingItemId(null);
+              await load();
+            } catch (error: any) {
+              alert(error.message);
+            }
           }
         }}
         title={t('delete_item')}

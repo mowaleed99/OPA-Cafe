@@ -124,7 +124,7 @@ export class DocumentTemplateEngine {
     return html;
   }
 
-  static generateDailyReport(report: any, settings: any, currency: string = 'EGP'): string {
+  static generateDailyReport(report: any, settings: any, currency: string = 'EGP', title: string = 'Daily Closing Report'): string {
     const { cafeName = 'OPA Cafe', paperSize = '80mm' } = settings;
     const styles = this.getThermalStyles(paperSize, settings.language);
 
@@ -132,7 +132,7 @@ export class DocumentTemplateEngine {
     
     html += `<div class="text-center mb-4">`;
     html += `<h2>${cafeName}</h2>`;
-    html += `<h3>Daily Closing Report</h3>`;
+    html += `<h3>${title}</h3>`;
     html += `<div>Date: ${report.closing.closing_date}</div>`;
     html += `</div>`;
     html += `<div class="divider"></div>`;
@@ -372,7 +372,7 @@ export class DocumentTemplateEngine {
     return html;
   }
 
-  static generateMonthlyReport(report: any, settings: any, currency: string = 'EGP'): string {
+  static generateMonthlyReport(report: any, settings: any, currency: string = 'EGP', title: string = 'Monthly Closing Report'): string {
     const { cafeName = 'OPA Cafe', paperSize = '80mm' } = settings;
     const styles = this.getThermalStyles(paperSize, settings.language);
 
@@ -380,7 +380,7 @@ export class DocumentTemplateEngine {
     
     html += `<div class="text-center mb-4">`;
     html += `<h2>${cafeName}</h2>`;
-    html += `<h3>Monthly Closing Report</h3>`;
+    html += `<h3>${title}</h3>`;
     html += `<div>Month: ${report.month}</div>`;
     html += `</div>`;
     html += `<div class="divider"></div>`;

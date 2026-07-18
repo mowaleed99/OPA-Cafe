@@ -50,5 +50,15 @@ export default defineConfig(() => {
         ignored: ['**/dist-electron/**', '**/dist/**', '**/dev-dist/**', '**/node_modules/**'],
       },
     },
+    build: {
+      chunkSizeWarningLimit: 1000,
+      rollupOptions: {
+        output: {
+          manualChunks: {
+            vendor: ['react', 'react-dom', 'react-router-dom', 'zustand', 'lucide-react', 'react-i18next', 'i18next'],
+          }
+        }
+      }
+    }
   };
 });

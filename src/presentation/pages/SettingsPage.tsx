@@ -11,6 +11,7 @@ import { useAuthStore } from '../../application/store/useAuthStore';
 import { useNavigate } from 'react-router-dom';
 
 import { GeneralTab } from './settings/GeneralTab';
+import { useCartStore } from '../../application/store/useCartStore';
 import { AppearanceTab } from './settings/AppearanceTab';
 import { AccountTab, RolesTab } from './settings/AccountRolesTab';
 import { SecurityTab } from './settings/SecurityTab';
@@ -176,12 +177,13 @@ export default function SettingsPage() {
       if (cafeId && window.electronAPI) {
         // @ts-ignore
         const res = await window.electronAPI.clearData(cafeId, 'menu');
-        if (!res.success) throw new Error(res.error);
+        if (!res.success) throw new Error(res.error || t('clear_menu_fail'));
       }
       setMenuConfirm('');
+      useCartStore.getState().clearCart();
       setDangerMessage({ type: 'success', text: t('clear_menu_success') });
-    } catch {
-      setDangerMessage({ type: 'error', text: t('clear_menu_fail') });
+    } catch (e: any) {
+      setDangerMessage({ type: 'error', text: e.message || t('clear_menu_fail') });
     } finally {
       setIsClearingMenu(false);
     }
@@ -195,12 +197,12 @@ export default function SettingsPage() {
       if (cafeId && window.electronAPI) {
         // @ts-ignore
         const res = await window.electronAPI.clearData(cafeId, 'sales');
-        if (!res.success) throw new Error(res.error);
+        if (!res.success) throw new Error(res.error || t('clear_sales_fail'));
       }
       setSalesConfirm('');
       setDangerMessage({ type: 'success', text: t('clear_sales_success') });
-    } catch {
-      setDangerMessage({ type: 'error', text: t('clear_sales_fail') });
+    } catch (e: any) {
+      setDangerMessage({ type: 'error', text: e.message || t('clear_sales_fail') });
     } finally {
       setIsClearingSales(false);
     }
@@ -214,12 +216,12 @@ export default function SettingsPage() {
       if (cafeId && window.electronAPI) {
         // @ts-ignore
         const res = await window.electronAPI.clearData(cafeId, 'purchases');
-        if (!res.success) throw new Error(res.error);
+        if (!res.success) throw new Error(res.error || t('clear_purchases_fail'));
       }
       setPurchasesConfirm('');
       setDangerMessage({ type: 'success', text: t('clear_purchases_success') });
-    } catch {
-      setDangerMessage({ type: 'error', text: t('clear_purchases_fail') });
+    } catch (e: any) {
+      setDangerMessage({ type: 'error', text: e.message || t('clear_purchases_fail') });
     } finally {
       setIsClearingPurchases(false);
     }

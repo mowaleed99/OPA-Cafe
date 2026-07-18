@@ -1,12 +1,3 @@
-// Dexie uses 'dining_tables'; Supabase schema uses 'tables'.
-// All other table names are identical on both sides.
-const LOCAL_TO_SUPABASE: Record<string, string> = {
-  dining_tables: 'tables',
-};
-
-function toSupabaseName(localName: string): string {
-  return LOCAL_TO_SUPABASE[localName] ?? localName;
-}
 
 import { createRepository } from '../../infrastructure/repositories/RepositoryFactory';
 import type { TransactionOperation } from '../../infrastructure/database/transaction';
@@ -84,7 +75,7 @@ export function createSyncableOperation<T extends Record<string, unknown>>(
   } else if (action === 'delete' && id) {
     ops.push({ type: 'delete', table, id });
   }
-  ops.push(buildSyncOperation(action, table, data));
+  // No-op for offline-first mode
   return ops;
 }
 
@@ -95,26 +86,10 @@ export async function enqueueSync(
   table: string,
   payload: Record<string, unknown>
 ): Promise<void> {
-  const repo = createRepository<Record<string, unknown>>('sync_queue');
-  const syncOp = buildSyncOperation(action, table, payload);
-  await repo.insert(syncOp.data);
-
-  triggerBackgroundSync();
+  // No-op for offline-first mode
 }
 
 // ── Process queue (Web Fallback) ──────────────────────────────────────────
 export async function processSyncQueue(): Promise<void> {
-  // Desktop app uses Electron background worker, web uses this fallback
-  if (window.electronAPI) {
-    window.electronAPI.triggerSync();
-    return;
-  }
-  
-  // (Web version logic omitted for simplicity since this is Desktop-first)
-// (Web version logic omitted for simplicity since this is Desktop-first)
+  // No-op for offline-first mode
 }
-// Automatically flush the queue when the device comes back online.
-window.addEventListener('online', () => {
-  console.log('[SyncQueue] Back online — flushing queue');
-  processSyncQueue();
-});

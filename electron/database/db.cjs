@@ -8,7 +8,7 @@ const { app } = require('electron');
 let _db = null;
 let _drizzleDb = null;
 
-function initDb() {
+async function initDb() {
   if (_db) return _drizzleDb;
 
   const userDataPath = app.getPath('userData'); // e.g. AppData/Roaming/opa-cafe
@@ -43,19 +43,19 @@ function initDb() {
     const backupFile = path.join(backupDir, `pre-migration-${timestamp}.sqlite`);
     
     // Check if we already have a clean shutdown WAL etc., better-sqlite3 backup handles WAL safely
-    _db.backup(backupFile).then(() => {
-      // Clean up old backups (keep last 30)
-      const files = fs.readdirSync(backupDir).filter(f => f.startsWith('pre-migration-') && f.endsWith('.sqlite'));
-      if (files.length > 30) {
-        files.sort((a, b) => {
-          const aStat = fs.statSync(path.join(backupDir, a));
-          const bStat = fs.statSync(path.join(backupDir, b));
-          return aStat.mtimeMs - bStat.mtimeMs;
-        });
-        const toDelete = files.slice(0, files.length - 30);
-        toDelete.forEach(f => fs.unlinkSync(path.join(backupDir, f)));
-      }
-    }).catch(console.error);
+    await _db.backup(backupFile);
+    
+    // Clean up old backups (keep last 30)
+    const files = fs.readdirSync(backupDir).filter(f => f.startsWith('pre-migration-') && f.endsWith('.sqlite'));
+    if (files.length > 30) {
+      files.sort((a, b) => {
+        const aStat = fs.statSync(path.join(backupDir, a));
+        const bStat = fs.statSync(path.join(backupDir, b));
+        return aStat.mtimeMs - bStat.mtimeMs;
+      });
+      const toDelete = files.slice(0, files.length - 30);
+      toDelete.forEach(f => fs.unlinkSync(path.join(backupDir, f)));
+    }
   } catch (e) {
     console.error('Failed to create pre-migration backup', e);
   }
@@ -114,6 +114,9 @@ function initDb() {
   // Phase 11 Missing columns
   addColumnSafe('inventory_items', 'cost_per_unit', 'REAL DEFAULT 0');
   addColumnSafe('inventory_items', 'sku', 'TEXT');
+  addColumnSafe('inventory_items', 'is_countable', 'INTEGER DEFAULT 0');
+  addColumnSafe('inventory_items', 'pieces_per_carton', 'INTEGER');
+  addColumnSafe('inventory_items', 'minimum_stock', 'INTEGER');
   addColumnSafe('stock_movements', 'reason', 'TEXT');
   addColumnSafe('settings', 'auto_backup_frequency', 'TEXT');
 

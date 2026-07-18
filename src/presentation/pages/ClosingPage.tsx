@@ -139,7 +139,7 @@ export default function ClosingPage() {
         const filePath = await exportPdfReport('daily', report, `DailyClosing_${report.closing.closing_date}.pdf`);
         addToast(`PDF saved to: ${filePath}`, 'success');
       } else {
-        await thermalPrintReport('daily', report);
+        await thermalPrintReport('daily', report, t('daily_report'));
       }
     } catch (e) {
       console.error('Failed to print', e);

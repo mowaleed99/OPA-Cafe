@@ -194,6 +194,51 @@ function setupHandlers() {
       throw e;
     }
   });
+
+  ipcMain.handle('db:clearData', async (event, { cafeId, type }) => {
+    try {
+      const { getRawDb } = require('./db.cjs');
+      const rawDb = getRawDb();
+      
+      if (type === 'menu') {
+        // Check if sales exist
+        const salesCheck = rawDb.prepare('SELECT COUNT(*) as count FROM orders WHERE cafe_id = ?').get(cafeId);
+        if (salesCheck.count > 0) {
+          return { success: false, error: 'Please clear sales first before clearing the menu to prevent orphaned records.' };
+        }
+        
+        rawDb.transaction(() => {
+          rawDb.prepare('DELETE FROM products WHERE cafe_id = ?').run(cafeId);
+          rawDb.prepare('DELETE FROM categories WHERE cafe_id = ?').run(cafeId);
+        })();
+      } 
+      else if (type === 'sales') {
+        rawDb.transaction(() => {
+          rawDb.prepare('DELETE FROM order_audit_log WHERE cafe_id = ?').run(cafeId);
+          rawDb.prepare('DELETE FROM order_items WHERE order_id IN (SELECT id FROM orders WHERE cafe_id = ?)').run(cafeId);
+          rawDb.prepare('DELETE FROM daily_closing_items WHERE daily_closing_id IN (SELECT id FROM daily_closings WHERE cafe_id = ?)').run(cafeId);
+          rawDb.prepare('DELETE FROM daily_closings WHERE cafe_id = ?').run(cafeId);
+          rawDb.prepare('DELETE FROM orders WHERE cafe_id = ?').run(cafeId);
+          rawDb.prepare('UPDATE dining_tables SET current_order_id = NULL, status = ? WHERE cafe_id = ?').run('available', cafeId);
+        })();
+      }
+      else if (type === 'purchases') {
+        rawDb.transaction(() => {
+          rawDb.prepare('DELETE FROM supplier_payments WHERE cafe_id = ?').run(cafeId);
+          rawDb.prepare('DELETE FROM purchase_items WHERE purchase_id IN (SELECT id FROM purchases WHERE cafe_id = ?)').run(cafeId);
+          rawDb.prepare('DELETE FROM purchases WHERE cafe_id = ?').run(cafeId);
+        })();
+      }
+      else {
+        throw new Error('Invalid clear type');
+      }
+      
+      return { success: true };
+    } catch (e) {
+      console.error(`db:clearData error (${type}):`, e);
+      return { success: false, error: e.message };
+    }
+  });
 }
 
 module.exports = { setupHandlers };
