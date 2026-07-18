@@ -103,7 +103,7 @@ async function runTests() {
     await createPurchase({
       cafeId,
       supplierId: supplier.id,
-      items: [/* @ts-ignore */{ inventoryItemId: milk.id, quantity: 10, unitCost: 10 }]
+      items: [{ inventoryItemId: milk.id, quantity: 10, unitCost: 10 } as any]
     });
     
     let updatedMilk = (await getInventoryItems(cafeId)).find(i => i.id === milk.id);
@@ -114,7 +114,7 @@ async function runTests() {
     await createPurchase({
       cafeId,
       supplierId: supplier.id,
-      items: [/* @ts-ignore */{ inventoryItemId: milk.id, quantity: 10, unitCost: 20 }]
+      items: [{ inventoryItemId: milk.id, quantity: 10, unitCost: 20 } as any]
     });
     updatedMilk = (await getInventoryItems(cafeId)).find(i => i.id === milk.id);
     // Expected cost: (10*10 + 10*20)/20 = 15
@@ -124,7 +124,7 @@ async function runTests() {
     console.log('5. Create paid order with linked product');
     await placeOrder({
       cafeId,
-      items: [/* @ts-ignore */{ product: latte, quantity: 2, unit_price: 50, subtotal: 100 }],
+      items: [{ product: latte, quantity: 2, unit_price: 50, subtotal: 100 } as any],
       total: 100,
       paymentMethod: 'cash',
       status: 'paid'
