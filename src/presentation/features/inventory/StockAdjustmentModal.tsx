@@ -67,7 +67,9 @@ export function StockAdjustmentModal({ item, cafeId, onClose, onAdjusted }: Stoc
               <label className="text-sm font-medium mb-1 block">{t('adjustment_type')}</label>
               <Select value={type} onValueChange={(val: any) => setType(val)}>
                 <SelectTrigger>
-                  <SelectValue />
+                  <SelectValue>
+                    {type === 'in' ? t('stock_in') : type === 'out' ? t('stock_out') : t('manual_count')}
+                  </SelectValue>
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="in">{t('stock_in')}</SelectItem>

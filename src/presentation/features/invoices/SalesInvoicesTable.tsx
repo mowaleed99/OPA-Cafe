@@ -122,7 +122,7 @@ function SalesInvoiceModal({
             <TableBody>
               {items.map(item => (
                 <TableRow key={item.id}>
-                  <TableCell>{item.product_id}</TableCell>
+                  <TableCell>{item.product_name || item.product_id}</TableCell>
                   <TableCell className="text-center">{item.quantity}</TableCell>
                   <TableCell className="text-right">{formatCurrency(item.subtotal)}</TableCell>
                 </TableRow>
@@ -402,7 +402,9 @@ export function SalesInvoicesTable() {
         />
         <Select value={statusFilter} onValueChange={(v: any) => setStatusFilter(v)}>
           <SelectTrigger className="w-36">
-            <SelectValue />
+            <SelectValue>
+              {statusFilter === 'all' ? t('all_statuses') : t(statusFilter)}
+            </SelectValue>
           </SelectTrigger>
           <SelectContent>
             <SelectItem value="all">{t('all_statuses')}</SelectItem>

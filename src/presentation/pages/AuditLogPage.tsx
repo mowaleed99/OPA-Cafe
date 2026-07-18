@@ -200,13 +200,19 @@ export default function AuditLogPage() {
             <label className="text-xs font-medium text-muted-foreground">{t('filter_by_cashier')}</label>
             <Select value={selectedUser} onValueChange={setSelectedUser}>
               <SelectTrigger className="w-48">
-                <SelectValue placeholder={t('all_cashiers')} />
+                <SelectValue placeholder={t('all_cashiers')}>
+                  {selectedUser === 'all' 
+                    ? t('all_cashiers') 
+                    : (cashiers.find(u => u.id === selectedUser)?.name 
+                      ?? cashiers.find(u => u.id === selectedUser)?.email 
+                      ?? (cashiers.find(u => u.id === selectedUser)?.role === 'owner' ? t('owner') : t('cashier')))}
+                </SelectValue>
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">{t('all_cashiers')}</SelectItem>
                 {cashiers.map(u => (
                   <SelectItem key={u.id} value={u.id}>
-                    {u.name ?? u.email ?? u.id}
+                    {u.name ?? u.email ?? (u.role === 'owner' ? t('owner') : t('cashier'))}
                   </SelectItem>
                 ))}
               </SelectContent>

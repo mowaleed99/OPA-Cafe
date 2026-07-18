@@ -306,6 +306,8 @@
   "select_inventory_item": "Select Inventory Item",
   "select_inventory_item_placeholder": "Select an inventory item...",
   "unknown_item": "Unknown Item",
+  "optional_auto_create": "optional, auto-create",
+  "auto_create_new_item": "Auto-create new item",
   "search_inventory_items": "Search inventory items...",
   "no_items_found": "No items found.",
   "min_stock": "Min. Stock",

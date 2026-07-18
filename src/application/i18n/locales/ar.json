@@ -440,6 +440,8 @@
   "select_inventory_item": "اختر عنصر من المخزن",
   "select_inventory_item_placeholder": "اختر عنصر...",
   "unknown_item": "عنصر غير معروف",
+  "optional_auto_create": "اختياري، إنشاء تلقائي",
+  "auto_create_new_item": "إنشاء عنصر جديد تلقائياً",
   "search_inventory_items": "ابحث في المخزون...",
   "no_items_found": "لم يتم العثور على عناصر.",
   "min_stock": "الحد الأدنى للمخزون",

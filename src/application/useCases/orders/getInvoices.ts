@@ -1,9 +1,9 @@
-import { orderRepository, purchaseRepository, supplierRepository } from '../../../infrastructure/repositories/index';
+import { orderRepository, purchaseRepository, supplierRepository, productRepository } from '../../../infrastructure/repositories/index';
 import type { Order, OrderItem } from '../../../domain/entities/order';
 import type { Purchase, PurchaseItem, Supplier } from '../../../domain/entities/supplier';
 
 export interface SalesInvoiceWithItems extends Order {
-  items: OrderItem[];
+  items: (OrderItem & { product_name?: string })[];
 }
 
 export interface PurchaseWithDetails extends Purchase {
@@ -16,9 +16,10 @@ export interface PurchaseWithDetails extends Purchase {
  * Decouples presentation layer from direct repository and schema access.
  */
 export async function getSalesInvoicesData(cafeId: string): Promise<SalesInvoiceWithItems[]> {
-  const [orders, allItems] = await Promise.all([
+  const [orders, allItems, products] = await Promise.all([
     orderRepository.getOrders(cafeId),
-    orderRepository.getAllOrderItems()
+    orderRepository.getAllOrderItems(),
+    productRepository.getProducts(cafeId)
   ]);
 
   const itemsByOrderId: Record<string, OrderItem[]> = {};
@@ -26,7 +27,11 @@ export async function getSalesInvoicesData(cafeId: string): Promise<SalesInvoice
     if (!itemsByOrderId[item.order_id]) {
       itemsByOrderId[item.order_id] = [];
     }
-    itemsByOrderId[item.order_id].push(item);
+    const product = products.find(p => p.id === item.product_id);
+    itemsByOrderId[item.order_id].push({
+      ...item,
+      product_name: product ? product.name : item.product_id
+    });
   }
 
   return orders.map(order => ({

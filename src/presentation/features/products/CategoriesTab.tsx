@@ -51,6 +51,7 @@ export function CategoriesTab() {
     if (!deletingCategory) return;
     await deleteCategory(deletingCategory);
     setDeletingCategory(null);
+    fetchCategories();
   };
 
   const handleModalClose = () => {
@@ -113,7 +114,10 @@ export function CategoriesTab() {
         isOpen={isModalOpen}
         onClose={handleModalClose}
         categoryToEdit={categoryToEdit}
-        onSaved={handleModalClose}
+        onSaved={() => {
+          handleModalClose();
+          fetchCategories();
+        }}
       />
 
       <ConfirmDialog

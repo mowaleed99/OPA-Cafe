@@ -100,7 +100,9 @@ function ExpenseModal({
             <label className="text-sm font-medium mb-1 block">{t('category')}</label>
             <Select value={category} onValueChange={setCategory}>
               <SelectTrigger>
-                <SelectValue placeholder={t('select_category')} />
+                <SelectValue placeholder={t('select_category')}>
+                  {category ? t(category) : undefined}
+                </SelectValue>
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="rent">{t('rent')}</SelectItem>

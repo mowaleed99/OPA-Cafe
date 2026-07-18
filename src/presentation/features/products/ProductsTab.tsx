@@ -157,7 +157,10 @@ export function ProductsTab() {
         isOpen={isModalOpen} 
         onClose={() => setIsModalOpen(false)} 
         productToEdit={productToEdit}
-        onSaved={() => setIsModalOpen(false)}
+        onSaved={() => {
+          setIsModalOpen(false);
+          fetchData();
+        }}
       />
 
       <ConfirmDialog
@@ -167,6 +170,7 @@ export function ProductsTab() {
           if (deletingProduct) {
             await deleteProduct(deletingProduct);
             setDeletingProduct(null);
+            fetchData();
           }
         }}
         title={t('delete_product')}
