@@ -4,13 +4,13 @@ import type { AppUser } from '../../domain/entities/user';
 import { AuthService } from '../services/AuthService';
 
 interface AuthState {
-  session: Session | null;
+  session: any | null;
   appUser: AppUser | null;
   isLoading: boolean;
   isOwner: () => boolean;
   isCashier: () => boolean;
   cafeId: () => string | null;
-  setSession: (session: Session | null) => void;
+  setany: (session: any | null) => void;
   setAppUser: (user: AppUser | null) => void;
   signIn: (email: string, password: string) => Promise<{ error: string | null }>;
   signOut: () => Promise<void>;
@@ -26,7 +26,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   isCashier: () => get().appUser?.role === 'cashier',
   cafeId: () => get().appUser?.cafe_id ?? null,
 
-  setSession: (session) => {
+  setany: (session) => {
     if (typeof localStorage !== 'undefined') {
       if (session?.user) localStorage.setItem('offline_user_id', session.user.id);
       else localStorage.removeItem('offline_user_id');

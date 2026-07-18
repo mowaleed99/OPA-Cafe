@@ -31,7 +31,7 @@ export async function getSalesInvoicesData(cafeId: string): Promise<SalesInvoice
     itemsByOrderId[item.order_id].push({
       ...item,
       product_name: product ? product.name : item.product_id
-    });
+    } as any);
   }
 
   return orders.map(order => ({

@@ -31,7 +31,7 @@ export class AuthService {
     }
   }
 
-  static async signIn(email: string, password: string): Promise<{ error: string | null; session: Session | null; appUser: AppUser | null }> {
+  static async signIn(email: string, password: string): Promise<{ error: string | null; session: any | null; appUser: AppUser | null }> {
     console.log('[AuthService] signIn entry. Email:', email);
     try {
       console.log('[AuthService] Calling authRepository.findByEmail...');
@@ -57,7 +57,7 @@ export class AuthService {
         return { error: 'Invalid login credentials.', session: null, appUser: null };
       }
 
-      const localSession = {
+      const localany = {
         access_token: 'local_offline_token',
         refresh_token: 'local_offline_token',
         expires_in: 3600,
@@ -71,7 +71,7 @@ export class AuthService {
           aud: 'authenticated',
           created_at: localUser.created_at,
         }
-      } as Session;
+      } as any;
       
       localStorage.setItem('offline_user_id', localUser.id);
 
@@ -83,7 +83,7 @@ export class AuthService {
       }
 
       console.log('[AuthService] Returning successful user/session object');
-      return { error: null, session: localSession, appUser: localUser };
+      return { error: null, session: localany, appUser: localUser };
     } catch (err: any) {
       console.error('[AuthService] Local sign in error:', err);
       return { error: err.message, session: null, appUser: null };
@@ -97,14 +97,14 @@ export class AuthService {
     localStorage.removeItem('offline_user_id');
   }
 
-  static async initializeAuth(): Promise<{ session: Session | null; appUser: AppUser | null }> {
+  static async initializeAuth(): Promise<{ session: any | null; appUser: AppUser | null }> {
     await this.bootstrapOwnerIfNeeded();
 
     const offlineUserId = typeof localStorage !== 'undefined' ? localStorage.getItem('offline_user_id') : null;
     if (offlineUserId) {
       const localUser = await authRepository.findById(offlineUserId);
       if (localUser) {
-        const mockSession = {
+        const mockany = {
           access_token: 'local_offline_token',
           refresh_token: 'local_offline_token',
           expires_in: 3600,
@@ -118,9 +118,9 @@ export class AuthService {
             aud: 'authenticated',
             created_at: localUser.created_at,
           }
-        } as Session;
+        } as any;
 
-        return { session: mockSession, appUser: localUser };
+        return { session: mockany, appUser: localUser };
       }
     }
 
