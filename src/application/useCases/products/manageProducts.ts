@@ -55,7 +55,6 @@ export async function createProduct(
     if (autoCreatedInventory && finalInventoryItemId) {
       try {
         await inventoryRepository.deleteInventoryItem(finalInventoryItemId);
-        await enqueueSync('delete', 'inventory_items', { id: finalInventoryItemId });
       } catch (rollbackError) {
         console.error('Rollback failed for auto-created inventory item:', rollbackError);
       }
@@ -96,7 +95,6 @@ export async function updateProduct(product: Product): Promise<Product> {
     if (autoCreatedInventory && newInventoryItemId) {
       try {
         await inventoryRepository.deleteInventoryItem(newInventoryItemId);
-        await enqueueSync('delete', 'inventory_items', { id: newInventoryItemId });
       } catch (rollbackError) {
         console.error('Rollback failed for auto-created inventory item:', rollbackError);
       }
