@@ -281,7 +281,7 @@ async function computeClosingMetrics({
   const netProfit = totalSales - cogs - totalExpenses;
   const profitMargin = totalSales > 0 ? (netProfit / totalSales) * 100 : 0;
 
-  const inventoryCurrentValue = allInventory.reduce((sum, p) => sum + (((p as any).cost || 0) * (p.stock_quantity || 0)), 0);
+  const inventoryCurrentValue = allInventory.reduce((sum, p) => sum + ((p.cost_per_unit || 0) * (p.stock_quantity || 0)), 0);
   const lowStockCount = allInventory.filter(p => (p.stock_quantity || 0) <= (p.low_stock_threshold || 5) && (p.stock_quantity || 0) > 0).length;
   const outOfStockCount = allInventory.filter(p => (p.stock_quantity || 0) <= 0).length;
 

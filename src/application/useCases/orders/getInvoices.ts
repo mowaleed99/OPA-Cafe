@@ -22,7 +22,7 @@ export async function getSalesInvoicesData(cafeId: string): Promise<SalesInvoice
     productRepository.getProducts(cafeId)
   ]);
 
-  const itemsByOrderId: Record<string, OrderItem[]> = {};
+  const itemsByOrderId: Record<string, (OrderItem & { product_name?: string })[]> = {};
   for (const item of allItems) {
     if (!itemsByOrderId[item.order_id]) {
       itemsByOrderId[item.order_id] = [];
@@ -31,7 +31,7 @@ export async function getSalesInvoicesData(cafeId: string): Promise<SalesInvoice
     itemsByOrderId[item.order_id].push({
       ...item,
       product_name: product ? product.name : item.product_id
-    } as any);
+    });
   }
 
   return orders.map(order => ({
