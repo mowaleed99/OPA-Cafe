@@ -85,7 +85,6 @@ export function ProductFormModal({ isOpen, onClose, productToEdit, onSaved }: Pr
 
   const handleSave = async () => {
     if (!name.trim() || !price || !categoryId || !cafeId) return;
-    if (trackStock && !inventoryItemId) return; // Validation: must select an item
 
     setIsSaving(true);
     try {
@@ -97,7 +96,7 @@ export function ProductFormModal({ isOpen, onClose, productToEdit, onSaved }: Pr
           cost: parseFloat(cost) || 0,
           category_id: categoryId,
           track_stock: trackStock,
-          inventory_item_id: trackStock ? inventoryItemId : null
+          inventory_item_id: trackStock ? (inventoryItemId || null) : null
         });
       } else {
         await createProduct(
@@ -107,7 +106,7 @@ export function ProductFormModal({ isOpen, onClose, productToEdit, onSaved }: Pr
           parseFloat(price), 
           parseFloat(cost) || 0,
           trackStock,
-          trackStock ? inventoryItemId : null
+          trackStock ? (inventoryItemId || null) : null
         );
       }
       onSaved();
@@ -189,8 +188,8 @@ export function ProductFormModal({ isOpen, onClose, productToEdit, onSaved }: Pr
 
             {trackStock && (
               <div className="relative">
-                <label className="text-sm font-medium mb-1 block">
-                  {t('select_inventory_item')} <span className="text-red-500">*</span>
+                <label className="text-sm font-medium mb-1 block text-muted-foreground">
+                  {t('select_inventory_item')} ({t('optional_auto_create')})
                 </label>
                 
                 {!isInventoryDropdownOpen ? (
@@ -198,10 +197,10 @@ export function ProductFormModal({ isOpen, onClose, productToEdit, onSaved }: Pr
                     className="flex items-center justify-between h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm cursor-pointer hover:bg-muted/50"
                     onClick={() => setIsInventoryDropdownOpen(true)}
                   >
-                    <span>
+                    <span className={!inventoryItemId ? 'text-muted-foreground' : ''}>
                       {inventoryItemId 
                         ? inventoryItems.find(i => i.id === inventoryItemId)?.name || t('unknown_item')
-                        : t('select_inventory_item_placeholder')}
+                        : t('auto_create_new_item')}
                     </span>
                   </div>
                 ) : (
@@ -224,13 +223,23 @@ export function ProductFormModal({ isOpen, onClose, productToEdit, onSaved }: Pr
                       />
                     </div>
                     <div className="max-h-[200px] overflow-y-auto p-1">
+                      <div
+                        className="flex cursor-pointer select-none items-center rounded-sm px-2 py-1.5 text-sm outline-none hover:bg-accent hover:text-accent-foreground text-muted-foreground italic"
+                        onMouseDown={() => {
+                          setInventoryItemId('');
+                          setInventorySearch('');
+                          setIsInventoryDropdownOpen(false);
+                        }}
+                      >
+                        {t('auto_create_new_item')}
+                      </div>
                       {inventoryItems
                         .filter(item => item.name.toLowerCase().includes(inventorySearch.toLowerCase()))
                         .map(item => (
                           <div
                             key={item.id}
                             className="flex cursor-pointer select-none items-center rounded-sm px-2 py-1.5 text-sm outline-none hover:bg-accent hover:text-accent-foreground"
-                            onClick={() => {
+                            onMouseDown={() => {
                               setInventoryItemId(item.id);
                               setInventorySearch('');
                               setIsInventoryDropdownOpen(false);
@@ -251,7 +260,7 @@ export function ProductFormModal({ isOpen, onClose, productToEdit, onSaved }: Pr
         </div>
         <DialogFooter>
           <Button variant="outline" onClick={onClose} disabled={isSaving}>{t('cancel')}</Button>
-          <Button onClick={handleSave} disabled={isSaving || !name.trim() || !price || !categoryId || (trackStock && !inventoryItemId)}>
+          <Button onClick={handleSave} disabled={isSaving || !name.trim() || !price || !categoryId}>
             {t('save')}
           </Button>
         </DialogFooter>
@@ -259,3 +268,4 @@ export function ProductFormModal({ isOpen, onClose, productToEdit, onSaved }: Pr
     </Dialog>
   );
 }
+
